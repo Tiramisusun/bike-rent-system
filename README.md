@@ -10,11 +10,23 @@ and management of this data in a MySQL db and visualisation via a Flask frontend
 ```
 .
 ├── README.md
-├── src                         # source <--- your code goes here
+├── app.py
+├── src                         # source <--- your code goes here -- python, db management etc.
+│   ├── __init__.py
+│   ├── common
+│   │   └── placeholder.py
+│   └── db.py
+├── static
+│   ├── placeholder.py
+│   └── style.css
+├── templates
+│   └── index.html
+├── sample-data                 # sample json fetch
 └── tests                       # test-suite
     ├── test_bike_api.py        # tests for bike api fetch (Xiya)
     ├── test_db.py              # tests for DB connection, schema validation (Milo)
     └── test_weather_api.py     # tests for weather api fetch (Dan)
+
 ```
 
 ## Contributors
