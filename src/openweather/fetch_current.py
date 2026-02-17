@@ -51,29 +51,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-def save_snapshot(payload: dict) -> None:
-    
-    main = payload.get("main") or {}
-    row = OpenWeatherCurrentSnapshot(
-        city=settings.openweather_city,
-        temp=main.get("temp"),
-        humidity=main.get("humidity"),
-        pressure=main.get("pressure"),
-        raw=payload,
-    )
-    db = SessionLocal()
-   
-    try:
-        db.add(row)
-        db.commit()
-    finally:
-        db.close()
-
-def run():
-    payload = fetch_openweather_current()
-    save_snapshot(payload)
-
-if __name__ == "__main__":
-    run()
-    print("OpenWeather snapshot saved.")   """
