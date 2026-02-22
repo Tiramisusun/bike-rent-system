@@ -1,0 +1,4 @@
+body { font-family: sans-serif; padding: 20px; }
+.buttons { margin-bottom: 12px; display: flex; gap: 10px; }
+button { padding: 8px 12px; cursor: pointer; }
+pre { background: #f6f6f6; padding: 12px; border-radius: 8px; overflow: auto; }
