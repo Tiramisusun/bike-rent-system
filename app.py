@@ -1,45 +1,16 @@
-import os
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
+
+from services.bikes_service import fetch_jcdecaux_stations
+from services.weather_service import fetch_openweather_current
+from services.routing_service import get_route_eta, compare_eta
 
 load_dotenv()
 
 app = Flask(__name__, static_url_path="")
 
-# ----- Config from .env -----
-JCDECAUX_API_KEY = os.getenv("JCDECAUX_API_KEY")
-JCDECAUX_CONTRACT_NAME = os.getenv("JCDECAUX_CONTRACT_NAME", "dublin")
 
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-CITY_NAME = os.getenv("CITY_NAME", "Dublin")
-
-JCDECAUX_URL = "https://api.jcdecaux.com/vls/v1/stations"
-OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
-
-
-# ----- Helpers -----
-def fetch_jcdecaux_stations() -> list:
-    if not JCDECAUX_API_KEY:
-        raise ValueError("Missing JCDECAUX_API_KEY in .env")
-
-    params = {"contract": JCDECAUX_CONTRACT_NAME, "apiKey": JCDECAUX_API_KEY}
-    r = requests.get(JCDECAUX_URL, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
-
-
-def fetch_openweather_current() -> dict:
-    if not OPENWEATHER_API_KEY:
-        raise ValueError("Missing OPENWEATHER_API_KEY in .env")
-
-    params = {"q": CITY_NAME, "appid": OPENWEATHER_API_KEY, "units": "metric"}
-    r = requests.get(OPENWEATHER_URL, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
-
-
-# ----- Routes -----
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -67,8 +38,54 @@ def api_weather():
         return jsonify({"source": "openweather", "error": "Server error", "details": str(e)}), 500
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-"""比上次加入了host="0.0.0.0"允许外网通过EC2公网IP访问, port=5000, debug=True参数，这样可以让应用在所有网络接口上监听，并且启用调试模式，方便开发和测试。
+# ====== NEW FEATURE: Route + ETA ======
+# Example:
+# /api/route?origin=53.3498,-6.2603&destination=53.3438,-6.2546&profile=cycling
+@app.route("/api/route")
+def api_route():
+    try:
+        origin = request.args.get("origin", "")
+        destination = request.args.get("destination", "")
+        profile = request.args.get("profile", "driving")
 
-"""
+        result = get_route_eta(origin=origin, destination=destination, profile=profile)
+        return jsonify({"source": "osrm", "route": result})
+    except ValueError as e:
+        return jsonify({"source": "osrm", "error": "Bad request", "details": str(e)}), 400
+    except requests.RequestException as e:
+        return jsonify({"source": "osrm", "error": "Routing request failed", "details": str(e)}), 502
+    except Exception as e:
+        return jsonify({"source": "osrm", "error": "Server error", "details": str(e)}), 500
+
+
+# ====== NEW FEATURE: Compare driving vs cycling ETA (+ optional weather) ======
+# Example:
+# /api/compare-eta?origin=53.3498,-6.2603&destination=53.3438,-6.2546&includeWeather=1
+@app.route("/api/compare-eta")
+def api_compare_eta():
+    try:
+        origin = request.args.get("origin", "")
+        destination = request.args.get("destination", "")
+        include_weather = request.args.get("includeWeather", "0") in ("1", "true", "True")
+
+        cmp = compare_eta(origin=origin, destination=destination)
+
+        payload = {"source": "osrm", "comparison": cmp}
+
+        if include_weather:
+            # just attach current weather snapshot (city-based)
+            weather = fetch_openweather_current()
+            payload["weather"] = {"source": "openweather", "data": weather}
+
+        return jsonify(payload)
+    except ValueError as e:
+        return jsonify({"error": "Bad request", "details": str(e)}), 400
+    except requests.RequestException as e:
+        return jsonify({"error": "External request failed", "details": str(e)}), 502
+    except Exception as e:
+        return jsonify({"error": "Server error", "details": str(e)}), 500
+
+
+if __name__ == "__main__":
+    # host="0.0.0.0" 允许外网通过 EC2 公网IP访问
+    app.run(host="0.0.0.0", port=5000, debug=True)
