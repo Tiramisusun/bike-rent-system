@@ -1,14 +1,31 @@
 import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
+from flasgger import Swagger
 
-from services.bikes_service import fetch_jcdecaux_stations
-from services.weather_service import fetch_openweather_current
-from services.routing_service import get_route_eta, compare_eta
+from src.services.routing_service import get_route_eta, compare_eta
+from src.services.weather_service import fetch_openweather_current
+from src.db import load_engine, init_db
+from src.routes.bikes_routes import bikes_bp
+from src.routes.weather_routes import weather_bp
 
 load_dotenv()
 
 app = Flask(__name__, static_url_path="")
+Swagger(app, template={
+    "info": {
+        "title": "Dublin Bike & Weather API",
+        "description": "API for retrieving real-time and historical Dublin bike station and weather data.",
+        "version": "1.0.0",
+    }
+})
+
+engine = load_engine()
+init_db(engine)
+app.extensions['engine'] = engine
+
+app.register_blueprint(bikes_bp)
+app.register_blueprint(weather_bp)
 
 
 @app.route("/")
@@ -16,33 +33,38 @@ def home():
     return render_template("index.html")
 
 
-@app.route("/api/bikes")
-def api_bikes():
-    try:
-        data = fetch_jcdecaux_stations()
-        return jsonify({"source": "jcdecaux", "count": len(data), "data": data})
-    except requests.RequestException as e:
-        return jsonify({"source": "jcdecaux", "error": "Request failed", "details": str(e)}), 502
-    except Exception as e:
-        return jsonify({"source": "jcdecaux", "error": "Server error", "details": str(e)}), 500
-
-
-@app.route("/api/weather")
-def api_weather():
-    try:
-        data = fetch_openweather_current()
-        return jsonify({"source": "openweather", "data": data})
-    except requests.RequestException as e:
-        return jsonify({"source": "openweather", "error": "Request failed", "details": str(e)}), 502
-    except Exception as e:
-        return jsonify({"source": "openweather", "error": "Server error", "details": str(e)}), 500
-
-
-# ====== NEW FEATURE: Route + ETA ======
-# Example:
-# /api/route?origin=53.3498,-6.2603&destination=53.3438,-6.2546&profile=cycling
 @app.route("/api/route")
 def api_route():
+    """
+    Get route distance and duration between two coordinates.
+    ---
+    tags:
+      - Routing
+    parameters:
+      - name: origin
+        in: query
+        required: true
+        type: string
+        description: Origin coordinates as 'lat,lng' (e.g. 53.3498,-6.2603)
+      - name: destination
+        in: query
+        required: true
+        type: string
+        description: Destination coordinates as 'lat,lng' (e.g. 53.3438,-6.2546)
+      - name: profile
+        in: query
+        required: false
+        type: string
+        enum: [driving, cycling]
+        default: driving
+    responses:
+      200:
+        description: Route distance and duration from OSRM
+      400:
+        description: Invalid coordinates
+      502:
+        description: Routing service unavailable
+    """
     try:
         origin = request.args.get("origin", "")
         destination = request.args.get("destination", "")
@@ -58,22 +80,48 @@ def api_route():
         return jsonify({"source": "osrm", "error": "Server error", "details": str(e)}), 500
 
 
-# ====== NEW FEATURE: Compare driving vs cycling ETA (+ optional weather) ======
-# Example:
-# /api/compare-eta?origin=53.3498,-6.2603&destination=53.3438,-6.2546&includeWeather=1
 @app.route("/api/compare-eta")
 def api_compare_eta():
+    """
+    Compare driving vs cycling ETA between two coordinates.
+    ---
+    tags:
+      - Routing
+    parameters:
+      - name: origin
+        in: query
+        required: true
+        type: string
+        description: Origin coordinates as 'lat,lng'
+      - name: destination
+        in: query
+        required: true
+        type: string
+        description: Destination coordinates as 'lat,lng'
+      - name: includeWeather
+        in: query
+        required: false
+        type: string
+        enum: ["0", "1"]
+        default: "0"
+        description: Set to 1 to include current weather data
+    responses:
+      200:
+        description: Driving and cycling ETA comparison
+      400:
+        description: Invalid coordinates
+      502:
+        description: External service unavailable
+    """
     try:
         origin = request.args.get("origin", "")
         destination = request.args.get("destination", "")
         include_weather = request.args.get("includeWeather", "0") in ("1", "true", "True")
 
         cmp = compare_eta(origin=origin, destination=destination)
-
         payload = {"source": "osrm", "comparison": cmp}
 
         if include_weather:
-            # just attach current weather snapshot (city-based)
             weather = fetch_openweather_current()
             payload["weather"] = {"source": "openweather", "data": weather}
 
@@ -87,5 +135,4 @@ def api_compare_eta():
 
 
 if __name__ == "__main__":
-    # host="0.0.0.0" 允许外网通过 EC2 公网IP访问
     app.run(host="0.0.0.0", port=5000, debug=True)
