@@ -197,7 +197,7 @@ def _parse_weather(json_obj:dict, weather_ids:list, time:Optional[datetime]=None
     # weather = current.get('weather', {})[0]
     current = json_obj.get('main', {})
     wind = json_obj.get('wind', {})
-    weather = json_obj.get('weather', {})[0]
+    weather = json_obj.get('weather', [])[0]
     
     # Create container for all orm mappings
     weather_objs = []

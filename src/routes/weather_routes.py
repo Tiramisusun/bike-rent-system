@@ -27,7 +27,8 @@ def api_weather():
         try:
             db_from_request(data, "weather", engine=engine)
         except Exception as e:
-            current_app.logger.warning(f"weather insert failed: {e}")
+            current_app.logger.error(f"weather insert failed: {e}", exc_info=True)
+            return jsonify({"source": "openweather", "data": data, "db_warning": str(e)}), 200
 
         return jsonify({"source": "openweather", "data": data})
     except requests.RequestException as e:
