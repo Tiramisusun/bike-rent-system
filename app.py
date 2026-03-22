@@ -9,6 +9,7 @@ from src.services.weather_service import fetch_openweather_current
 from src.db import load_engine, init_db
 from src.routes.bikes_routes import bikes_bp
 from src.routes.weather_routes import weather_bp
+from src.routes.route_planner_routes import route_planner_bp
 
 load_dotenv()
 
@@ -28,6 +29,7 @@ app.extensions['engine'] = engine
 
 app.register_blueprint(bikes_bp)
 app.register_blueprint(weather_bp)
+app.register_blueprint(route_planner_bp)
 
 
 @app.route("/", defaults={"path": ""})

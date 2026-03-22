@@ -26,17 +26,39 @@ function fmtDist(m) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
 }
 
+function fmtMin(min) {
+  if (min < 1) return '<1 min'
+  return `${Math.round(min)} min`
+}
+
 function PlanResult({ plan }) {
-  const { pickup_station: pickup, dropoff_station: dropoff } = plan
+  if (plan.mode === 'walk_only') {
+    return (
+      <div style={s.result}>
+        <div style={s.walkOnlyBadge}>Walk only</div>
+        <div style={s.step}>
+          <span style={s.stepIcon}>🚶</span>
+          <div>
+            <div style={s.stepLabel}>Walk directly to destination</div>
+            <div style={s.stepDetail}>{fmtMin(plan.walk_minutes)}</div>
+          </div>
+        </div>
+        <div style={s.totalRow}>{plan.reason}</div>
+      </div>
+    )
+  }
+
+  const { pickup_station: pickup, dropoff_station: dropoff, times_minutes: times } = plan
   return (
     <div style={s.result}>
       <div style={s.step}>
         <span style={s.stepIcon}>🚶</span>
         <div>
-          <div style={s.stepLabel}>Walk {fmtDist(pickup.walking_distance_m)} to pick up</div>
+          <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
           <div style={s.stepStation}>{pickup.name}</div>
           <div style={s.stepDetail}>
             {pickup.available_bikes} bike{pickup.available_bikes !== 1 ? 's' : ''} available
+            · {fmtDist(pickup.walking_distance_m)} away
           </div>
         </div>
       </div>
@@ -46,10 +68,10 @@ function PlanResult({ plan }) {
       <div style={s.step}>
         <span style={s.stepIcon}>🚲</span>
         <div>
-          <div style={s.stepLabel}>Ride to drop off</div>
+          <div style={s.stepLabel}>Ride · {fmtMin(times.bike)}</div>
           <div style={s.stepStation}>{dropoff.name}</div>
           <div style={s.stepDetail}>
-            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} available
+            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} free
           </div>
         </div>
       </div>
@@ -59,11 +81,15 @@ function PlanResult({ plan }) {
       <div style={s.step}>
         <span style={s.stepIcon}>🏁</span>
         <div>
-          <div style={s.stepLabel}>Walk {fmtDist(dropoff.walking_distance_m)} to destination</div>
+          <div style={s.stepLabel}>Walk to destination · {fmtMin(times.walk_to_destination)}</div>
+          <div style={s.stepDetail}>{fmtDist(dropoff.walking_distance_m)} away</div>
         </div>
       </div>
 
-      <div style={s.totalRow}>Total walking: {fmtDist(plan.total_walking_m)}</div>
+      <div style={s.totalRow}>
+        Total ~{fmtMin(times.total_travel)}
+        <span style={s.totalSub}> · {fmtDist(plan.total_walking_m)} walking</span>
+      </div>
     </div>
   )
 }
@@ -326,7 +352,24 @@ const s = {
     paddingTop: 10,
     borderTop: '1px solid #f0f0f0',
     fontSize: '0.82rem',
+    color: '#333',
+    fontWeight: 600,
+  },
+  totalSub: {
+    fontWeight: 400,
+    color: '#777',
+  },
+  walkOnlyBadge: {
+    display: 'inline-block',
+    marginBottom: 10,
+    padding: '2px 8px',
+    background: '#f1f3f4',
     color: '#555',
+    borderRadius: 12,
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
   },
   openBtn: {
     position: 'absolute',

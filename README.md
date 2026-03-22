@@ -100,11 +100,25 @@ The app will be available at `http://localhost:5173`. API calls (e.g. `/api/...`
 
 ---
 
+## Environment Variables
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `JCDECAUX_API_KEY` | yes | JCDecaux API key for live Dublin Bikes data |
+| `JCDECAUX_CONTRACT_NAME` | yes | JCDecaux contract name (e.g. `dublin`) |
+| `OPENWEATHER_API_KEY` | yes | OpenWeather API key for weather data |
+| `CITY_NAME` | yes | City name for weather lookup (e.g. `Dublin`) |
+| `DB_URL` | yes | SQLAlchemy database URL (e.g. `mysql+pymysql://user:pass@host/db`) |
+| `GOOGLE_MAPS_API_KEY` | no | Google Maps API key (currently unused — routing uses OSRM) |
+| `FORCE_BIKE_IF_AVAILABLE` | no | `true` (default) — always recommend biking when viable stations exist, skipping the walk-vs-bike travel time comparison. Set to `false` to let the service decide based on actual journey times. Useful to set `false` once route timing is validated. |
+
+---
+
 ## API Endpoints
 
 ### Route Planner
 
-**`GET /plan`** — Plan an optimal bike journey between two coordinates.
+**`GET /api/plan`** — Plan an optimal bike journey between two coordinates.
 
 | Parameter        | Type  | Required | Default | Description                                     |
 | ---------------- | ----- | -------- | ------- | ----------------------------------------------- |
@@ -115,7 +129,9 @@ The app will be available at `http://localhost:5173`. API calls (e.g. `/api/...`
 | `max_distance_m` | int   | no       | 1500    | Max walking distance (metres) to/from a station |
 | `candidates`     | int   | no       | 4       | Candidate stations to consider per side         |
 
-Returns a route plan with recommended pick-up and drop-off bike stations.
+Returns either a `"bike"` plan (pick-up station, drop-off station, walk + ride + walk times, route polylines) or a `"walk_only"` result with the reason and walk time.
+
+**Walk timing note:** route geometry is fetched from OSRM (`router.project-osrm.org` `foot` / `cycling` profiles). The OSRM demo server's foot profile returns unrealistically fast durations, so walking times are computed from OSRM road distance ÷ 1.2 m/s (4.3 km/h) rather than OSRM's own duration field.
 
 ---
 

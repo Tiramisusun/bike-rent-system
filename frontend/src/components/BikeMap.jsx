@@ -133,43 +133,31 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded 
           />
         )}
 
-        {plan && (
+        {plan?.mode === 'bike' && (
           <>
-            {/* Pickup station ring */}
             <CircleMarker
               center={[plan.pickup_station.position.lat, plan.pickup_station.position.lng]}
               radius={15}
               pathOptions={{ fillColor: '#1a73e8', color: '#1a73e8', weight: 3, fillOpacity: 0.15 }}
             />
-            {/* Dropoff station ring */}
             <CircleMarker
               center={[plan.dropoff_station.position.lat, plan.dropoff_station.position.lng]}
               radius={15}
               pathOptions={{ fillColor: '#e74c3c', color: '#e74c3c', weight: 3, fillOpacity: 0.15 }}
             />
-
-            {/* Walk: start → pickup (dashed blue) */}
+            {/* Walk start → pickup (dashed blue, follows foot route) */}
             <Polyline
-              positions={[
-                [plan.start.lat, plan.start.lng],
-                [plan.pickup_station.position.lat, plan.pickup_station.position.lng],
-              ]}
+              positions={plan.polylines.walk_to_pickup}
               pathOptions={{ color: '#1a73e8', weight: 3, dashArray: '6 9', opacity: 0.85 }}
             />
-            {/* Ride: pickup → dropoff (solid green) */}
+            {/* Bike pickup → dropoff (solid green, follows cycling route) */}
             <Polyline
-              positions={[
-                [plan.pickup_station.position.lat, plan.pickup_station.position.lng],
-                [plan.dropoff_station.position.lat, plan.dropoff_station.position.lng],
-              ]}
+              positions={plan.polylines.bike}
               pathOptions={{ color: '#2ecc71', weight: 4, opacity: 0.9 }}
             />
-            {/* Walk: dropoff → end (dashed red) */}
+            {/* Walk dropoff → destination (dashed red, follows foot route) */}
             <Polyline
-              positions={[
-                [plan.dropoff_station.position.lat, plan.dropoff_station.position.lng],
-                [plan.end.lat, plan.end.lng],
-              ]}
+              positions={plan.polylines.walk_to_destination}
               pathOptions={{ color: '#e74c3c', weight: 3, dashArray: '6 9', opacity: 0.85 }}
             />
           </>
