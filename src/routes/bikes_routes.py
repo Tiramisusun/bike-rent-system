@@ -25,7 +25,8 @@ def api_bikes():
         data = fetch_jcdecaux_stations()
 
         try:
-            db_from_request(data, "bike-dynamic", engine=engine)
+            db_from_request(data, "bike-static", engine=engine)   # upsert stations first (satisfies FK)
+            db_from_request(data, "bike-dynamic", engine=engine)   # then insert status records
         except Exception as e:
             current_app.logger.warning(f"bike insert failed: {e}")
 

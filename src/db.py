@@ -413,14 +413,18 @@ def db_from_request(json_obj:dict, typ:Literal['weather', 'bike-dynamic', 'bike-
             time = datetime.now() # Get current time for parsing rq
             weather_ids = list(session.scalars(select(Weather.id)).all()) # Get all existing weather ids as list of ints
             orm_objs = _parse_weather(json_obj, weather_ids, time)
-        
+            session.add_all(orm_objs)
+
         elif typ == 'bike-dynamic':
             orm_objs = _parse_bike_dynamic(json_obj)
+            session.add_all(orm_objs)
 
         elif typ == 'bike-static':
+            # Use merge to upsert: insert new stations, update existing ones (by primary key)
             orm_objs = _parse_bike_static(json_obj)
+            for obj in orm_objs:
+                session.merge(obj)
 
-        session.add_all(orm_objs)
         session.commit()
 
 

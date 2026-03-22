@@ -1,4 +1,153 @@
-body { font-family: sans-serif; padding: 20px; }
-.buttons { margin-bottom: 12px; display: flex; gap: 10px; }
-button { padding: 8px 12px; cursor: pointer; }
-pre { background: #f6f6f6; padding: 12px; border-radius: 8px; overflow: auto; }
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ── Navbar ── */
+#navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: #1a73e8;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+#brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+#weather-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+  overflow: hidden;
+}
+
+#weather-panel img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+#weather-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.weather-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+#btn-refresh {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.5);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+#btn-refresh:hover { background: rgba(255,255,255,0.35); }
+#btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Map ── */
+#map {
+  position: fixed;
+  top: 56px;
+  bottom: 36px;
+  left: 0; right: 0;
+}
+
+/* ── Status bar ── */
+#status-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 36px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #555;
+  z-index: 1000;
+}
+
+/* ── Legend ── */
+#legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 3px;
+}
+.legend-dot.green  { background: #2ecc71; }
+.legend-dot.orange { background: #f39c12; }
+.legend-dot.red    { background: #e74c3c; }
+.legend-dot.grey   { background: #95a5a6; }
+
+/* ── Leaflet popup ── */
+.popup-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: #1a73e8;
+}
+
+.popup-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.popup-row span:last-child { font-weight: 600; }
+
+.avail-bar {
+  margin-top: 8px;
+  height: 8px;
+  background: #ecf0f1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.avail-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.popup-status {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: #888;
+}

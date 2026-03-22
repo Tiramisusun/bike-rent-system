@@ -29,6 +29,95 @@ and management of this data in a MySQL db and visualisation via a Flask frontend
 
 ```
 
+## Running MySQL with Podman
+
+**1. Start the MySQL container:**
+
+```bash
+podman run -d \
+  --name softwaredb \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -p 3306:3306 \
+  mysql:8.0
+```
+
+Then update `DB_URL` in your `.env` to match:
+
+```env
+DB_URL=mysql+pymysql://root:root@localhost:3306/softwaredb
+```
+
+**2. Grant root access from the host** (Podman routes the host as `192.168.127.1`, not `localhost`, so this is required):
+
+```bash
+podman exec softwaredb mysql -u root -proot -e \
+  "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'root'; GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+```
+
+**3. Initialize the database** (creates `softwaredb` and all tables):
+
+```bash
+source .venv/bin/activate
+python src/db.py init-db
+```
+
+To stop/remove the container:
+
+```bash
+podman stop softwaredb && podman rm softwaredb
+```
+
+---
+
+## Running the Frontend Locally
+
+The frontend is a React + Vite app located in the `frontend/` directory. It proxies API requests to the Flask backend running on port 5000.
+
+**Prerequisites:** Node.js installed
+
+**1. Install dependencies** (first time only):
+
+```bash
+cd frontend
+npm install --include=dev
+```
+
+**2. Start the Flask backend** (in a separate terminal, from the project root):
+
+```bash
+python app.py
+```
+
+**3. Start the Vite dev server:**
+
+```bash
+cd frontend
+npm run dev
+```
+
+The app will be available at `http://localhost:5173`. API calls (e.g. `/api/...`) are automatically proxied to Flask at `http://localhost:5000`.
+
+---
+
+## API Endpoints
+
+### Route Planner
+
+**`GET /plan`** — Plan an optimal bike journey between two coordinates.
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `start_lat` | float | yes | — | Start latitude |
+| `start_lng` | float | yes | — | Start longitude |
+| `end_lat` | float | yes | — | Destination latitude |
+| `end_lng` | float | yes | — | Destination longitude |
+| `max_distance_m` | int | no | 1500 | Max walking distance (metres) to/from a station |
+| `candidates` | int | no | 4 | Candidate stations to consider per side |
+
+Returns a route plan with recommended pick-up and drop-off bike stations.
+
+---
+
 ## Contributors
 Danila Macijauskas
 Xiya Sun

@@ -1,6 +1,7 @@
+import os
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request, send_from_directory
 from flasgger import Swagger
 
 from src.services.routing_service import get_route_eta, compare_eta
@@ -11,7 +12,8 @@ from src.routes.weather_routes import weather_bp
 
 load_dotenv()
 
-app = Flask(__name__, static_url_path="")
+DIST_DIR = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+app = Flask(__name__, static_folder=DIST_DIR, static_url_path='')
 Swagger(app, template={
     "info": {
         "title": "Dublin Bike & Weather API",
@@ -28,9 +30,15 @@ app.register_blueprint(bikes_bp)
 app.register_blueprint(weather_bp)
 
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def home(path):
+    # Serve API routes normally (handled by blueprints above)
+    # For everything else, return the React app's index.html
+    full_path = os.path.join(DIST_DIR, path)
+    if path and os.path.exists(full_path):
+        return send_from_directory(DIST_DIR, path)
+    return send_from_directory(DIST_DIR, 'index.html')
 
 
 @app.route("/api/route")
