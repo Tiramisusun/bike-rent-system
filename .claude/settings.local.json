@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(podman ps:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(python src/db.py init-db)",
+      "Bash(pip install:*)",
+      "Bash(podman exec:*)"
+    ]
+  }
+}

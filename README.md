@@ -1,12 +1,13 @@
 # Software-Engineering26
 
 ## Description
-Dublin Bikes Application developed as a requirement of Software Engineering Module (2026).
-This module handles API fetch from web resources for weather and bike location, storage 
-and management of this data in a MySQL db and visualisation via a Flask frontend.
 
+Dublin Bikes Application developed as a requirement of Software Engineering Module (2026).
+This module handles API fetch from web resources for weather and bike location, storage
+and management of this data in a MySQL db, fullstack via a React frontend and via Flask backend.
 
 ## Project Structure
+
 ```
 .
 ├── README.md
@@ -105,20 +106,21 @@ The app will be available at `http://localhost:5173`. API calls (e.g. `/api/...`
 
 **`GET /plan`** — Plan an optimal bike journey between two coordinates.
 
-| Parameter | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `start_lat` | float | yes | — | Start latitude |
-| `start_lng` | float | yes | — | Start longitude |
-| `end_lat` | float | yes | — | Destination latitude |
-| `end_lng` | float | yes | — | Destination longitude |
-| `max_distance_m` | int | no | 1500 | Max walking distance (metres) to/from a station |
-| `candidates` | int | no | 4 | Candidate stations to consider per side |
+| Parameter        | Type  | Required | Default | Description                                     |
+| ---------------- | ----- | -------- | ------- | ----------------------------------------------- |
+| `start_lat`      | float | yes      | —       | Start latitude                                  |
+| `start_lng`      | float | yes      | —       | Start longitude                                 |
+| `end_lat`        | float | yes      | —       | Destination latitude                            |
+| `end_lng`        | float | yes      | —       | Destination longitude                           |
+| `max_distance_m` | int   | no       | 1500    | Max walking distance (metres) to/from a station |
+| `candidates`     | int   | no       | 4       | Candidate stations to consider per side         |
 
 Returns a route plan with recommended pick-up and drop-off bike stations.
 
 ---
 
 ## Contributors
+
 Danila Macijauskas
 Xiya Sun
 Milo Dennehy
