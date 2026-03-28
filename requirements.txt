@@ -5,3 +5,5 @@ flasgger==0.9.7.1
 SQLAlchemy==2.0.47
 PyMySQL==1.1.2
 click==8.3.1
+flask-jwt-extended==4.7.1
+bcrypt==4.3.0

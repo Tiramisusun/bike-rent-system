@@ -2,6 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
+from flask_jwt_extended import JWTManager
 from flasgger import Swagger
 
 from src.services.routing_service import get_route_eta, compare_eta
@@ -10,17 +11,31 @@ from src.db import load_engine, init_db
 from src.routes.bikes_routes import bikes_bp
 from src.routes.weather_routes import weather_bp
 from src.routes.route_planner_routes import route_planner_bp
+from src.routes.auth_routes import auth_bp
+from src.routes.rental_routes import rental_bp
+from src.routes.geocode_routes import geocode_bp
 
-load_dotenv()
+load_dotenv(override=False)  # env vars already set (e.g. in tests) take priority
 
 DIST_DIR = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
 app = Flask(__name__, static_folder=DIST_DIR, static_url_path='')
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dublin-bikes-secret-key")
+JWTManager(app)
 Swagger(app, template={
     "info": {
         "title": "Dublin Bike & Weather API",
         "description": "API for retrieving real-time and historical Dublin bike station and weather data.",
         "version": "1.0.0",
-    }
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "Enter: Bearer <your_token>",
+        }
+    },
+    "security": [{"Bearer": []}],
 })
 
 engine = load_engine()
@@ -30,6 +45,9 @@ app.extensions['engine'] = engine
 app.register_blueprint(bikes_bp)
 app.register_blueprint(weather_bp)
 app.register_blueprint(route_planner_bp)
+app.register_blueprint(auth_bp)
+app.register_blueprint(rental_bp)
+app.register_blueprint(geocode_bp)
 
 
 @app.route("/", defaults={"path": ""})

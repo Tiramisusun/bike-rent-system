@@ -19,6 +19,35 @@ logger = logging.getLogger(__name__)
 class Base(DeclarativeBase):
     ...
 
+class User(Base):
+    __tablename__ = 'user'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"User(id={self.id}, email={self.email})"
+
+
+class Rental(Base):
+    __tablename__ = 'rental'
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
+    pickup_station_id: Mapped[int] = mapped_column(ForeignKey("station.station_id"), nullable=False)
+    dropoff_station_id: Mapped[Optional[int]] = mapped_column(ForeignKey("station.station_id"), nullable=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    duration_minutes: Mapped[Optional[int]] = mapped_column(nullable=True)
+    cost_eur: Mapped[Optional[float]] = mapped_column(nullable=True)
+
+    def __repr__(self):
+        return f"Rental(id={self.id}, user={self.user_id}, start={self.start_time})"
+
+
 class Weather(Base):
     __tablename__ = 'weather'
 
@@ -461,6 +490,81 @@ def get_all_stations(engine: Engine) -> list[dict]:
                 "latitude": s.latitude,
             }
             for s in stations
+        ]
+
+
+def store_forecast_data(engine: Engine, forecast_list: list) -> None:
+    with Session(engine) as session:
+        existing_weather_ids = list(session.scalars(select(Weather.id)).all())
+        objs = []
+        for entry in forecast_list:
+            w = entry["weather"][0]
+            weather_id = w["id"]
+            if weather_id not in existing_weather_ids:
+                weather_orm = Weather(id=weather_id, main=w["main"], description=w["description"], icon=w["icon"])
+                session.add(weather_orm)
+                existing_weather_ids.append(weather_id)
+
+            update_time = datetime.utcfromtimestamp(entry["dt"])
+            report_orm = WeatherReport(
+                update_time=update_time,
+                temp=entry["main"]["temp"],
+                feels_like=entry["main"]["feels_like"],
+                humidity=entry["main"]["humidity"],
+                wind_speed=entry["wind"]["speed"],
+                visibility=entry.get("visibility", 0),
+                weather_id=weather_id,
+            )
+            session.add(report_orm)
+            session.flush()
+
+            forecast_orm = Forecast(
+                datetime=entry["dt"],
+                period="3hourly",
+                temp=entry["main"]["temp"],
+                weather_id=weather_id,
+                report_id=report_orm.id,
+            )
+            objs.append(forecast_orm)
+
+        session.add_all(objs)
+        session.commit()
+
+
+def get_forecast_data(engine: Engine) -> list[dict]:
+    with Session(engine) as session:
+        stmt = (
+            select(Forecast)
+            .order_by(Forecast.datetime.asc())
+        )
+        forecasts = session.scalars(stmt).all()
+        return [
+            {
+                "dt": f.datetime,
+                "time": datetime.utcfromtimestamp(f.datetime).strftime("%a %H:%M"),
+                "temp": round(f.temp),
+                "period": f.period,
+                "weather_id": f.weather_id,
+            }
+            for f in forecasts
+        ]
+
+
+def get_station_history(engine: Engine, station_id: int) -> list[dict]:
+    with Session(engine) as session:
+        stmt = (
+            select(StationStatus)
+            .where(StationStatus.station_id == station_id)
+            .order_by(StationStatus.update_time.asc())
+        )
+        statuses = session.scalars(stmt).all()
+        return [
+            {
+                "avail_bikes": s.avail_bikes,
+                "avail_bike_stands": s.avail_bike_stands,
+                "update_time": s.update_time.isoformat(),
+            }
+            for s in statuses
         ]
 
 

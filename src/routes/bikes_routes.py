@@ -2,7 +2,7 @@ import requests
 from flask import Blueprint, jsonify, current_app
 
 from src.services.bikes_service import fetch_jcdecaux_stations
-from src.db import db_from_request, get_all_stations, get_latest_station_status
+from src.db import db_from_request, get_all_stations, get_latest_station_status, get_station_history
 
 bikes_bp = Blueprint('bikes', __name__)
 
@@ -52,6 +52,30 @@ def api_db_stations():
         engine = current_app.extensions['engine']
         data = get_all_stations(engine)
         return jsonify({"source": "database", "count": len(data), "data": data})
+    except Exception as e:
+        return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
+
+
+@bikes_bp.route("/api/db/stations/<int:station_id>/history")
+def api_db_station_history(station_id):
+    """
+    Retrieve historical status records for a specific station.
+    ---
+    tags:
+      - Bikes (Database)
+    parameters:
+      - name: station_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Historical availability records for the station
+    """
+    try:
+        engine = current_app.extensions['engine']
+        data = get_station_history(engine, station_id)
+        return jsonify({"source": "database", "station_id": station_id, "count": len(data), "data": data})
     except Exception as e:
         return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
 

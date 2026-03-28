@@ -1,8 +1,9 @@
 import requests
+from datetime import datetime
 from flask import Blueprint, jsonify, current_app
 
-from src.services.weather_service import fetch_openweather_current
-from src.db import db_from_request, get_latest_weather
+from src.services.weather_service import fetch_openweather_current, fetch_openweather_forecast
+from src.db import db_from_request, get_latest_weather, store_forecast_data
 
 weather_bp = Blueprint('weather', __name__)
 
@@ -31,6 +32,49 @@ def api_weather():
             return jsonify({"source": "openweather", "data": data, "db_warning": str(e)}), 200
 
         return jsonify({"source": "openweather", "data": data})
+    except requests.RequestException as e:
+        return jsonify({"source": "openweather", "error": "Request failed", "details": str(e)}), 502
+    except Exception as e:
+        return jsonify({"source": "openweather", "error": "Server error", "details": str(e)}), 500
+
+
+@weather_bp.route("/api/weather/forecast")
+def api_weather_forecast():
+    """
+    Fetch 5-day weather forecast from OpenWeather (every 3 hours).
+    ---
+    tags:
+      - Weather (Live)
+    responses:
+      200:
+        description: 5-day forecast for Dublin
+      502:
+        description: OpenWeather API unavailable
+    """
+    try:
+        engine = current_app.extensions['engine']
+        raw = fetch_openweather_forecast()
+        forecast_list = raw.get("list", [])
+
+        try:
+            store_forecast_data(engine, forecast_list)
+        except Exception as e:
+            current_app.logger.warning(f"forecast insert failed: {e}")
+
+        items = [
+            {
+                "dt": entry["dt"],
+                "time": datetime.utcfromtimestamp(entry["dt"]).strftime("%a %H:%M"),
+                "temp": round(entry["main"]["temp"]),
+                "feels_like": round(entry["main"]["feels_like"]),
+                "humidity": entry["main"]["humidity"],
+                "description": entry["weather"][0]["description"],
+                "icon": entry["weather"][0]["icon"],
+                "wind_speed": entry["wind"]["speed"],
+            }
+            for entry in forecast_list
+        ]
+        return jsonify({"source": "openweather", "count": len(items), "data": items})
     except requests.RequestException as e:
         return jsonify({"source": "openweather", "error": "Request failed", "details": str(e)}), 502
     except Exception as e:

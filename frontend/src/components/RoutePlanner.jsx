@@ -1,20 +1,56 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search'
 
+/** Returns true if the string looks like an Irish Eircode, e.g. A96R8C4 or D02 XY45 */
+function isEircode(q) {
+  return /^[A-Za-z0-9]{3}\s?[A-Za-z0-9]{4}$/.test(q.trim())
+}
+
+/** Format Eircode to "XXX XXXX" canonical form */
+function formatEircode(q) {
+  const raw = q.trim().toUpperCase().replace(/\s/g, '')
+  return `${raw.slice(0, 3)} ${raw.slice(3)}`
+}
+
 async function geocode(address) {
-  const params = new URLSearchParams({
+  const headers = { 'Accept-Language': 'en' }
+
+  // If it looks like an Eircode, try the backend proxy first (OpenCage or formatted Nominatim)
+  if (isEircode(address)) {
+    try {
+      const res = await fetch(`/api/geocode/eircode?q=${encodeURIComponent(formatEircode(address))}`)
+      if (res.ok) {
+        const d = await res.json()
+        if (d.lat) return d
+      }
+    } catch { /* fall through to Nominatim */ }
+  }
+
+  // 1st attempt: Dublin bounding box
+  const dublinParams = new URLSearchParams({
     format: 'json',
-    q: address,
+    q: isEircode(address) ? `${formatEircode(address)}, Ireland` : address,
     limit: 1,
     viewbox: '-6.5,53.6,-6.0,53.2',
     bounded: 1,
   })
-  const res = await fetch(`${NOMINATIM}?${params}`, {
-    headers: { 'Accept-Language': 'en' },
-  })
-  const data = await res.json()
-  if (!data.length) throw new Error(`No results for "${address}" in Dublin`)
+  let res = await fetch(`${NOMINATIM}?${dublinParams}`, { headers })
+  let data = await res.json()
+
+  // 2nd attempt: Ireland-wide (catches Eircodes & county names)
+  if (!data.length) {
+    const ieParams = new URLSearchParams({
+      format: 'json',
+      q: isEircode(address) ? `${formatEircode(address)}, Ireland` : address,
+      limit: 1,
+      countrycodes: 'ie',
+    })
+    res = await fetch(`${NOMINATIM}?${ieParams}`, { headers })
+    data = await res.json()
+  }
+
+  if (!data.length) throw new Error(`No results found for "${address}"`)
   return {
     lat: parseFloat(data[0].lat),
     lng: parseFloat(data[0].lon),
@@ -31,7 +67,56 @@ function fmtMin(min) {
   return `${Math.round(min)} min`
 }
 
-function PlanResult({ plan }) {
+function BikeRouteDetail({ pickup, dropoff, times, totalWalkingM, waypoints = [] }) {
+  return (
+    <>
+      <div style={s.step}>
+        <span style={s.stepIcon}>🚶</span>
+        <div>
+          <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
+          <div style={s.stepStation}>{pickup.name}</div>
+          <div style={s.stepDetail}>
+            {pickup.available_bikes} bike{pickup.available_bikes !== 1 ? 's' : ''} available
+            · {fmtDist(pickup.walking_distance_m)} away
+          </div>
+        </div>
+      </div>
+      <div style={s.connector} />
+      <div style={s.step}>
+        <span style={s.stepIcon}>🚲</span>
+        <div>
+          <div style={s.stepLabel}>Ride · {fmtMin(times.bike)}</div>
+          {waypoints.map((wp, i) => (
+            <div key={i} style={{ ...s.stepDetail, color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], marginBottom: 2 }}>
+              📍 Stop {i + 1}: {wp.label}
+            </div>
+          ))}
+          <div style={s.stepStation}>{dropoff.name}</div>
+          <div style={s.stepDetail}>
+            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} free
+          </div>
+        </div>
+      </div>
+      <div style={s.connector} />
+      <div style={s.step}>
+        <span style={s.stepIcon}>🏁</span>
+        <div>
+          <div style={s.stepLabel}>Walk to destination · {fmtMin(times.walk_to_destination)}</div>
+          <div style={s.stepDetail}>{fmtDist(dropoff.walking_distance_m)} away</div>
+        </div>
+      </div>
+      <div style={s.totalRow}>
+        Total ~{fmtMin(times.total_travel)}
+        <span style={s.totalSub}> · {fmtDist(totalWalkingM)} walking</span>
+      </div>
+    </>
+  )
+}
+
+
+function PlanResult({ plan, onSelectAlt }) {
+  const [showAlts, setShowAlts] = useState(false)
+
   if (plan.mode === 'walk_only') {
     return (
       <div style={s.result}>
@@ -48,60 +133,127 @@ function PlanResult({ plan }) {
     )
   }
 
-  const { pickup_station: pickup, dropoff_station: dropoff, times_minutes: times } = plan
+  const { pickup_station: pickup, dropoff_station: dropoff, times_minutes: times, alternatives = [] } = plan
   return (
     <div style={s.result}>
-      <div style={s.step}>
-        <span style={s.stepIcon}>🚶</span>
-        <div>
-          <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
-          <div style={s.stepStation}>{pickup.name}</div>
-          <div style={s.stepDetail}>
-            {pickup.available_bikes} bike{pickup.available_bikes !== 1 ? 's' : ''} available
-            · {fmtDist(pickup.walking_distance_m)} away
-          </div>
+      <BikeRouteDetail
+        pickup={pickup}
+        dropoff={dropoff}
+        times={times}
+        totalWalkingM={plan.total_walking_m}
+        waypoints={plan._waypoints ?? []}
+      />
+
+      {alternatives.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <button
+            style={s.altToggleBtn}
+            onClick={() => setShowAlts(v => !v)}
+          >
+            {showAlts ? '▲ Hide' : `▼ ${alternatives.length} alternative route${alternatives.length > 1 ? 's' : ''}`}
+          </button>
+
+          {showAlts && alternatives.map((alt, i) => (
+            <div key={i} style={s.altCard}>
+              <div style={s.altHeader}>
+                <span style={s.altNum}>Option {i + 2}</span>
+                <span style={s.altTime}>~{fmtMin(alt.times_minutes.total_travel)}</span>
+                <button
+                  style={s.altSelectBtn}
+                  onClick={() => onSelectAlt(alt)}
+                >
+                  Use this
+                </button>
+              </div>
+              <div style={s.altBody}>
+                <span>🚶 {fmtMin(alt.times_minutes.walk_to_pickup)}</span>
+                <span style={{ color: '#aaa' }}>→</span>
+                <span style={s.altStation}>{alt.pickup.name}</span>
+                <span style={{ color: '#aaa' }}>→</span>
+                <span>🚲 {fmtMin(alt.times_minutes.bike)}</span>
+                <span style={{ color: '#aaa' }}>→</span>
+                <span style={s.altStation}>{alt.dropoff.name}</span>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-
-      <div style={s.connector} />
-
-      <div style={s.step}>
-        <span style={s.stepIcon}>🚲</span>
-        <div>
-          <div style={s.stepLabel}>Ride · {fmtMin(times.bike)}</div>
-          <div style={s.stepStation}>{dropoff.name}</div>
-          <div style={s.stepDetail}>
-            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} free
-          </div>
-        </div>
-      </div>
-
-      <div style={s.connector} />
-
-      <div style={s.step}>
-        <span style={s.stepIcon}>🏁</span>
-        <div>
-          <div style={s.stepLabel}>Walk to destination · {fmtMin(times.walk_to_destination)}</div>
-          <div style={s.stepDetail}>{fmtDist(dropoff.walking_distance_m)} away</div>
-        </div>
-      </div>
-
-      <div style={s.totalRow}>
-        Total ~{fmtMin(times.total_travel)}
-        <span style={s.totalSub}> · {fmtDist(plan.total_walking_m)} walking</span>
-      </div>
+      )}
     </div>
   )
 }
+
+function StationInput({ label, dotColor, value, onChange, onSelectStation, onFocus, stations, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  const query = value.trim().toLowerCase()
+  const suggestions = query.length >= 1
+    ? stations.filter(st =>
+        st.name.toLowerCase().includes(query) ||
+        String(st.number).includes(query)
+      ).slice(0, 6)
+    : []
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={s.inputRow}>
+        <span style={{ ...s.dot, background: dotColor }}>{label}</span>
+        <input
+          style={s.input}
+          placeholder={placeholder}
+          value={value}
+          onChange={e => { onChange(e.target.value); setOpen(true) }}
+          onFocus={() => { onFocus(); setOpen(true) }}
+          autoComplete="off"
+        />
+      </div>
+      {open && suggestions.length > 0 && (
+        <div style={s.dropdown}>
+          {suggestions.map(st => (
+            <div
+              key={st.number}
+              style={s.suggestion}
+              onMouseEnter={e => e.currentTarget.style.background = '#f0f4ff'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}
+              onMouseDown={e => {
+                e.preventDefault()
+                onSelectStation({ lat: st.position.lat, lng: st.position.lng, label: st.name })
+                setOpen(false)
+              }}
+            >
+              <span style={s.suggestNum}>#{st.number}</span>
+              <span style={s.suggestName}>{st.name}</span>
+              <span style={s.suggestBikes}>🚲 {st.available_bikes ?? 0}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const WAYPOINT_COLORS = ['#9b59b6', '#e67e22', '#16a085', '#c0392b', '#2980b9']
 
 export default function RoutePlanner({
   startPoint, endPoint,
   setStartPoint, setEndPoint,
   clickMode, setClickMode,
   plan, onPlanComputed, onClear,
+  stations = [],
 }) {
   const [startText, setStartText] = useState('')
   const [endText, setEndText] = useState('')
+  // waypoints: array of { point: {lat,lng,label} | null, text: string }
+  const [waypoints, setWaypoints] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [open, setOpen] = useState(true)
@@ -110,45 +262,68 @@ export default function RoutePlanner({
     setOpen(false)
     setStartText('')
     setEndText('')
+    setWaypoints([])
     onClear()
   }
 
   function handleSwap() {
-    const tmpText = startText
-    const tmpPoint = startPoint
-    setStartText(endText)
-    setStartPoint(endPoint)
-    setEndText(tmpText)
-    setEndPoint(tmpPoint)
+    setStartText(endText); setStartPoint(endPoint)
+    setEndText(startText); setEndPoint(startPoint)
+  }
+
+  function addWaypoint() {
+    setWaypoints(wps => [...wps, { point: null, text: '' }])
+  }
+
+  function removeWaypoint(i) {
+    setWaypoints(wps => wps.filter((_, idx) => idx !== i))
+  }
+
+  function updateWaypointText(i, text) {
+    setWaypoints(wps => wps.map((wp, idx) => idx === i ? { ...wp, text, point: null } : wp))
+  }
+
+  function updateWaypointPoint(i, point) {
+    setWaypoints(wps => wps.map((wp, idx) => idx === i ? { ...wp, point, text: '' } : wp))
+  }
+
+  async function resolvePoint(point, text, label) {
+    if (point) return point
+    if (!text.trim()) throw new Error(`Please enter ${label}`)
+    return geocode(text)
   }
 
   async function handlePlan() {
     setError(null)
     setLoading(true)
     try {
-      let start = startPoint
-      let end = endPoint
+      const start = await resolvePoint(startPoint, startText, 'a start location')
+      setStartPoint(start)
 
-      if (!start) {
-        if (!startText.trim()) throw new Error('Please enter or select a start location')
-        start = await geocode(startText)
-        setStartPoint(start)
+      const resolvedWaypoints = []
+      for (let i = 0; i < waypoints.length; i++) {
+        const wp = waypoints[i]
+        const resolved = await resolvePoint(wp.point, wp.text, `waypoint ${i + 1}`)
+        resolvedWaypoints.push(resolved)
+        updateWaypointPoint(i, resolved)
       }
-      if (!end) {
-        if (!endText.trim()) throw new Error('Please enter or select a destination')
-        end = await geocode(endText)
-        setEndPoint(end)
-      }
+
+      const end = await resolvePoint(endPoint, endText, 'a destination')
+      setEndPoint(end)
 
       const params = new URLSearchParams({
-        start_lat: start.lat,
-        start_lng: start.lng,
-        end_lat: end.lat,
-        end_lng: end.lng,
+        start_lat: start.lat, start_lng: start.lng,
+        end_lat: end.lat, end_lng: end.lng,
       })
+      if (resolvedWaypoints.length > 0) {
+        params.set('waypoints', resolvedWaypoints.map(p => `${p.lat},${p.lng}`).join(';'))
+      }
+
       const res = await fetch(`/api/plan?${params}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? json.details ?? 'Failed to plan route')
+      // Attach resolved waypoints so map can show them
+      json._waypoints = resolvedWaypoints
       onPlanComputed(json)
     } catch (e) {
       setError(e.message)
@@ -175,32 +350,57 @@ export default function RoutePlanner({
 
       {/* Inputs */}
       <div style={s.inputs}>
-        <div style={s.inputRow}>
-          <span style={{ ...s.dot, background: '#1a73e8' }}>A</span>
-          <input
-            style={s.input}
-            placeholder="Start — type or click map"
-            value={startPoint ? startPoint.label : startText}
-            onChange={e => { setStartText(e.target.value); setStartPoint(null) }}
-            onFocus={() => setClickMode('start')}
-          />
-        </div>
+        <StationInput
+          label="A"
+          dotColor="#1a73e8"
+          placeholder="Start — station name, number or address"
+          value={startPoint ? startPoint.label : startText}
+          onChange={v => { setStartText(v); setStartPoint(null) }}
+          onSelectStation={pt => { setStartPoint(pt); setStartText('') }}
+          onFocus={() => setClickMode('start')}
+          stations={stations}
+        />
+
+        {/* Waypoints */}
+        {waypoints.map((wp, i) => (
+          <div key={i}>
+            <div style={s.waypointConnector}>
+              <div style={s.vertLine} />
+              <button
+                style={s.removeWpBtn}
+                onClick={() => removeWaypoint(i)}
+                title="Remove stop"
+              >✕</button>
+            </div>
+            <StationInput
+              label={String(i + 1)}
+              dotColor={WAYPOINT_COLORS[i % WAYPOINT_COLORS.length]}
+              placeholder={`Stop ${i + 1} — station or address`}
+              value={wp.point ? wp.point.label : wp.text}
+              onChange={v => updateWaypointText(i, v)}
+              onSelectStation={pt => updateWaypointPoint(i, pt)}
+              onFocus={() => {}}
+              stations={stations}
+            />
+          </div>
+        ))}
 
         <div style={s.swapRow}>
           <div style={s.vertLine} />
           <button onClick={handleSwap} style={s.swapBtn} title="Swap start and destination">⇅</button>
+          <button onClick={addWaypoint} style={s.addWpBtn} title="Add a stop">+ Stop</button>
         </div>
 
-        <div style={s.inputRow}>
-          <span style={{ ...s.dot, background: '#e74c3c' }}>B</span>
-          <input
-            style={s.input}
-            placeholder="Destination — type or click map"
-            value={endPoint ? endPoint.label : endText}
-            onChange={e => { setEndText(e.target.value); setEndPoint(null) }}
-            onFocus={() => setClickMode('end')}
-          />
-        </div>
+        <StationInput
+          label="B"
+          dotColor="#e74c3c"
+          placeholder="Destination — station name, number or address"
+          value={endPoint ? endPoint.label : endText}
+          onChange={v => { setEndText(v); setEndPoint(null) }}
+          onSelectStation={pt => { setEndPoint(pt); setEndText('') }}
+          onFocus={() => setClickMode('end')}
+          stations={stations}
+        />
       </div>
 
       {/* Click-mode hint */}
@@ -217,7 +417,36 @@ export default function RoutePlanner({
 
       {error && <div style={s.error}>{error}</div>}
 
-      {plan && <PlanResult plan={plan} />}
+      {plan && (
+        <PlanResult
+          plan={plan}
+          onSelectAlt={alt => {
+            onPlanComputed({
+              ...plan,
+              pickup_station: {
+                station_id: alt.pickup.station_id,
+                name: alt.pickup.name,
+                position: { lat: alt.pickup.lat, lng: alt.pickup.lng },
+                available_bikes: alt.pickup.avail_bikes,
+                walking_distance_m: alt.pickup.distance_m,
+                status: alt.pickup.status,
+              },
+              dropoff_station: {
+                station_id: alt.dropoff.station_id,
+                name: alt.dropoff.name,
+                position: { lat: alt.dropoff.lat, lng: alt.dropoff.lng },
+                available_bike_stands: alt.dropoff.avail_docks,
+                walking_distance_m: alt.dropoff.distance_m,
+                status: alt.dropoff.status,
+              },
+              times_minutes: alt.times_minutes,
+              total_walking_m: Math.round(alt.pickup.distance_m + alt.dropoff.distance_m),
+              polylines: plan.polylines,
+              alternatives: [],
+            })
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -359,6 +588,111 @@ const s = {
     fontWeight: 400,
     color: '#777',
   },
+  waypointConnector: {
+    display: 'flex',
+    alignItems: 'center',
+    height: 28,
+    paddingLeft: 3,
+    gap: 6,
+  },
+  removeWpBtn: {
+    background: 'none',
+    border: '1px solid #ddd',
+    borderRadius: '50%',
+    width: 20,
+    height: 20,
+    fontSize: '0.7rem',
+    cursor: 'pointer',
+    color: '#999',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
+    marginLeft: 'auto',
+  },
+  addWpBtn: {
+    background: 'none',
+    border: '1px dashed #1a73e8',
+    borderRadius: 4,
+    color: '#1a73e8',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    padding: '2px 8px',
+    cursor: 'pointer',
+    marginLeft: 8,
+  },
+  segCard: {
+    border: '1px solid #eee',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  segHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '5px 10px',
+    color: '#fff',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+  },
+  segTime: { fontWeight: 400, fontSize: '0.78rem' },
+  segBody: { padding: '8px 10px' },
+  segRow: { fontSize: '0.8rem', color: '#333', marginBottom: 3 },
+  altToggleBtn: {
+    width: '100%',
+    background: 'none',
+    border: '1px solid #e0e0e0',
+    borderRadius: 4,
+    padding: '5px 8px',
+    cursor: 'pointer',
+    fontSize: '0.78rem',
+    color: '#555',
+    textAlign: 'left',
+  },
+  altCard: {
+    marginTop: 6,
+    border: '1px solid #eee',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  altHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '6px 10px',
+    background: '#f8f9fa',
+    borderBottom: '1px solid #eee',
+  },
+  altNum: { fontWeight: 700, fontSize: '0.78rem', color: '#555', flex: 1 },
+  altTime: { fontSize: '0.82rem', fontWeight: 600, color: '#1a73e8' },
+  altSelectBtn: {
+    background: '#1a73e8',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 4,
+    padding: '3px 8px',
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+  },
+  altBody: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    padding: '6px 10px',
+    fontSize: '0.78rem',
+    color: '#333',
+  },
+  altStation: {
+    fontWeight: 600,
+    color: '#111',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: 80,
+  },
   walkOnlyBadge: {
     display: 'inline-block',
     marginBottom: 10,
@@ -370,6 +704,48 @@ const s = {
     fontWeight: 600,
     textTransform: 'uppercase',
     letterSpacing: '0.04em',
+  },
+  dropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    background: '#fff',
+    border: '1px solid #ddd',
+    borderRadius: '0 0 6px 6px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    zIndex: 2000,
+    overflow: 'hidden',
+  },
+  suggestion: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontSize: '0.83rem',
+    borderBottom: '1px solid #f5f5f5',
+    transition: 'background 0.1s',
+    ':hover': { background: '#f0f4ff' },
+  },
+  suggestNum: {
+    color: '#1a73e8',
+    fontWeight: 700,
+    fontSize: '0.78rem',
+    minWidth: 34,
+    flexShrink: 0,
+  },
+  suggestName: {
+    flex: 1,
+    color: '#222',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  suggestBikes: {
+    color: '#2ecc71',
+    fontSize: '0.78rem',
+    flexShrink: 0,
   },
   openBtn: {
     position: 'absolute',

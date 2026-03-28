@@ -1,4 +1,4 @@
-export default function Navbar({ weather, onRefresh }) {
+export default function Navbar({ weather, onRefresh, onForecast }) {
   const w = weather?.data
 
   return (
@@ -30,6 +30,9 @@ export default function Navbar({ weather, onRefresh }) {
         )}
       </div>
 
+      <button onClick={onForecast} style={styles.btn} title="5-day forecast">
+        🌤 Forecast
+      </button>
       <button onClick={onRefresh} style={styles.btn} title="Refresh all data">
         ↻ Refresh
       </button>

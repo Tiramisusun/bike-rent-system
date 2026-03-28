@@ -28,7 +28,7 @@ def _int_param(key: str, default: int) -> int:
 @route_planner_bp.route("/api/plan")
 def api_plan():
     """
-    Plan a bike route between two coordinates.
+    Plan a bike route between two coordinates, with optional waypoints.
     ---
     tags:
       - Route Planning
@@ -37,37 +37,36 @@ def api_plan():
         in: query
         required: true
         type: number
-        description: Start latitude
       - name: start_lng
         in: query
         required: true
         type: number
-        description: Start longitude
       - name: end_lat
         in: query
         required: true
         type: number
-        description: Destination latitude
       - name: end_lng
         in: query
         required: true
         type: number
-        description: Destination longitude
+      - name: waypoints
+        in: query
+        required: false
+        type: string
+        description: Semicolon-separated waypoints as "lat,lng;lat,lng"
       - name: max_distance_m
         in: query
         required: false
         type: integer
         default: 1500
-        description: Max walking distance to a station in metres
       - name: candidates
         in: query
         required: false
         type: integer
         default: 4
-        description: Number of station candidates to consider per side
     responses:
       200:
-        description: Optimal route plan (bike or walk-only)
+        description: Route plan. Contains 'segments' array if waypoints were given, else a single plan.
       400:
         description: Missing or invalid parameters
       500:
@@ -83,21 +82,33 @@ def api_plan():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
+    # Parse optional waypoints: "lat1,lng1;lat2,lng2"
+    waypoints_raw = request.args.get("waypoints", "").strip()
+    waypoints = []
+    if waypoints_raw:
+        try:
+            for pair in waypoints_raw.split(";"):
+                pair = pair.strip()
+                if pair:
+                    lat_s, lng_s = pair.split(",")
+                    waypoints.append((float(lat_s), float(lng_s)))
+        except Exception:
+            return jsonify({"error": "Invalid waypoints format. Use 'lat,lng;lat,lng'"}), 400
+
     try:
         engine = current_app.extensions["engine"]
         result = plan_route(
             engine=engine,
-            start_lat=start_lat,
-            start_lng=start_lng,
-            end_lat=end_lat,
-            end_lng=end_lng,
+            start_lat=start_lat, start_lng=start_lng,
+            end_lat=end_lat, end_lng=end_lng,
+            waypoints=waypoints if waypoints else None,
             max_station_distance_m=max_distance_m,
             candidates_per_side=candidates,
         )
+        return jsonify(result)
+
     except RoutePlanningError as exc:
         return jsonify({"error": str(exc)}), 502
     except Exception as exc:
         current_app.logger.exception("Unexpected route planning failure")
         return jsonify({"error": f"Route planning failed: {exc}"}), 500
-
-    return jsonify(result)

@@ -5,7 +5,7 @@ const LEGEND = [
   { color: '#95a5a6', label: 'Closed' },
 ]
 
-export default function StatusBar({ stationCount }) {
+export default function StatusBar({ stationCount, onRefresh, onForecast }) {
   return (
     <div style={styles.bar}>
       <span>
@@ -19,6 +19,11 @@ export default function StatusBar({ stationCount }) {
             {label}
           </span>
         ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onForecast} style={styles.btn}>🌤 Forecast</button>
+        <button onClick={onRefresh} style={styles.btn}>↻ Refresh</button>
       </div>
     </div>
   )
@@ -52,5 +57,10 @@ const styles = {
     height: 12,
     borderRadius: '50%',
     flexShrink: 0,
+  },
+  btn: {
+    background: 'none', border: '1px solid #ddd',
+    padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+    fontSize: '0.78rem', color: '#555',
   },
 }

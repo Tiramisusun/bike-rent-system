@@ -83,21 +83,30 @@ def _osrm_leg(
     mode: str,
     cache: dict,
 ) -> _Leg:
-    """
-    Fetch a routed leg from OSRM.
+    """Single-segment OSRM leg (2 points). Cached."""
+    return _osrm_multi_leg([(lat1, lng1), (lat2, lng2)], mode, cache)
 
-    mode is "walking" or "cycling". OSRM profiles used are "foot" / "cycling".
-    Returns a _Leg with real route duration and a [[lat, lng], ...] coord list
-    ready for Leaflet. On any failure falls back to a haversine estimate and a
-    straight 2-point line.
+
+def _osrm_multi_leg(
+    points: list[tuple[float, float]],
+    mode: str,
+    cache: dict,
+) -> _Leg:
     """
-    key = (round(lat1, 6), round(lng1, 6), round(lat2, 6), round(lng2, 6), mode)
+    Fetch a routed leg from OSRM through an arbitrary number of waypoints.
+
+    points is a list of (lat, lng) tuples.
+    Returns a _Leg with real route duration and [[lat, lng], ...] coords for Leaflet.
+    Falls back to haversine straight-line on any failure.
+    """
+    key = (tuple((round(p[0], 6), round(p[1], 6)) for p in points), mode)
     if key in cache:
         return cache[key]
 
     profile = "foot" if mode == "walking" else "cycling"
-    # OSRM expects lng,lat order in the URL
-    url = f"{OSRM_BASE}/{profile}/{lng1},{lat1};{lng2},{lat2}"
+    # OSRM expects lng,lat order
+    coords_str = ";".join(f"{p[1]},{p[0]}" for p in points)
+    url = f"{OSRM_BASE}/{profile}/{coords_str}"
 
     try:
         resp = requests.get(
@@ -116,8 +125,6 @@ def _osrm_leg(
         coords = [[c[1], c[0]] for c in route["geometry"]["coordinates"]]
 
         if mode == "walking":
-            # The OSRM demo foot profile returns unrealistically fast durations.
-            # Use OSRM road distance with our own walking speed instead.
             seconds = max(60, int(route["distance"] / WALKING_SPEED_MS))
         else:
             seconds = int(route["duration"])
@@ -126,9 +133,13 @@ def _osrm_leg(
 
     except Exception as exc:
         logger.warning("OSRM %s routing failed (%s) — using straight-line fallback", mode, exc)
+        # Fallback: straight line through all points, sum of haversine distances
+        total_seconds = 0
+        for i in range(len(points) - 1):
+            total_seconds += _estimated_seconds(points[i][0], points[i][1], points[i+1][0], points[i+1][1], mode)
         leg = _Leg(
-            seconds=_estimated_seconds(lat1, lng1, lat2, lng2, mode),
-            coords=[[lat1, lng1], [lat2, lng2]],
+            seconds=max(60, total_seconds),
+            coords=[[p[0], p[1]] for p in points],
         )
 
     cache[key] = leg
@@ -287,6 +298,7 @@ def plan_route(
     start_lng: float,
     end_lat: float,
     end_lng: float,
+    waypoints: list[tuple[float, float]] | None = None,
     max_station_distance_m: int = DEFAULT_MAX_STATION_DISTANCE_M,
     candidates_per_side: int = DEFAULT_CANDIDATES,
 ) -> dict[str, Any]:
@@ -330,10 +342,15 @@ def plan_route(
             for s in viable_end
         }
 
+        # Build the intermediate waypoint coords for the cycling leg
+        via_points: list[tuple[float, float]] = [(wp[0], wp[1]) for wp in (waypoints or [])]
+
         options: list[dict] = []
         for pickup in viable_start:
             for dropoff in viable_end:
-                bike_leg = leg(pickup.lat, pickup.lng, dropoff.lat, dropoff.lng, "cycling")
+                # Cycling leg: pickup → [waypoints] → dropoff
+                bike_points = [(pickup.lat, pickup.lng)] + via_points + [(dropoff.lat, dropoff.lng)]
+                bike_leg = _osrm_multi_leg(bike_points, "cycling", leg_cache)
 
                 walk1_min = _mins(walk_to_pickup[pickup.station_id].seconds)
                 bike_min = _mins(bike_leg.seconds)
@@ -389,7 +406,8 @@ def plan_route(
         pickup = best["pickup"]
         dropoff = best["dropoff"]
         walk1 = leg(start_lat, start_lng, pickup["lat"], pickup["lng"], "walking")
-        bike  = leg(pickup["lat"], pickup["lng"], dropoff["lat"], dropoff["lng"], "cycling")
+        bike_points = [(pickup["lat"], pickup["lng"])] + via_points + [(dropoff["lat"], dropoff["lng"])]
+        bike  = _osrm_multi_leg(bike_points, "cycling", leg_cache)
         walk2 = leg(dropoff["lat"], dropoff["lng"], end_lat, end_lng, "walking")
 
         return {
