@@ -371,7 +371,39 @@ python3 app.py
 
 The app is now accessible at `http://<EC2_PUBLIC_IP>:5000`.
 
-**8. (Optional) Run as a systemd service so it survives reboots:**
+**8. Set up nginx as a reverse proxy:**
+
+Install nginx and configure it to forward port 80 to Flask:
+
+```bash
+sudo apt install nginx -y
+```
+
+```bash
+sudo tee /etc/nginx/sites-available/default << 'EOF'
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+EOF
+```
+
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+Make sure port **80** is open in your EC2 security group. The app will then be accessible at `http://<EC2_PUBLIC_IP>` (no port number needed).
+
+---
+
+**9. (Optional) Run as a systemd service so it survives reboots:**
 
 ```bash
 sudo tee /etc/systemd/system/dublin-bikes.service > /dev/null <<'EOF'
