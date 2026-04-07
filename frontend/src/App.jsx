@@ -2,14 +2,12 @@ import { useState, useCallback } from 'react'
 import AppNavbar from './components/AppNavbar'
 import BikeMap from './components/BikeMap'
 import StatusBar from './components/StatusBar'
-import WeatherForecast from './components/WeatherForecast'
 import AccountPage from './components/AccountPage'
 
 export default function App() {
   const [weather, setWeather] = useState(null)
   const [stationCount, setStationCount] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [showForecast, setShowForecast] = useState(false)
   const [currentPage, setCurrentPage] = useState('map')
   const [user, setUser] = useState(null)
   const [rentalVersion, setRentalVersion] = useState(0)
@@ -46,7 +44,7 @@ export default function App() {
             user={user}
             onRentalChange={() => setRentalVersion(v => v + 1)}
           />
-          <StatusBar stationCount={stationCount} weather={weather} onRefresh={handleRefresh} onForecast={() => setShowForecast(true)} />
+          <StatusBar stationCount={stationCount} weather={weather} onRefresh={handleRefresh} />
         </>
       )}
 
@@ -54,7 +52,6 @@ export default function App() {
         <AccountPage user={user} onLogin={handleLogin} onLogout={handleLogout} rentalVersion={rentalVersion} />
       )}
 
-      {showForecast && <WeatherForecast onClose={() => setShowForecast(false)} />}
     </div>
   )
 }

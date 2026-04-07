@@ -3,6 +3,8 @@ import { MapContainer, TileLayer, Marker, CircleMarker, Popup, Polyline, useMapE
 import L from 'leaflet'
 import RoutePlanner from './RoutePlanner'
 import StationHistoryChart from './StationHistoryChart'
+import PredictionWidget from './PredictionWidget'
+import WeatherForecastWidget from './WeatherForecastWidget'
 
 function bikeIcon(color) {
   return L.divIcon({
@@ -299,24 +301,40 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
         />
       )}
 
-      {/* ── Directions panel (floating over map) ── */}
-      <RoutePlanner
-        startPoint={startPoint}
-        endPoint={endPoint}
-        setStartPoint={setStartPoint}
-        setEndPoint={setEndPoint}
-        clickMode={clickMode}
-        setClickMode={setClickMode}
-        plan={plan}
-        onPlanComputed={setPlan}
-        onClear={handleClear}
-        stations={stations}
-      />
+      {/* ── Left sidebar: Route Plan / Predict / Forecast ── */}
+      <div style={styles.leftSidebar}>
+        <RoutePlanner
+          startPoint={startPoint}
+          endPoint={endPoint}
+          setStartPoint={setStartPoint}
+          setEndPoint={setEndPoint}
+          clickMode={clickMode}
+          setClickMode={setClickMode}
+          plan={plan}
+          onPlanComputed={setPlan}
+          onClear={handleClear}
+          stations={stations}
+        />
+        <PredictionWidget stations={stations} />
+        <WeatherForecastWidget />
+      </div>
     </div>
   )
 }
 
 const styles = {
+  leftSidebar: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 1000,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    maxHeight: 'calc(100% - 24px)',
+    overflowY: 'auto',
+    pointerEvents: 'none',  // 让地图点击穿透侧边栏空隙
+  },
   errorBanner: {
     position: 'absolute',
     top: 8, left: '50%',

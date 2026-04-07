@@ -14,6 +14,7 @@ from src.routes.route_planner_routes import route_planner_bp
 from src.routes.auth_routes import auth_bp
 from src.routes.rental_routes import rental_bp
 from src.routes.geocode_routes import geocode_bp
+from src.routes.prediction_routes import prediction_bp
 
 load_dotenv(override=False)  # env vars already set (e.g. in tests) take priority
 
@@ -48,6 +49,7 @@ app.register_blueprint(route_planner_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(rental_bp)
 app.register_blueprint(geocode_bp)
+app.register_blueprint(prediction_bp)
 
 
 @app.route("/", defaults={"path": ""})

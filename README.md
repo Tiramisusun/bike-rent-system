@@ -432,7 +432,7 @@ sudo systemctl status dublin-bikes
 
 #### Uploading local data to RDS
 
-If you have locally collected data (CSV / SQL dumps) that needs to be seeded into RDS:
+locally collected data (CSV / SQL dumps) that needs to be seeded into RDS:
 
 ```bash
 # From your local machine — copy the dump to EC2

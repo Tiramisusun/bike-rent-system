@@ -67,6 +67,16 @@ function fmtMin(min) {
   return `${Math.round(min)} min`
 }
 
+function PredictedStandsBadge({ n }) {
+  if (n == null) return null
+  const color = n === 0 ? '#e74c3c' : n <= 3 ? '#f39c12' : '#27ae60'
+  return (
+    <span style={{ color, fontWeight: 700, fontSize: '0.85rem' }}>
+      {' '}· 🔮 {n} stand{n !== 1 ? 's' : ''} predicted
+    </span>
+  )
+}
+
 function BikeRouteDetail({ pickup, dropoff, times, totalWalkingM, waypoints = [] }) {
   return (
     <>
@@ -93,7 +103,8 @@ function BikeRouteDetail({ pickup, dropoff, times, totalWalkingM, waypoints = []
           ))}
           <div style={s.stepStation}>{dropoff.name}</div>
           <div style={s.stepDetail}>
-            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} free
+            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} free now
+            <PredictedStandsBadge n={dropoff.predicted_stands} />
           </div>
         </div>
       </div>
@@ -256,7 +267,7 @@ export default function RoutePlanner({
   const [waypoints, setWaypoints] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   function handleClose() {
     setOpen(false)
@@ -352,7 +363,7 @@ export default function RoutePlanner({
       <div style={s.inputs}>
         <StationInput
           label="A"
-          dotColor="#1a73e8"
+          dotColor="#16a085"
           placeholder="Start — station name, number or address"
           value={startPoint ? startPoint.label : startText}
           onChange={v => { setStartText(v); setStartPoint(null) }}
@@ -453,20 +464,17 @@ export default function RoutePlanner({
 
 const s = {
   panel: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    zIndex: 1000,
     background: '#fff',
     borderRadius: 8,
     boxShadow: '0 2px 16px rgba(0,0,0,0.22)',
     width: 300,
-    maxHeight: 'calc(100% - 24px)',
+    maxHeight: 'calc(100vh - 120px)',
     overflowY: 'auto',
     fontFamily: "'Segoe UI', Arial, sans-serif",
+    pointerEvents: 'auto',
   },
   header: {
-    background: '#1a73e8',
+    background: '#16a085',
     color: '#fff',
     display: 'flex',
     alignItems: 'center',
@@ -537,7 +545,7 @@ const s = {
     margin: '8px 12px 0',
     padding: '5px 10px',
     background: '#e8f0fe',
-    color: '#1a73e8',
+    color: '#16a085',
     borderRadius: 4,
     fontSize: '0.78rem',
   },
@@ -546,7 +554,7 @@ const s = {
     width: 'calc(100% - 24px)',
     margin: '12px',
     padding: '9px',
-    background: '#1a73e8',
+    background: '#16a085',
     color: '#fff',
     border: 'none',
     borderRadius: 4,
@@ -570,7 +578,7 @@ const s = {
   stepIcon: { fontSize: '1.2rem', flexShrink: 0, marginTop: 1 },
   stepLabel: { fontSize: '0.8rem', color: '#666' },
   stepStation: { fontSize: '0.9rem', fontWeight: 600, color: '#1a1a1a', marginTop: 2 },
-  stepDetail: { fontSize: '0.78rem', color: '#1a73e8', marginTop: 2 },
+  stepDetail: { fontSize: '0.78rem', color: '#16a085', marginTop: 2 },
   connector: {
     borderLeft: '2px dashed #ddd',
     height: 18,
@@ -612,9 +620,9 @@ const s = {
   },
   addWpBtn: {
     background: 'none',
-    border: '1px dashed #1a73e8',
+    border: '1px dashed #16a085',
     borderRadius: 4,
-    color: '#1a73e8',
+    color: '#16a085',
     fontSize: '0.75rem',
     fontWeight: 600,
     padding: '2px 8px',
@@ -665,9 +673,9 @@ const s = {
     borderBottom: '1px solid #eee',
   },
   altNum: { fontWeight: 700, fontSize: '0.78rem', color: '#555', flex: 1 },
-  altTime: { fontSize: '0.82rem', fontWeight: 600, color: '#1a73e8' },
+  altTime: { fontSize: '0.82rem', fontWeight: 600, color: '#16a085' },
   altSelectBtn: {
-    background: '#1a73e8',
+    background: '#16a085',
     color: '#fff',
     border: 'none',
     borderRadius: 4,
@@ -729,7 +737,7 @@ const s = {
     ':hover': { background: '#f0f4ff' },
   },
   suggestNum: {
-    color: '#1a73e8',
+    color: '#16a085',
     fontWeight: 700,
     fontSize: '0.78rem',
     minWidth: 34,
@@ -748,11 +756,8 @@ const s = {
     flexShrink: 0,
   },
   openBtn: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    zIndex: 1000,
-    background: '#1a73e8',
+    pointerEvents: 'auto',
+    background: '#16a085',
     color: '#fff',
     border: 'none',
     borderRadius: 6,

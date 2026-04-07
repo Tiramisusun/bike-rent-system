@@ -2,7 +2,7 @@ import logging
 import math
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
@@ -10,7 +10,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from src.db import Station, StationStatus, Weather, WeatherReport
+from src.db import Station, StationStatus, Weather, WeatherReport, get_latest_weather
+from src.ml.occupancy_model import predict as ml_predict
 
 OSRM_BASE = "https://router.project-osrm.org/route/v1"
 DEFAULT_MAX_STATION_DISTANCE_M = 1500
@@ -410,6 +411,32 @@ def plan_route(
         bike  = _osrm_multi_leg(bike_points, "cycling", leg_cache)
         walk2 = leg(dropoff["lat"], dropoff["lng"], end_lat, end_lng, "walking")
 
+        # ── ML prediction: predicted stands at dropoff on arrival ──────────
+        arrival_dt = datetime.now(timezone.utc) + timedelta(
+            minutes=best["times_minutes"]["total_travel"]
+        )
+        predicted_stands = None
+        try:
+            weather = get_latest_weather(engine)
+            temp     = weather["temp"]     if weather else 12.0
+            humidity = weather["humidity"] if weather else 75.0
+            dropoff_candidate = next(
+                s for s in end_candidates if s.station_id == dropoff["station_id"]
+            )
+            capacity = dropoff_candidate.avail_bikes + dropoff_candidate.avail_docks
+            predicted_bikes = ml_predict(
+                station_id=dropoff["station_id"],
+                dt=arrival_dt,
+                lat=dropoff["lat"],
+                lon=dropoff["lng"],
+                temp=temp,
+                humidity=humidity,
+            )
+            predicted_stands = max(0, capacity - predicted_bikes)
+        except Exception as exc:
+            logger.warning("ML prediction for dropoff failed: %s", exc)
+        # ────────────────────────────────────────────────────────────────────
+
         return {
             "mode": "bike",
             "pickup_station": {
@@ -425,6 +452,7 @@ def plan_route(
                 "name": dropoff["name"],
                 "position": {"lat": dropoff["lat"], "lng": dropoff["lng"]},
                 "available_bike_stands": dropoff["avail_docks"],
+                "predicted_stands": predicted_stands,
                 "walking_distance_m": round(dropoff["distance_m"]),
                 "status": dropoff["status"],
             },

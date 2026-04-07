@@ -1,39 +1,49 @@
-''' Module for handling DB insertion '''
-from typing import List, Optional, Literal
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import Mapped, mapped_column, Relationship, Session
-from sqlalchemy import Double, ForeignKey, String, DateTime
-from sqlalchemy import create_engine, Engine, select, text
+"""Database models and helper functions for the Dublin Bike & Weather app."""
 
-from dotenv import load_dotenv
-import os
-import logging
 import json
-from pathlib import Path
-import click
+import logging
+import os
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import List, Literal, Optional
 
-# Init module level logger
+import click
+import pymysql
+from dotenv import load_dotenv
+from sqlalchemy import DateTime, Double, ForeignKey, String, create_engine, select
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, Relationship, Session, mapped_column
+
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Base
+# ---------------------------------------------------------------------------
+
 class Base(DeclarativeBase):
-    ...
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
 class User(Base):
-    __tablename__ = 'user'
+    __tablename__ = "user"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     name: Mapped[str] = mapped_column(String(80), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     def __repr__(self):
         return f"User(id={self.id}, email={self.email})"
 
 
 class Rental(Base):
-    __tablename__ = 'rental'
+    __tablename__ = "rental"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
@@ -49,21 +59,22 @@ class Rental(Base):
 
 
 class Weather(Base):
-    __tablename__ = 'weather'
+    __tablename__ = "weather"
 
-    id:Mapped[int] = mapped_column(primary_key=True)
-    main:Mapped[str] = mapped_column(String(15))
-    description:Mapped[str] = mapped_column(String(30))
-    icon:Mapped[str] = mapped_column(String(10))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    main: Mapped[str] = mapped_column(String(15))
+    description: Mapped[str] = mapped_column(String(30))
+    icon: Mapped[str] = mapped_column(String(10))
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return f"Weather(id={self.id}, main={self.main}, description={self.description})"
-    
-class WeatherReport(Base):
-    __tablename__ = 'weather_report'
 
-    id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True)
-    update_time:Mapped[datetime] = mapped_column(DateTime)
+
+class WeatherReport(Base):
+    __tablename__ = "weather_report"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    update_time: Mapped[datetime] = mapped_column(DateTime)
     temp: Mapped[float]
     feels_like: Mapped[float]
     visibility: Mapped[int]
@@ -72,12 +83,13 @@ class WeatherReport(Base):
     weather_id: Mapped[int] = mapped_column(ForeignKey("weather.id"))
 
     def __repr__(self):
-        return f"WeatherReport(id={self.id}, temp={self.temp}, update_time={self.update_time}, weather={self.weather_id})"
+        return f"WeatherReport(id={self.id}, temp={self.temp}, update_time={self.update_time})"
+
 
 class Forecast(Base):
-    __tablename__ = 'forecast'
+    __tablename__ = "forecast"
 
-    id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     datetime: Mapped[int]
     period: Mapped[str] = mapped_column(String(15))
     temp: Mapped[float]
@@ -86,383 +98,266 @@ class Forecast(Base):
     report_id: Mapped[int] = mapped_column("report", ForeignKey("weather_report.id"))
     report: Mapped["WeatherReport"] = Relationship()
 
-    def __repr__(self) -> str:
-        return f"Forecast(id={self.id}, datetime={self.datetime}, period={self.period}, weather={self.weather}, temp={self.temp})"
-    
-    
+    def __repr__(self):
+        return f"Forecast(id={self.id}, datetime={self.datetime}, period={self.period})"
+
+
 class Station(Base):
-    __tablename__ = 'station'
+    __tablename__ = "station"
 
     station_id: Mapped[int] = mapped_column(primary_key=True)
     contract: Mapped[str] = mapped_column(String(30))
-    address: Mapped[List["Address"]] = Relationship(
-        back_populates="station", cascade="all, delete-orphan"
-    )
     name: Mapped[str] = mapped_column(String(60))
-    longitude:Mapped[float] = mapped_column(type_=Double)
-    latitude:Mapped[float] = mapped_column(type_=Double)
+    longitude: Mapped[float] = mapped_column(type_=Double)
+    latitude: Mapped[float] = mapped_column(type_=Double)
+    address: Mapped[List["Address"]] = Relationship(back_populates="station", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"Station(id={self.station_id}, name={self.name}, address={self.address})"
-    
+        return f"Station(id={self.station_id}, name={self.name})"
+
+
 class StationStatus(Base):
-    __tablename__ = 'station_status'
+    __tablename__ = "station_status"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     station_id = mapped_column(ForeignKey("station.station_id"))
-    station:Mapped["Station"] = Relationship()
+    station: Mapped["Station"] = Relationship()
     update_time: Mapped[datetime] = mapped_column(DateTime)
     avail_bikes: Mapped[int]
     avail_bike_stands: Mapped[int]
     status: Mapped[str] = mapped_column(String(15))
 
-    def __repr__(self) -> str:
-        return f"StationStatus(id={self.id}, station={self.station}, avail_bikes={self.avail_bikes}, capacity={self.avail_bike_stands})"
+    def __repr__(self):
+        return f"StationStatus(id={self.id}, station_id={self.station_id}, avail_bikes={self.avail_bikes})"
+
 
 class Address(Base):
-    __tablename__ = 'address'
+    __tablename__ = "address"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     station_id = mapped_column(ForeignKey("station.station_id"))
     station: Mapped["Station"] = Relationship()
     street1: Mapped[str] = mapped_column(String(30))
-    street2: Mapped[str] = mapped_column(String(30), nullable=True)
-    county: Mapped[str] = mapped_column(String(30), nullable=True)
-    city: Mapped[str] = mapped_column(String(30), nullable=True)
-    eircode: Mapped[str] = mapped_column(String(15), nullable=True)
+    street2: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    county: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    eircode: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
 
     def __repr__(self):
-        return f"Address(id={self.id}, station={self.station}, street={self.street1}, county={self.county}, eircode={self.eircode})"
+        return f"Address(id={self.id}, street={self.street1}, eircode={self.eircode})"
 
+
+# ---------------------------------------------------------------------------
+# Engine / init
+# ---------------------------------------------------------------------------
 
 def load_engine() -> Engine:
-    ''' 
-    Load engine connection to the specified db.
-    
-    Engine is a lazy connection to an SQL DB, when engine is used to create a session a connection is established.
-
-    :return: SQL Alchemy Engine
-    :rtype: Engine
-
-    '''
-
-    # Load required .env vars.
+    """Load and return a SQLAlchemy engine from DB_URL in .env."""
     try:
         assert load_dotenv(), "Could not load .env variables."
-        DB_URL = os.getenv('DB_URL')
-        assert DB_URL, 'Could not find required DB URL.'
-
-        engine = create_engine(DB_URL)
-        return engine
-    
+        db_url = os.getenv("DB_URL")
+        assert db_url, "Could not find required DB_URL."
+        return create_engine(db_url)
     except Exception as e:
-        logger.error(f'Issue loading SQL engine: {str(e)}')
-        raise e
+        logger.error(f"Failed to load SQL engine: {e}")
+        raise
 
-@click.command(name='init-db', short_help='Initialize db, create all required tables')
-def init_db_click():
-    engine = load_engine()
-    init_db(engine)
-    click.echo('DB successfully initialized.')
 
-def init_db(engine:Engine):
-    '''
-    Initialise db by creating all required tables for specified engine.
-    Auto-creates the database if it does not exist.
-
-    :param engine: Description
-    :type engine: Engine
-    '''
+def init_db(engine: Engine) -> None:
+    """Create database and all tables if they do not exist."""
     try:
-        # Use pymysql directly to create the database if it doesn't exist
-        import pymysql
         url = engine.url
-        db_name = url.database
-        connection = pymysql.connect(
+        conn = pymysql.connect(
             host=url.host,
             port=url.port or 3306,
             user=url.username,
             password=url.password,
         )
-        with connection.cursor() as cursor:
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}`")
-        connection.close()
+        with conn.cursor() as cur:
+            cur.execute(f"CREATE DATABASE IF NOT EXISTS `{url.database}`")
+        conn.close()
 
         Base.metadata.create_all(engine)
-        logger.info(f'Successfully created {len(Base.metadata.tables)} tables.')
+        logger.info(f"Initialized {len(Base.metadata.tables)} tables.")
     except Exception as e:
-        logger.error(f'Issue initializing db: {str(e)}')
-        raise e
-    
-def _weather_id_not_in_db(weather_id:int, lookup_ids:list):
-    return not weather_id in lookup_ids
+        logger.error(f"Failed to initialize database: {e}")
+        raise
 
-def _gen_report(**kwargs) -> WeatherReport:
-    print(f'DEBUG kwargs: {kwargs}')
-  
-    report = WeatherReport(temp = kwargs.get('temp'),
-                            feels_like = kwargs.get('feels_like'),
-                            visibility = kwargs.get('visibility'),
-                            wind_speed = kwargs.get('speed'),
-                            humidity= kwargs.get('humidity'),
-                            update_time = kwargs.get('time'),
-                            weather_id = kwargs.get('weather_id')
-                            )
-    return report
 
-def _gen_forecast(**kwargs) -> Forecast:
-    forecast_orm = Forecast(weather_id=kwargs.get('weather_id'),
-                            report=kwargs.get('report'),
-                            temp=kwargs.get('temp'),
-                            period=kwargs.get('period'),
-                            datetime=kwargs.get('dt')
-                            )
-    return forecast_orm
+# ---------------------------------------------------------------------------
+# Write helpers
+# ---------------------------------------------------------------------------
 
-def _parse_weather(json_obj:dict, weather_ids:list, time:Optional[datetime]=None) -> list[Base]:
-    ''' Functionality for parsing OpenWeather JSON response to ORM mappings '''
-    # Access current weather first --> check if weather type already exists
-    #current = json_obj.get('current', {})
-    # weather = current.get('weather', {})[0]
-    current = json_obj.get('main', {})
-    wind = json_obj.get('wind', {})
-    weather = json_obj.get('weather', [])[0]
-    
-    # Create container for all orm mappings
-    weather_objs = []
+def _ensure_weather(session: Session, weather_data: dict, existing_ids: list[int]) -> int:
+    """Insert a Weather row if not already present; return its id."""
+    wid = weather_data["id"]
+    if wid not in existing_ids:
+        session.add(Weather(
+            id=wid,
+            main=weather_data["main"],
+            description=weather_data["description"],
+            icon=weather_data["icon"],
+        ))
+        existing_ids.append(wid)
+    return wid
 
-    # Create weather orm
-    weather_id = weather.get('id')
-    if _weather_id_not_in_db(weather_id, weather_ids): # If this weather id does not exist
-        weather_ids.append(weather_id)
-        weather_orm = Weather(**weather)
-        report_orm = _gen_report(weather_id=weather_orm.id, **current, **wind, visibility=json_obj.get('visibility'), time=time)
-        weather_objs.extend([weather_orm, report_orm])
-    
-    else:
-        report_orm = _gen_report(weather_id=weather_id, **current, **wind, visibility=json_obj.get('visibility'), time=time) 
-        weather_objs.append(report_orm)
 
-    
+def _insert_weather(session: Session, json_obj: dict, time: datetime) -> None:
+    existing_ids: list[int] = list(session.scalars(select(Weather.id)).all())
 
-    """hourly = current.get('hourly', [])
-    /weather there is no hourly, it will not excute.
-    """
-    hourly = json_obj.get('hourly', [])
+    weather_data = json_obj["weather"][0]
+    main = json_obj.get("main", {})
+    wind = json_obj.get("wind", {})
+    wid = _ensure_weather(session, weather_data, existing_ids)
 
-    for forecast in hourly:
-        hourly_weather = forecast.get('weather')[0]
-        hourly_weather_id = hourly_weather.get('id')
+    report = WeatherReport(
+        update_time=time,
+        temp=main.get("temp"),
+        feels_like=main.get("feels_like"),
+        humidity=main.get("humidity"),
+        wind_speed=wind.get("speed"),
+        visibility=json_obj.get("visibility", 0),
+        weather_id=wid,
+    )
+    session.add(report)
 
-        if _weather_id_not_in_db(hourly_weather_id, weather_ids):
-            hourly_weather_orm = Weather(**hourly_weather)
-            weather_ids.append(hourly_weather_id)
-            forecast_orm = _gen_forecast(weather_id=hourly_weather_orm.id,
-                                         period='hourly',
-                                         report=report_orm,
-                                         **forecast)
-        
-            weather_objs.extend([hourly_weather_orm, forecast_orm])
-        
-        else:
-            forecast_orm = _gen_forecast(weather_id=hourly_weather_id,
-                                         period='hourly',
-                                         report=report_orm,
-                                         **forecast)
-            weather_objs.append(forecast_orm)
-    
-    return weather_objs
+    for entry in json_obj.get("hourly", []):
+        hw = entry["weather"][0]
+        hwid = _ensure_weather(session, hw, existing_ids)
+        session.add(Forecast(
+            weather_id=hwid,
+            report=report,
+            temp=entry.get("temp"),
+            period="hourly",
+            datetime=entry.get("dt"),
+        ))
 
-def _gen_station_status(**kwargs):
-    status = StationStatus(station_id = kwargs.get('number'),
-                           update_time = kwargs.get('time'),
-                           avail_bikes = kwargs.get('available_bikes'),
-                           avail_bike_stands = kwargs.get('available_bike_stands'),
-                           status = kwargs.get('status')
-                           )
-    return status
 
-def _parse_bike_dynamic(json_obj:dict) -> list[StationStatus]:
-
-    # Create container for orm mappings
-    bike_objs = []
-    
+def _insert_bike_dynamic(session: Session, json_obj: list) -> None:
     for station in json_obj:
-        tm_tick = station.get('last_update')
-        if isinstance(tm_tick, int):
-            time = datetime.fromtimestamp((tm_tick / 1000), tz=timezone.utc)
+        tm = station.get("last_update")
+        update_time = (
+            datetime.fromtimestamp(tm / 1000, tz=timezone.utc).replace(tzinfo=None)
+            if isinstance(tm, int)
+            else datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+        session.add(StationStatus(
+            station_id=station.get("number"),
+            update_time=update_time,
+            avail_bikes=station.get("available_bikes"),
+            avail_bike_stands=station.get("available_bike_stands"),
+            status=station.get("status"),
+        ))
+
+
+def _insert_bike_static(session: Session, json_obj: list) -> None:
+    for item in json_obj:
+        station = Station(
+            station_id=item.get("number"),
+            contract=item.get("contract_name", ""),
+            name=item.get("name", ""),
+            longitude=item.get("position", {}).get("lng") or item.get("longitude"),
+            latitude=item.get("position", {}).get("lat") or item.get("latitude"),
+        )
+        session.merge(station)
+
+
+def db_from_request(
+    json_obj: dict,
+    typ: Literal["weather", "bike-dynamic", "bike-static"],
+    engine: Optional[Engine] = None,
+) -> None:
+    """Insert records from an in-memory JSON object."""
+    if not engine:
+        engine = load_engine()
+
+    with Session(engine) as session:
+        if typ == "weather":
+            _insert_weather(session, json_obj, datetime.now(timezone.utc).replace(tzinfo=None))
+        elif typ == "bike-dynamic":
+            _insert_bike_dynamic(session, json_obj)
+        elif typ == "bike-static":
+            _insert_bike_static(session, json_obj)
         else:
-            time = datetime.now()
-
-        station_status = _gen_station_status(**station, time=time)
-        bike_objs.append(station_status)
-    
-    return bike_objs
-        
-def _gen_station(**kwargs):
-    station = Station(station_id = kwargs.get('number'),
-                      contract = kwargs.get('contract_name'),
-                      name = kwargs.get('name'),
-                      longitude = kwargs.get('position', {}).get('lng'),
-                      latitude= kwargs.get('position', {}).get('lat')
-                      )
-    
-    return station
-
-def _parse_bike_static(json_obj:dict) -> list[Station | Address]:
-    bike_objs = [] # Create container for orm mappings
-
-    for station in json_obj:
-        station = _gen_station(**station)
-        bike_objs.append(station)
-    
-    return bike_objs
+            raise ValueError(f"Unknown type: {typ}")
+        session.commit()
 
 
-
-def db_from_file(filepath, typ, engine:Optional[Engine] = None, parse_time:bool=False):
-    '''
-    Functionality to insert from json file.
-    '''
+def db_from_file(
+    filepath,
+    typ: Literal["weather", "bike-dynamic", "bike-static"],
+    engine: Optional[Engine] = None,
+    parse_time: bool = False,
+) -> None:
+    """Insert records from a single JSON file."""
     if not engine:
         engine = load_engine()
 
     fp = Path(filepath)
-    assert fp.suffix == '.json', 'Error: expects a JSON file.'
-    time = None # Default time to none
-    if parse_time: # Attempt to parse time from filename (missing datetime in JSON)
-        timestamp = fp.stem.split('_')[1]
-        try:
-            time = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
-        except Exception as e:
-            logger.warning(f'Error parsing time from filename: {fp}')
+    assert fp.suffix == ".json", "Expected a .json file."
 
-            raise e
+    time = None
+    if parse_time:
+        timestamp = fp.stem.split("_")[1]
+        time = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
 
-    with open(fp, 'r') as fr:
-        json_obj = json.load(fr)
+    with open(fp) as f:
+        json_obj = json.load(f)
 
     with Session(engine) as session:
-        if typ == 'weather':
-            weather_ids = list(session.scalars(select(Weather.id)).all()) # Get all existing weather ids as list of ints
-            orm_objs = _parse_weather(json_obj, weather_ids, time)
-                        
-        elif typ == 'bike-dynamic':
-            orm_objs = _parse_bike_dynamic(json_obj)
-
-        elif typ == 'bike-static':
-            orm_objs = _parse_bike_static(json_obj)
-        
+        if typ == "weather":
+            _insert_weather(session, json_obj, time or datetime.now(timezone.utc).replace(tzinfo=None))
+        elif typ == "bike-dynamic":
+            _insert_bike_dynamic(session, json_obj)
+        elif typ == "bike-static":
+            _insert_bike_static(session, json_obj)
         else:
-            raise Exception('Invalid resource type.')
-
-        session.add_all(orm_objs)
+            raise ValueError(f"Unknown type: {typ}")
         session.commit()
 
 
-
-def db_from_directory(directory, typ, engine:Optional[Engine]=None, parse_time:bool=False):
-    '''
-    Functionality for recursively inserting data into db from directory of json objs.
-    '''
+def db_from_directory(
+    directory,
+    typ: Literal["weather", "bike-dynamic", "bike-static"],
+    engine: Optional[Engine] = None,
+    parse_time: bool = False,
+) -> None:
+    """Insert records from all JSON files in a directory."""
     if not engine:
         engine = load_engine()
 
-    orm_objs = [] # Collection for ORM mappings
-
-    with Session(engine) as session:
-        if typ == 'weather':
-            weather_ids = list(session.scalars(select(Weather.id)).all()) # Get all existing weather ids as list of ints
-
-        for root, subdirs, files in os.walk(directory):
-                if subdirs:
-                    logger.warning('Warning directories are expected to be flat. Sub-dirs will not be traversed.')
-                
-                for f in files:
-                    fp = Path(root) / f
-
-                    if parse_time: # Attempt to parse time from filename (missing datetime in JSON)
-                        timestamp = fp.stem.split('_')[1]
-                        try:
-                            time = datetime.strptime(timestamp, "%Y%m%dT%H%M%S")
-                        except Exception as e:
-                            logger.warning(f'Error parsing time from filename: {fp} > {e}')
-                            continue
-
-                    if fp.suffix == '.json': # Add json obj to collection
-                        with open(fp, 'r') as fr:
-                            json_obj = json.load(fr)
-                        
-                        if typ == 'weather':
-                            orm_objs.extend(_parse_weather(json_obj, weather_ids, time)) #type: ignore
-                    
-                        elif typ == 'bike-dynamic':
-                            orm_objs.extend(_parse_bike_dynamic(json_obj))
-
-                        elif typ == 'bike-static':
-                            orm_objs.extend(_parse_bike_static(json_obj))
-
-                    else:
-                        logger.warning('Non-json files detected. These files are not compatable.')
-
-        session.add_all(orm_objs)
-        session.commit()
+    for root, _, files in os.walk(directory):
+        for fname in files:
+            fp = Path(root) / fname
+            if fp.suffix != ".json":
+                continue
+            try:
+                db_from_file(fp, typ, engine, parse_time)
+            except Exception as e:
+                logger.warning(f"Skipping {fp}: {e}")
 
 
-def db_from_multi_dir(dir_list: list[tuple[str, Literal['weather', 'bike-dynamic', 'bike-static']]], engine:Optional[Engine]=None):
-    '''
-    Functionality for recursively inserting data from multiple directories.
-    
-    :param dir_list: List of tuples [str-pathlike, data source type <Literal ['weather', 'bike-dynamic', 'bike-static']>]
-    :type dir_list: tuple[str, str]
-    '''
+def db_from_multi_dir(
+    dir_list: list[tuple[str, Literal["weather", "bike-dynamic", "bike-static"]]],
+    engine: Optional[Engine] = None,
+) -> None:
+    """Insert records from multiple directories."""
     if not engine:
         engine = load_engine()
-
-    for directory in dir_list:
-        dir_path, typ = directory
-        db_from_directory(dir_path, typ, engine)
-            
-
-def db_from_request(json_obj:dict, typ:Literal['weather', 'bike-dynamic', 'bike-static'], engine:Optional[Engine]=None):
-    '''
-    Functionality for inserting db records from memory
-
-    :param json_obj: dict json obj in memory
-    :type json_obj: dict
-    :param type: type
-    :type type: Literal['weather', 'bike-dynamic', 'bike-static']
-    '''
-
-    if not engine:
-        engine = load_engine()
-    
-    with Session(engine) as session:
-        if typ == 'weather':
-            time = datetime.now() # Get current time for parsing rq
-            weather_ids = list(session.scalars(select(Weather.id)).all()) # Get all existing weather ids as list of ints
-            orm_objs = _parse_weather(json_obj, weather_ids, time)
-            session.add_all(orm_objs)
-
-        elif typ == 'bike-dynamic':
-            orm_objs = _parse_bike_dynamic(json_obj)
-            session.add_all(orm_objs)
-
-        elif typ == 'bike-static':
-            # Use merge to upsert: insert new stations, update existing ones (by primary key)
-            orm_objs = _parse_bike_static(json_obj)
-            for obj in orm_objs:
-                session.merge(obj)
-
-        session.commit()
+    for directory, typ in dir_list:
+        db_from_directory(directory, typ, engine)
 
 
-# READ FUNCTIONS #
+# ---------------------------------------------------------------------------
+# Read helpers
+# ---------------------------------------------------------------------------
 
 def get_latest_weather(engine: Engine) -> dict | None:
+    """Return the most recent WeatherReport as a dict, or None."""
     with Session(engine) as session:
-        stmt = select(WeatherReport).order_by(WeatherReport.update_time.desc()).limit(1)
-        report = session.scalars(stmt).first()
+        report = session.scalars(
+            select(WeatherReport).order_by(WeatherReport.update_time.desc()).limit(1)
+        ).first()
         if not report:
             return None
         return {
@@ -478,9 +373,9 @@ def get_latest_weather(engine: Engine) -> dict | None:
 
 
 def get_all_stations(engine: Engine) -> list[dict]:
+    """Return all stations as a list of dicts."""
     with Session(engine) as session:
-        stmt = select(Station)
-        stations = session.scalars(stmt).all()
+        stations = session.scalars(select(Station)).all()
         return [
             {
                 "station_id": s.station_id,
@@ -493,85 +388,12 @@ def get_all_stations(engine: Engine) -> list[dict]:
         ]
 
 
-def store_forecast_data(engine: Engine, forecast_list: list) -> None:
-    with Session(engine) as session:
-        existing_weather_ids = list(session.scalars(select(Weather.id)).all())
-        objs = []
-        for entry in forecast_list:
-            w = entry["weather"][0]
-            weather_id = w["id"]
-            if weather_id not in existing_weather_ids:
-                weather_orm = Weather(id=weather_id, main=w["main"], description=w["description"], icon=w["icon"])
-                session.add(weather_orm)
-                existing_weather_ids.append(weather_id)
-
-            update_time = datetime.utcfromtimestamp(entry["dt"])
-            report_orm = WeatherReport(
-                update_time=update_time,
-                temp=entry["main"]["temp"],
-                feels_like=entry["main"]["feels_like"],
-                humidity=entry["main"]["humidity"],
-                wind_speed=entry["wind"]["speed"],
-                visibility=entry.get("visibility", 0),
-                weather_id=weather_id,
-            )
-            session.add(report_orm)
-            session.flush()
-
-            forecast_orm = Forecast(
-                datetime=entry["dt"],
-                period="3hourly",
-                temp=entry["main"]["temp"],
-                weather_id=weather_id,
-                report_id=report_orm.id,
-            )
-            objs.append(forecast_orm)
-
-        session.add_all(objs)
-        session.commit()
-
-
-def get_forecast_data(engine: Engine) -> list[dict]:
-    with Session(engine) as session:
-        stmt = (
-            select(Forecast)
-            .order_by(Forecast.datetime.asc())
-        )
-        forecasts = session.scalars(stmt).all()
-        return [
-            {
-                "dt": f.datetime,
-                "time": datetime.utcfromtimestamp(f.datetime).strftime("%a %H:%M"),
-                "temp": round(f.temp),
-                "period": f.period,
-                "weather_id": f.weather_id,
-            }
-            for f in forecasts
-        ]
-
-
-def get_station_history(engine: Engine, station_id: int) -> list[dict]:
-    with Session(engine) as session:
-        stmt = (
-            select(StationStatus)
-            .where(StationStatus.station_id == station_id)
-            .order_by(StationStatus.update_time.asc())
-        )
-        statuses = session.scalars(stmt).all()
-        return [
-            {
-                "avail_bikes": s.avail_bikes,
-                "avail_bike_stands": s.avail_bike_stands,
-                "update_time": s.update_time.isoformat(),
-            }
-            for s in statuses
-        ]
-
-
 def get_latest_station_status(engine: Engine) -> list[dict]:
+    """Return all station status rows ordered by most recent first."""
     with Session(engine) as session:
-        stmt = select(StationStatus).order_by(StationStatus.update_time.desc())
-        statuses = session.scalars(stmt).all()
+        statuses = session.scalars(
+            select(StationStatus).order_by(StationStatus.update_time.desc())
+        ).all()
         return [
             {
                 "id": s.id,
@@ -585,47 +407,125 @@ def get_latest_station_status(engine: Engine) -> list[dict]:
         ]
 
 
-# CLICK CLI COMMANDS #
-
-@click.command(name='multi-dir', short_help='Insert to DB from multiple directories')
-@click.option('-d', '--directories',
-              multiple=True, 
-              type=(click.Path(exists=True), click.Choice(['weather', 'bike-dynamic', 'bike-static'])),
-              help="Pair of <directory_path> and <data_type>. Can be used multiple times."
-              )
-def db_from_multi_dir_click(directories):
-    db_from_multi_dir(directories)
-    click.echo(f'Successfully processed directories: {directories}')
-
-
-@click.command(name='dir', short_help='Insert data from a directory of JSON files')
-@click.argument('directory', type=click.Path(exists=True))
-@click.option('-p', '--parse-time', is_flag=True, default=False, help='Enable time parsing from file format, standard is "_" seperated ISO')
-@click.argument('typ', type=click.Choice(['weather', 'bike-dynamic', 'bike-static']))
-def db_from_directory_click(directory, typ, parse_time):
-    """Inserts all JSON records from DIRECTORY into the database."""
-    db_from_directory(directory, typ, parse_time=parse_time)
-    click.echo(f"Successfully processed directory: {directory}")
+def get_station_history(engine: Engine, station_id: int) -> list[dict]:
+    """Return historical status records for a single station."""
+    with Session(engine) as session:
+        statuses = session.scalars(
+            select(StationStatus)
+            .where(StationStatus.station_id == station_id)
+            .order_by(StationStatus.update_time.asc())
+        ).all()
+        return [
+            {
+                "avail_bikes": s.avail_bikes,
+                "avail_bike_stands": s.avail_bike_stands,
+                "update_time": s.update_time.isoformat(),
+            }
+            for s in statuses
+        ]
 
 
-@click.command(name='file', short_help='Insert data from a single JSON file')
-@click.argument('filepath', type=click.Path(exists=True))
-@click.option('-p', '--parse-time', is_flag=True, default=False, help='Enable time parsing from file format, standard is "_" seperated ISO')
-@click.argument('typ', type=click.Choice(['weather', 'bike-dynamic', 'bike-static']))
+def store_forecast_data(engine: Engine, forecast_list: list) -> None:
+    """Persist a list of OpenWeather 3-hourly forecast entries."""
+    with Session(engine) as session:
+        existing_ids: list[int] = list(session.scalars(select(Weather.id)).all())
+
+        for entry in forecast_list:
+            w = entry["weather"][0]
+            wid = _ensure_weather(session, w, existing_ids)
+
+            update_time = datetime.fromtimestamp(entry["dt"], tz=timezone.utc).replace(tzinfo=None)
+            report = WeatherReport(
+                update_time=update_time,
+                temp=entry["main"]["temp"],
+                feels_like=entry["main"]["feels_like"],
+                humidity=entry["main"]["humidity"],
+                wind_speed=entry["wind"]["speed"],
+                visibility=entry.get("visibility", 0),
+                weather_id=wid,
+            )
+            session.add(report)
+            session.flush()
+
+            session.add(Forecast(
+                datetime=entry["dt"],
+                period="3hourly",
+                temp=entry["main"]["temp"],
+                weather_id=wid,
+                report_id=report.id,
+            ))
+
+        session.commit()
+
+
+def get_forecast_data(engine: Engine) -> list[dict]:
+    """Return all forecast entries ordered by time ascending."""
+    with Session(engine) as session:
+        forecasts = session.scalars(
+            select(Forecast).order_by(Forecast.datetime.asc())
+        ).all()
+        return [
+            {
+                "dt": f.datetime,
+                "time": datetime.fromtimestamp(f.datetime, tz=timezone.utc).strftime("%a %H:%M"),
+                "temp": round(f.temp),
+                "period": f.period,
+                "weather_id": f.weather_id,
+            }
+            for f in forecasts
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Click CLI
+# ---------------------------------------------------------------------------
+
+@click.command(name="init-db", short_help="Initialize db, create all required tables")
+def init_db_click():
+    engine = load_engine()
+    init_db(engine)
+    click.echo("DB successfully initialized.")
+
+
+@click.command(name="file", short_help="Insert data from a single JSON file")
+@click.argument("filepath", type=click.Path(exists=True))
+@click.argument("typ", type=click.Choice(["weather", "bike-dynamic", "bike-static"]))
+@click.option("-p", "--parse-time", is_flag=True, default=False)
 def db_from_file_click(filepath, typ, parse_time):
-    ''' Insert data from a single JSON file '''
     db_from_file(filepath, typ, parse_time=parse_time)
-    click.echo(f"Successfully processed file: {filepath}")
+    click.echo(f"Processed: {filepath}")
 
-@click.group(name='Software Engineering DB tools',
-             short_help='Enables db initialization and insertion from a number of bulk formats',
-             help='Enables db initialization and insertion from a number of bulk formats, functionality can also be run w/ crontab')
+
+@click.command(name="dir", short_help="Insert data from a directory of JSON files")
+@click.argument("directory", type=click.Path(exists=True))
+@click.argument("typ", type=click.Choice(["weather", "bike-dynamic", "bike-static"]))
+@click.option("-p", "--parse-time", is_flag=True, default=False)
+def db_from_directory_click(directory, typ, parse_time):
+    db_from_directory(directory, typ, parse_time=parse_time)
+    click.echo(f"Processed directory: {directory}")
+
+
+@click.command(name="multi-dir", short_help="Insert to DB from multiple directories")
+@click.option(
+    "-d", "--directories",
+    multiple=True,
+    type=(click.Path(exists=True), click.Choice(["weather", "bike-dynamic", "bike-static"])),
+)
+def db_from_multi_dir_click(directories):
+    db_from_multi_dir(list(directories))
+    click.echo(f"Processed: {directories}")
+
+
+@click.group(name="db", short_help="DB initialization and bulk insertion tools")
 def cli():
-    ...
-cli.add_command(db_from_directory_click)
-cli.add_command(db_from_file_click)
-cli.add_command(db_from_multi_dir_click)
-cli.add_command(init_db_click)
+    pass
 
-if __name__ == '__main__':
+
+cli.add_command(init_db_click)
+cli.add_command(db_from_file_click)
+cli.add_command(db_from_directory_click)
+cli.add_command(db_from_multi_dir_click)
+
+
+if __name__ == "__main__":
     cli()
