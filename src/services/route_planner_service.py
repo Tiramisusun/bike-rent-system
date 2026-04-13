@@ -14,12 +14,14 @@ from src.db import Station, StationStatus, Weather, WeatherReport, get_latest_we
 from src.ml.occupancy_model import predict as ml_predict
 
 OSRM_BASE = "https://router.project-osrm.org/route/v1"
+ORS_BASE  = "https://api.openrouteservice.org/v2/directions"
 DEFAULT_MAX_STATION_DISTANCE_M = 1500
 DEFAULT_CANDIDATES = 4
 
-WALKING_SPEED_MS = 1.2   # 4.3 km/h — realistic urban walking pace
-# The OSRM demo server's foot profile returns unrealistically fast durations;
-# we use OSRM road distance ÷ WALKING_SPEED_MS instead of OSRM's own duration.
+WALKING_SPEED_MS  = 1.2   # 4.3 km/h — used only as straight-line fallback
+# OSRM foot-profile duration is multiplied by this factor to account for
+# pedestrian crossings, traffic lights, and realistic urban pace.
+WALKING_TIME_FACTOR = 1.2
 
 
 def _force_bike() -> bool:
@@ -73,8 +75,11 @@ def _haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 def _estimated_seconds(lat1: float, lng1: float, lat2: float, lng2: float, mode: str) -> int:
     # Haversine straight-line distance × road factor for a rough city detour correction
     straight = _haversine(lat1, lng1, lat2, lng2)
-    road_distance = straight * (1.3 if mode == "walking" else 1.2)
+    # Dublin: canals + Liffey river mean walking detours are typically 1.4–1.5×
+    road_distance = straight * (1.4 if mode == "walking" else 1.2)
     speed = WALKING_SPEED_MS if mode == "walking" else 4.5
+    if mode == "walking":
+        return max(60, int(road_distance / speed * WALKING_TIME_FACTOR))
     return max(60, int(road_distance / speed))
 
 
@@ -126,7 +131,9 @@ def _osrm_multi_leg(
         coords = [[c[1], c[0]] for c in route["geometry"]["coordinates"]]
 
         if mode == "walking":
-            seconds = max(60, int(route["distance"] / WALKING_SPEED_MS))
+            # Use OSRM's own duration (based on real road network) with a
+            # urban-pedestrian correction factor for crossings and real pace.
+            seconds = max(60, int(route["duration"] * WALKING_TIME_FACTOR))
         else:
             seconds = int(route["duration"])
 
@@ -279,6 +286,50 @@ def _walk_penalty(walk1_min: float, walk2_min: float, bike_min: float) -> float:
     return penalty
 
 
+def _ors_cycling_leg(
+    lat1: float, lng1: float,
+    lat2: float, lng2: float,
+    preference: str,
+    cache: dict,
+) -> _Leg:
+    """
+    Fetch a cycling leg from OpenRouteService with the given preference.
+    Falls back to OSRM if ORS_API_KEY is not set or the request fails.
+    preference: 'recommended' | 'fastest' | 'shortest'
+    """
+    api_key = os.getenv("ORS_API_KEY")
+    if not api_key:
+        return _osrm_leg(lat1, lng1, lat2, lng2, "cycling", cache)
+
+    key = (round(lat1, 6), round(lng1, 6), round(lat2, 6), round(lng2, 6), preference)
+    if key in cache:
+        return cache[key]
+
+    try:
+        resp = requests.get(
+            f"{ORS_BASE}/cycling-regular",
+            params={
+                "api_key": api_key,
+                "start": f"{lng1},{lat1}",
+                "end": f"{lng2},{lat2}",
+                "preference": preference,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        feature = data["features"][0]
+        coords = [[c[1], c[0]] for c in feature["geometry"]["coordinates"]]
+        seconds = int(feature["properties"]["segments"][0]["duration"])
+        leg = _Leg(seconds=seconds, coords=coords)
+    except Exception as exc:
+        logger.warning("ORS cycling failed (%s) — falling back to OSRM", exc)
+        leg = _osrm_leg(lat1, lng1, lat2, lng2, "cycling", cache)
+
+    cache[key] = leg
+    return leg
+
+
 def _station_dict(s: _StationCandidate) -> dict:
     return {
         "station_id": s.station_id,
@@ -424,6 +475,10 @@ def plan_route(
                 s for s in end_candidates if s.station_id == dropoff["station_id"]
             )
             capacity = dropoff_candidate.avail_bikes + dropoff_candidate.avail_docks
+            from sqlalchemy.orm import Session as _Session
+            from src.routes.prediction_routes import _get_station_history
+            with _Session(engine) as _sess:
+                recent_bikes, station_median = _get_station_history(_sess, dropoff["station_id"])
             predicted_bikes = ml_predict(
                 station_id=dropoff["station_id"],
                 dt=arrival_dt,
@@ -431,6 +486,8 @@ def plan_route(
                 lon=dropoff["lng"],
                 temp=temp,
                 humidity=humidity,
+                recent_bikes=recent_bikes,
+                station_median=station_median,
             )
             predicted_stands = max(0, capacity - predicted_bikes)
         except Exception as exc:
@@ -470,4 +527,164 @@ def plan_route(
             "alternatives": options[1:5],
             "weather": weather_meta,
             "baseline_walk_minutes": direct_walk_min,
+        }
+
+
+# ── New candidate-based planning ──────────────────────────────────────────────
+
+def get_candidates(
+    *,
+    engine: Engine,
+    start_lat: float,
+    start_lng: float,
+    end_lat: float,
+    end_lng: float,
+    departure_dt: datetime,
+) -> dict[str, Any]:
+    """
+    Step 1 of new planning flow.
+    Returns ML-ranked pickup and dropoff candidate stations.
+    Pickup candidates: predicted_bikes > 2 at departure_dt, sorted desc.
+    Dropoff candidates: all within 1500m, sorted by predicted_docks desc.
+    """
+    from src.routes.prediction_routes import _get_station_history
+
+    cache: dict = {}
+
+    with Session(engine) as session:
+        weather = get_latest_weather(engine)
+        temp     = weather["temp"]     if weather else 12.0
+        humidity = weather["humidity"] if weather else 75.0
+
+        pickup_nearby  = _nearest_candidates(session, start_lat, start_lng, DEFAULT_MAX_STATION_DISTANCE_M, 10)
+        dropoff_nearby = _nearest_candidates(session, end_lat,   end_lng,   DEFAULT_MAX_STATION_DISTANCE_M, 10)
+
+        # Estimate ride time (start → end, cycling) to approximate arrival time
+        est_leg      = _osrm_leg(start_lat, start_lng, end_lat, end_lng, "cycling", cache)
+        est_ride_min = _mins(est_leg.seconds)
+        arrival_dt   = departure_dt + timedelta(minutes=est_ride_min)
+
+        # ML predict for pickup candidates
+        pickup_candidates: list[dict] = []
+        for s in pickup_nearby:
+            try:
+                recent_bikes, station_median = _get_station_history(session, s.station_id)
+                predicted = ml_predict(
+                    station_id=s.station_id,
+                    dt=departure_dt,
+                    lat=s.lat, lon=s.lng,
+                    temp=temp, humidity=humidity,
+                    recent_bikes=recent_bikes,
+                    station_median=station_median,
+                )
+            except Exception:
+                predicted = s.avail_bikes
+
+            if predicted > 2:
+                pickup_candidates.append({**_station_dict(s), "predicted_bikes": predicted})
+
+        pickup_candidates.sort(key=lambda x: x["predicted_bikes"], reverse=True)
+
+        # ML predict for dropoff candidates
+        dropoff_candidates: list[dict] = []
+        for s in dropoff_nearby:
+            try:
+                recent_bikes, station_median = _get_station_history(session, s.station_id)
+                predicted_bikes = ml_predict(
+                    station_id=s.station_id,
+                    dt=arrival_dt,
+                    lat=s.lat, lon=s.lng,
+                    temp=temp, humidity=humidity,
+                    recent_bikes=recent_bikes,
+                    station_median=station_median,
+                )
+                capacity        = s.avail_bikes + s.avail_docks
+                predicted_docks = max(0, capacity - predicted_bikes)
+            except Exception:
+                predicted_docks = s.avail_docks
+
+            dropoff_candidates.append({**_station_dict(s), "predicted_docks": predicted_docks})
+
+        dropoff_candidates.sort(key=lambda x: x["predicted_docks"], reverse=True)
+
+        return {
+            "pickup_candidates":      pickup_candidates,
+            "dropoff_candidates":     dropoff_candidates,
+            "estimated_ride_minutes": round(est_ride_min, 1),
+            "arrival_time":           arrival_dt.isoformat(),
+        }
+
+
+def plan_route_simple(
+    *,
+    engine: Engine,
+    pickup_id: int,
+    dropoff_id: int,
+    start_lat: float,
+    start_lng: float,
+    end_lat: float,
+    end_lng: float,
+    preference: str = "recommended",
+) -> dict[str, Any]:
+    """
+    Step 2 of new planning flow.
+    Given user-selected pickup and dropoff stations, compute the three-leg route.
+    Cycling leg uses ORS with the given preference (falls back to OSRM if no key).
+    preference: 'recommended' | 'fastest' | 'shortest'
+    """
+    cache: dict = {}
+
+    with Session(engine) as session:
+        statuses   = _latest_status(session)
+        pickup_st  = session.get(Station, pickup_id)
+        dropoff_st = session.get(Station, dropoff_id)
+
+        if not pickup_st or not dropoff_st:
+            raise RoutePlanningError("Station not found")
+
+        pickup_status  = statuses.get(pickup_id,  {})
+        dropoff_status = statuses.get(dropoff_id, {})
+
+        walk1 = _osrm_leg(start_lat, start_lng,
+                          float(pickup_st.latitude), float(pickup_st.longitude),
+                          "walking", cache)
+        bike  = _ors_cycling_leg(float(pickup_st.latitude),  float(pickup_st.longitude),
+                                  float(dropoff_st.latitude), float(dropoff_st.longitude),
+                                  preference, cache)
+        walk2 = _osrm_leg(float(dropoff_st.latitude), float(dropoff_st.longitude),
+                          end_lat, end_lng,
+                          "walking", cache)
+
+        walk1_min = _mins(walk1.seconds)
+        bike_min  = _mins(bike.seconds)
+        walk2_min = _mins(walk2.seconds)
+
+        return {
+            "mode": "bike",
+            "pickup_station": {
+                "station_id":    pickup_st.station_id,
+                "name":          pickup_st.name,
+                "position":      {"lat": float(pickup_st.latitude), "lng": float(pickup_st.longitude)},
+                "available_bikes": pickup_status.get("avail_bikes", 0),
+                "status":        pickup_status.get("status", ""),
+            },
+            "dropoff_station": {
+                "station_id":          dropoff_st.station_id,
+                "name":                dropoff_st.name,
+                "position":            {"lat": float(dropoff_st.latitude), "lng": float(dropoff_st.longitude)},
+                "available_bike_stands": dropoff_status.get("avail_docks", 0),
+                "status":              dropoff_status.get("status", ""),
+            },
+            "times_minutes": {
+                "walk_to_pickup":       walk1_min,
+                "bike":                 bike_min,
+                "walk_to_destination":  walk2_min,
+                "total_travel":         round(walk1_min + bike_min + walk2_min, 2),
+            },
+            "cycling_preference": preference,
+            "polylines": {
+                "walk_to_pickup":      walk1.coords,
+                "bike":                bike.coords,
+                "walk_to_destination": walk2.coords,
+            },
         }

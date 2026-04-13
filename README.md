@@ -12,96 +12,104 @@ The system fetches real-time bike and weather data from external APIs, stores it
 ```
 .
 ├── app.py                          # Flask application entry point
-├── requirements.txt
-├── notebooks/                      # Jupyter notebooks for ML analysis
-│   └── occupancy_analysis.ipynb   # Feature selection, model comparison, best model export
-├── data/
-│   └── best_bike_model.pkl        # Trained RandomForest model (not tracked in git)
+├── requirements.txt                # Python dependencies
+├── conftest.py                     # Shared pytest fixtures
+├── pytest.ini                      # Pytest configuration
+│
+├── data/                           # ML artefacts (not tracked in git)
+│   ├── best_bike_model.pkl         # Trained model exported from notebook
+│   ├── final_merged_data.csv       # Historical Dublin Bikes + weather data
+│   └── bike_availability_time_features_updated.ipynb  # Training notebook
+│
 ├── frontend/                       # React + Vite frontend
 │   └── src/
-│       ├── App.jsx
+│       ├── App.jsx                 # Root component, auth state, navbar
 │       └── components/
-│           ├── BikeMap.jsx              # Leaflet map with station markers
-│           ├── RoutePlanner.jsx         # Route planning panel (left sidebar)
-│           ├── PredictionWidget.jsx     # Bike availability prediction panel
-│           ├── WeatherForecastWidget.jsx # 5-day weather forecast panel
+│           ├── BikeMap.jsx              # Leaflet map, station markers, predict-all panel
+│           ├── RoutePlanner.jsx         # Route planning sidebar (left)
+│           ├── PredictionWidget.jsx     # Single-station prediction sidebar (left)
+│           ├── WeatherForecastWidget.jsx # 5-day weather forecast sidebar (left)
 │           ├── StationHistoryChart.jsx  # Historical availability chart modal
 │           ├── StatusBar.jsx            # Bottom status bar
 │           └── AppNavbar.jsx            # Top navigation bar
-├── src/                            # Python backend source
-│   ├── db.py                       # SQLAlchemy models & DB operations
+│
+├── src/                            # Python backend
+│   ├── db/                         # Database package (split by responsibility)
+│   │   ├── __init__.py             # Re-exports all public symbols (other files unchanged)
+│   │   ├── models.py               # SQLAlchemy ORM models (8 tables)
+│   │   ├── engine.py               # load_engine(), init_db()
+│   │   ├── writers.py              # db_from_request(), store_forecast_data()
+│   │   ├── readers.py              # get_latest_weather(), get_all_stations(), etc.
+│   │   └── cli.py                  # init-db CLI command
 │   ├── ml/
-│   │   └── occupancy_model.py      # Model loading and prediction logic
+│   │   ├── __init__.py
+│   │   └── occupancy_model.py      # Model loading, feature engineering, predict()
 │   ├── routes/
-│   │   ├── bikes_routes.py         # /api/bikes, /api/db/stations
-│   │   ├── weather_routes.py       # /api/weather, /api/weather/forecast
-│   │   ├── route_planner_routes.py # /api/plan
-│   │   ├── prediction_routes.py    # /api/predict
-│   │   ├── auth_routes.py          # /api/auth/register, /api/auth/login
-│   │   ├── rental_routes.py        # /api/rental/*
-│   │   └── geocode_routes.py       # /api/geocode/eircode
+│   │   ├── bikes_routes.py         # GET /api/bikes, /api/db/stations
+│   │   ├── weather_routes.py       # GET /api/weather, /api/weather/forecast
+│   │   ├── route_planner_routes.py # GET /api/plan
+│   │   ├── prediction_routes.py    # GET /api/predict, /api/predict/all
+│   │   ├── auth_routes.py          # POST /api/auth/register, /api/auth/login
+│   │   ├── rental_routes.py        # POST /api/rental/start|end, GET /api/rental/active|history
+│   │   └── geocode_routes.py       # GET /api/geocode/eircode
 │   ├── services/
 │   │   ├── bikes_service.py        # JCDecaux API fetch
 │   │   ├── weather_service.py      # OpenWeather API fetch
 │   │   └── routing_service.py      # OSRM routing
-│   └── tasks/
+│   └── tasks/                      # Background data-fetch tasks
 │       ├── bicycle/
 │       │   └── stations_fetch_current.py
 │       └── openweather/
 │           └── fetch_current.py
-├── sql/
+│
+├── sql/                            # Database schema scripts
 │   ├── softwaredb.sql
 │   └── bike_app.sql
 ├── terraform/                      # AWS infrastructure as code
-├── conftest.py
-├── pytest.ini
 └── tests/
-    ├── test_bike_api.py
-    ├── test_weather_api.py
-    ├── test_auth.py
-    ├── test_rental.py
-    ├── test_route_planner.py
-    └── test_db.py
+    ├── test_bike_api.py            # JCDecaux service & bike endpoints
+    ├── test_weather_api.py         # OpenWeather service & weather endpoints
+    ├── test_auth.py                # Register, login, auth guards
+    ├── test_rental.py              # Full rental lifecycle & pricing
+    ├── test_route_planner.py       # Haversine, scoring, /api/plan
+    └── test_db.py                  # Shared DB fixtures
 ```
 
 ---
 
 ## Machine Learning
 
-The system includes a RandomForest regression model that predicts the number of available bikes at a station given the time and weather conditions.
+The system includes a regression model that predicts the number of available bikes at a station given the time, location, weather, and recent demand history.
 
-### Features used
+### Features used (28 total)
 
-| Feature | Description |
-|---|---|
-| `station_id` | Station identifier |
-| `hour` | Hour of day (0–23) |
-| `month` | Month of year |
-| `year` | Year |
-| `lat` / `lon` | Station coordinates |
-| `day_of_week` | 0 = Monday, 6 = Sunday |
-| `rush_hour` | 1 if 07:00–09:00 or 16:00–19:00 |
-| `max_air_temperature_celsius` | Temperature (mapped to OpenWeather `main.temp`) |
-| `air_temperature_std_deviation` | Fixed to 0 at inference |
-| `max_relative_humidity_percent` | Humidity (mapped to OpenWeather `main.humidity`) |
+| Category | Features | Description |
+|---|---|---|
+| Station / location | `station_id`, `lat`, `lon` | Station identifier and coordinates |
+| Basic time | `hour`, `month`, `year`, `day_of_week` | Calendar fields |
+| Time flags | `is_weekend`, `rush_hour`, `is_morning_peak`, `is_evening_peak` | Derived from hour and day |
+| Cyclical time | `hour_sin`, `hour_cos`, `dow_sin`, `dow_cos` | Sine/cosine encoding to capture periodicity |
+| Weather | `max_air_temperature_celsius`, `air_temperature_std_deviation`, `max_relative_humidity_percent` | Temperature and humidity (mapped from OpenWeather at inference; std fixed to 0) |
+| Lag features | `lag_1`, `lag_2`, `lag_3`, `lag_24`, `lag_168` | Available bikes 1/2/3/24/168 hours ago |
+| Rolling statistics | `rolling_mean_3`, `rolling_mean_24`, `rolling_std_3`, `rolling_std_24` | Mean and std of available bikes over the last 3 and 24 hours |
+| Station baseline | `station_median_bikes` | Median available bikes for the station across all history |
+
+Lag and rolling features are computed from the `station_status` table at inference time. If historical records are insufficient, missing values fall back to 0.
 
 ### Training
 
-Open `notebooks/occupancy_analysis.ipynb` and run all cells. The notebook:
+Open `data/bike_availability_time_features_updated.ipynb` and run all cells. The notebook:
 1. Loads `data/final_merged_data.csv` (historical Dublin Bikes + weather data)
-2. Engineers features and compares multiple algorithms (Linear Regression, Decision Tree, RandomForest, Gradient Boosting)
-3. Evaluates with MAE and R²
-4. Exports the best model to `data/best_bike_model.pkl`
-
-Recommended training parameters (keeps model size under 100MB):
-```python
-RandomForestRegressor(n_estimators=100, max_depth=15, random_state=42)
-```
+2. Engineers all 28 features including lag, rolling, and cyclical encodings
+3. Compares multiple algorithms: Linear Regression, Decision Tree, RandomForest, Gradient Boosting, XGBoost
+4. Evaluates with MAE and R²
+5. Exports the best model to `data/best_bike_model.pkl`
 
 ### Integration
 
-The trained model is used in two places:
-- **`GET /api/predict`** — predict available bikes for any station at a given date/time
+The trained model is used in three places:
+- **`GET /api/predict`** — predict available bikes for a single station at a given date/time
+- **`GET /api/predict/all`** — predict available bikes and free stands for all stations at once; results are shown in each station's map popup
 - **`GET /api/plan`** — when planning a route, the dropoff station shows predicted available stands on arrival
 
 ---
@@ -114,7 +122,7 @@ The trained model is used in two places:
 podman run -d \
   --name softwaredb \
   -e MYSQL_ROOT_PASSWORD=root \
-  -p 3306:3306 \
+  -p 3307:3306 \
   mysql:8.0
 ```
 
@@ -130,20 +138,27 @@ Update `.env`:
 DB_URL=mysql+pymysql://root:root@localhost:3306/softwaredb
 ```
 
-### 2. Install Python dependencies and initialise the database
+### 2. Create a Python virtual environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+```
+
+### 3. Install Python dependencies and initialise the database
 
 ```bash
 pip install -r requirements.txt
-python3 src/db.py init-db
+python3 src/db/cli.py init-db
 ```
 
-### 3. Start the Flask backend
+### 4. Start the Flask backend
 
 ```bash
 python3 app.py
 ```
 
-### 4. Start the React frontend
+### 5. Start the React frontend
 
 ```bash
 cd frontend
@@ -242,21 +257,34 @@ Tests use pytest with an in-memory SQLite database — no MySQL connection requi
 # Run all tests
 python3 -m pytest
 
-# Run with coverage
+# Run with coverage report (shows which lines in src/ are not covered)
 python3 -m pytest --cov=src --cov-report=term-missing
 
-# Run a specific file
+# Run a single file with verbose output (lists each test as PASSED or FAILED)
 python3 -m pytest tests/test_auth.py -v
+python3 -m pytest tests/test_prediction.py -v
 ```
 
-| File | Coverage |
-|---|---|
-| `test_bike_api.py` | JCDecaux service, `/api/bikes`, `/api/db/stations` |
-| `test_weather_api.py` | OpenWeather service, `/api/weather`, `/api/weather/forecast` |
-| `test_auth.py` | Register, login, duplicate email, wrong password |
-| `test_rental.py` | Full rental lifecycle, auth guard, duplicate prevention |
-| `test_route_planner.py` | Haversine, penalties, `/api/plan` with/without waypoints |
-| `test_db.py` | Shared fixtures reused across test files |
+### Test types
+
+The test suite covers four levels:
+
+- **Unit tests** — test individual functions in isolation (no DB, no HTTP). Examples: pricing calculation, feature engineering in `predict()`, Haversine distance, route scoring penalties.
+- **Integration tests** — test a full request/response cycle through Flask, routing, and the in-memory SQLite DB. Examples: all API endpoints across auth, rental, bikes, weather, route planning, and prediction.
+- **Regression tests** — the full suite acts as a regression guard; run `pytest` after any change to confirm nothing is broken.
+- **Acceptance criteria** — each test maps to a user-facing requirement (e.g. first 30 minutes free, JWT required for rental, 404 for unknown station).
+
+### Test files
+
+| File | Type | Coverage |
+|---|---|---|
+| `test_auth.py` | Integration | Register, login, duplicate email, wrong password |
+| `test_rental.py` | Integration | Full rental lifecycle, auth guard, duplicate prevention |
+| `test_bike_api.py` | Integration | JCDecaux service, `/api/bikes`, `/api/db/stations` |
+| `test_weather_api.py` | Integration | OpenWeather service, `/api/weather`, `/api/weather/forecast` |
+| `test_route_planner.py` | Unit + Integration | Haversine, scoring penalties, `/api/plan` with/without waypoints |
+| `test_prediction.py` | Unit + Integration | Pricing logic, feature engineering, `/api/predict`, `/api/predict/all` |
+| `test_db.py` | Shared fixtures | Reused across test files |
 
 ---
 
@@ -286,7 +314,7 @@ sudo dnf install -y python3 python3-pip git nodejs npm
 git clone https://github.com/Tiramisusun/bike-rent-system.git app
 cd app
 pip3 install -r requirements.txt
-python3 src/db.py init-db
+python3 src/db/cli.py init-db
 
 # Build frontend
 cd frontend && npm ci && npm run build && cd ..

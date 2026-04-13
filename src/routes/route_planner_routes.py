@@ -1,6 +1,10 @@
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, jsonify, request
 
-from src.services.route_planner_service import RoutePlanningError, plan_route
+from src.services.route_planner_service import (
+    RoutePlanningError, plan_route, get_candidates, plan_route_simple,
+)
 
 route_planner_bp = Blueprint("route_planner", __name__)
 
@@ -15,7 +19,7 @@ def _float_param(key: str) -> float:
         raise ValueError(f"Invalid value for '{key}': must be a number")
 
 
-def _int_param(key: str, default: int) -> int:
+def _int_param(key: str, default):
     value = request.args.get(key)
     if value is None:
         return default
@@ -112,3 +116,80 @@ def api_plan():
     except Exception as exc:
         current_app.logger.exception("Unexpected route planning failure")
         return jsonify({"error": f"Route planning failed: {exc}"}), 500
+
+
+@route_planner_bp.route("/api/plan/candidates")
+def api_plan_candidates():
+    """
+    Step 1: return ML-ranked pickup and dropoff candidate stations.
+    GET /api/plan/candidates?start_lat=&start_lng=&end_lat=&end_lng=&departure_time=ISO8601
+    """
+    try:
+        start_lat = _float_param("start_lat")
+        start_lng = _float_param("start_lng")
+        end_lat   = _float_param("end_lat")
+        end_lng   = _float_param("end_lng")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    dt_raw = request.args.get("departure_time", "").strip()
+    if dt_raw:
+        try:
+            departure_dt = datetime.fromisoformat(dt_raw).replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({"error": "Invalid departure_time format. Use ISO 8601."}), 400
+    else:
+        departure_dt = datetime.now(timezone.utc)
+
+    try:
+        engine = current_app.extensions["engine"]
+        result = get_candidates(
+            engine=engine,
+            start_lat=start_lat, start_lng=start_lng,
+            end_lat=end_lat,     end_lng=end_lng,
+            departure_dt=departure_dt,
+        )
+        return jsonify(result)
+    except Exception as exc:
+        current_app.logger.exception("get_candidates failed")
+        return jsonify({"error": str(exc)}), 500
+
+
+@route_planner_bp.route("/api/plan/route")
+def api_plan_route():
+    """
+    Step 2: compute the three-leg route for user-selected stations.
+    GET /api/plan/route?pickup_id=&dropoff_id=&start_lat=&start_lng=&end_lat=&end_lng=&preference=recommended
+    """
+    try:
+        start_lat  = _float_param("start_lat")
+        start_lng  = _float_param("start_lng")
+        end_lat    = _float_param("end_lat")
+        end_lng    = _float_param("end_lng")
+        pickup_id  = _int_param("pickup_id",  None)
+        dropoff_id = _int_param("dropoff_id", None)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if pickup_id is None or dropoff_id is None:
+        return jsonify({"error": "pickup_id and dropoff_id are required"}), 400
+
+    preference = request.args.get("preference", "recommended")
+    if preference not in ("recommended", "fastest", "shortest"):
+        return jsonify({"error": "preference must be recommended, fastest, or shortest"}), 400
+
+    try:
+        engine = current_app.extensions["engine"]
+        result = plan_route_simple(
+            engine=engine,
+            pickup_id=pickup_id,   dropoff_id=dropoff_id,
+            start_lat=start_lat,   start_lng=start_lng,
+            end_lat=end_lat,       end_lng=end_lng,
+            preference=preference,
+        )
+        return jsonify(result)
+    except RoutePlanningError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        current_app.logger.exception("plan_route_simple failed")
+        return jsonify({"error": str(exc)}), 500

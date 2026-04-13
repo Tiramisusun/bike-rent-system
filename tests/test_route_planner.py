@@ -4,10 +4,7 @@ Run with:  pytest tests/test_route_planner.py -v
 """
 import pytest
 from unittest.mock import patch, MagicMock
-from src.services.route_planner_service import (
-    _haversine, _mins, _availability_penalty, _walk_penalty,
-    _StationCandidate,
-)
+from src.services.route_planner_service import _haversine, _mins
 
 
 # ── Pure unit tests (no DB, no HTTP) ─────────────────────────────────────────
@@ -33,40 +30,6 @@ class TestMins:
 
     def test_rounding(self):
         assert _mins(90) == 1.5
-
-
-class TestAvailabilityPenalty:
-    def _station(self, bikes, docks):
-        return _StationCandidate(
-            station_id=1, name="X", lat=0, lng=0,
-            distance_m=100, avail_bikes=bikes,
-            avail_docks=docks, status="OPEN"
-        )
-
-    def test_no_penalty_when_plenty(self):
-        assert _availability_penalty(self._station(10, 10), self._station(10, 10)) == 0.0
-
-    def test_penalty_when_low_bikes(self):
-        assert _availability_penalty(self._station(1, 10), self._station(10, 10)) > 0
-
-    def test_penalty_when_low_docks(self):
-        assert _availability_penalty(self._station(10, 10), self._station(10, 1)) > 0
-
-    def test_high_penalty_when_critical(self):
-        p = _availability_penalty(self._station(0, 10), self._station(10, 0))
-        # Both critical — should be high
-        assert p >= 12.0
-
-
-class TestWalkPenalty:
-    def test_no_penalty_for_short_walk(self):
-        assert _walk_penalty(5, 5, 10) == 0.0
-
-    def test_penalty_when_walk_exceeds_15_min(self):
-        assert _walk_penalty(10, 10, 5) > 0
-
-    def test_penalty_when_walk_longer_than_ride(self):
-        assert _walk_penalty(8, 8, 3) > 0
 
 
 # ── Integration: /api/plan endpoint ──────────────────────────────────────────

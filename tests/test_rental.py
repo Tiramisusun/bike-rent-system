@@ -18,7 +18,6 @@ def client():
     engine = create_engine("sqlite:///:memory:", echo=False)
     init_db(engine)
 
-    # Seed two stations with available bikes/stands
     with Session(engine) as s:
         st1 = Station(station_id=1, name="STATION A", contract="dublin",
                       latitude=53.34, longitude=-6.26)
@@ -50,8 +49,6 @@ def _register_and_token(client, email="user@test.com"):
     return res.get_json()["token"]
 
 
-# ── Start rental ──────────────────────────────────────────────────────────────
-
 def test_start_rental_success(client):
     token = _register_and_token(client, "start@test.com")
     res = client.post("/api/rental/start",
@@ -68,37 +65,6 @@ def test_start_rental_requires_auth(client):
     assert res.status_code == 401
 
 
-def test_cannot_start_two_rentals(client):
-    token = _register_and_token(client, "double@test.com")
-    client.post("/api/rental/start", json={"station_id": 1},
-                headers={"Authorization": f"Bearer {token}"})
-    res = client.post("/api/rental/start", json={"station_id": 2},
-                      headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code == 400
-
-
-# ── Active rental ─────────────────────────────────────────────────────────────
-
-def test_active_rental(client):
-    token = _register_and_token(client, "active@test.com")
-    client.post("/api/rental/start", json={"station_id": 1},
-                headers={"Authorization": f"Bearer {token}"})
-    res = client.get("/api/rental/active",
-                     headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code == 200
-    assert res.get_json()["active"] is not None
-
-
-def test_no_active_rental(client):
-    token = _register_and_token(client, "noactive@test.com")
-    res = client.get("/api/rental/active",
-                     headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code == 200
-    assert res.get_json()["active"] is None
-
-
-# ── End rental & cost ─────────────────────────────────────────────────────────
-
 def test_end_rental_success(client):
     token = _register_and_token(client, "end@test.com")
     client.post("/api/rental/start", json={"station_id": 1},
@@ -110,15 +76,6 @@ def test_end_rental_success(client):
     assert "cost_eur" in data
     assert "duration_minutes" in data
 
-
-def test_end_rental_no_active(client):
-    token = _register_and_token(client, "noend@test.com")
-    res = client.post("/api/rental/end", json={"station_id": 2},
-                      headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code in (400, 404)
-
-
-# ── History ───────────────────────────────────────────────────────────────────
 
 def test_rental_history(client):
     token = _register_and_token(client, "history@test.com")

@@ -1,4 +1,107 @@
 import pytest
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from src.db import init_db, get_all_stations, get_latest_weather, get_station_history
+from src.db import db_from_request, Station, StationStatus
+
+
+def _make_engine():
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    init_db(engine)
+    return engine
+
+
+# ── db_from_request ───────────────────────────────────────────────────────────
+
+class TestDbFromRequest:
+
+    def test_write_weather_creates_report(self):
+        engine = _make_engine()
+        payload = {
+            "weather": [{"id": 800, "main": "Clear", "description": "clear sky", "icon": "01d"}],
+            "main": {"temp": 12.5, "feels_like": 10.0, "humidity": 78},
+            "wind": {"speed": 3.0},
+            "visibility": 10000,
+        }
+        db_from_request(payload, typ="weather", engine=engine)
+        result = get_latest_weather(engine)
+        assert result is not None
+        assert result["temp"] == 12.5
+        assert result["humidity"] == 78
+
+    def test_unknown_type_raises(self):
+        engine = _make_engine()
+        with pytest.raises(ValueError):
+            db_from_request({}, typ="invalid-type", engine=engine)
+
+
+# ── get_all_stations ──────────────────────────────────────────────────────────
+
+class TestGetAllStations:
+
+    def test_returns_all_stations(self, bike_static_data):
+        engine = _make_engine()
+        db_from_request(bike_static_data, typ="bike-static", engine=engine)
+        assert len(get_all_stations(engine)) == 2
+
+    def test_empty_db_returns_empty_list(self):
+        engine = _make_engine()
+        assert get_all_stations(engine) == []
+
+
+# ── get_latest_weather ────────────────────────────────────────────────────────
+
+class TestGetLatestWeather:
+
+    def test_returns_most_recent(self):
+        engine = _make_engine()
+        old = {
+            "weather": [{"id": 800, "main": "Clear", "description": "clear sky", "icon": "01d"}],
+            "main": {"temp": 5.0, "feels_like": 3.0, "humidity": 60},
+            "wind": {"speed": 2.0},
+            "visibility": 8000,
+        }
+        new = {
+            "weather": [{"id": 801, "main": "Clouds", "description": "few clouds", "icon": "02d"}],
+            "main": {"temp": 15.0, "feels_like": 13.0, "humidity": 50},
+            "wind": {"speed": 4.0},
+            "visibility": 10000,
+        }
+        db_from_request(old, typ="weather", engine=engine)
+        db_from_request(new, typ="weather", engine=engine)
+        assert get_latest_weather(engine)["temp"] == 15.0
+
+
+# ── get_station_history ───────────────────────────────────────────────────────
+
+class TestGetStationHistory:
+
+    def test_returns_records_in_ascending_order(self):
+        engine = _make_engine()
+        with Session(engine) as s:
+            s.add(Station(station_id=5, name="TEST", contract="dublin",
+                          latitude=53.34, longitude=-6.26))
+            s.commit()
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        with Session(engine) as s:
+            s.add(StationStatus(station_id=5, avail_bikes=10, avail_bike_stands=5,
+                                status="OPEN", update_time=now - timedelta(hours=2)))
+            s.add(StationStatus(station_id=5, avail_bikes=6, avail_bike_stands=9,
+                                status="OPEN", update_time=now - timedelta(hours=1)))
+            s.add(StationStatus(station_id=5, avail_bikes=2, avail_bike_stands=13,
+                                status="OPEN", update_time=now))
+            s.commit()
+
+        history = get_station_history(engine, station_id=5)
+        assert len(history) == 3
+        assert history[0]["avail_bikes"] == 10
+        assert history[2]["avail_bikes"] == 2
+
+
+# ── Shared fixtures ───────────────────────────────────────────────────────────
 
 @pytest.fixture
 def weather_data():
@@ -93,7 +196,7 @@ def bike_dynamic_data():
             "mechanicalBikes": 10,
             "electricalBikes": 5,
             "electricalInternalBatteryBikes": 0,
-            "electricalRemovableBatteryBikes": 5    
+            "electricalRemovableBatteryBikes": 5
             },
             "capacity": 40
         },
@@ -104,7 +207,7 @@ def bike_dynamic_data():
             "mechanicalBikes": 10,
             "electricalBikes": 5,
             "electricalInternalBatteryBikes": 0,
-            "electricalRemovableBatteryBikes": 5    
+            "electricalRemovableBatteryBikes": 5
             },
             "capacity": 40
         },

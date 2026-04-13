@@ -7,3 +7,7 @@ PyMySQL==1.1.2
 click==8.3.1
 flask-jwt-extended==4.7.1
 bcrypt==4.3.0
+numpy
+pandas
+scikit-learn
+cryptography

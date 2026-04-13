@@ -15,7 +15,7 @@ def client():
     flask_app.config["JWT_SECRET_KEY"] = "test-secret"
 
     # Swap to SQLite so tests never touch the real MySQL DB
-    from sqlalchemy import create_engine
+    
     engine = create_engine("sqlite:///:memory:", echo=False)
     init_db(engine)
     flask_app.extensions["engine"] = engine
