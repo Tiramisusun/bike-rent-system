@@ -2,12 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search'
 
-/** Returns true if the string looks like an Irish Eircode, e.g. A96R8C4 or D02 XY45 */
 function isEircode(q) {
   return /^[A-Za-z0-9]{3}\s?[A-Za-z0-9]{4}$/.test(q.trim())
 }
-
-/** Format Eircode to "XXX XXXX" canonical form */
 function formatEircode(q) {
   const raw = q.trim().toUpperCase().replace(/\s/g, '')
   return `${raw.slice(0, 3)} ${raw.slice(3)}`
@@ -15,197 +12,51 @@ function formatEircode(q) {
 
 async function geocode(address) {
   const headers = { 'Accept-Language': 'en' }
-
-  // If it looks like an Eircode, try the backend proxy first (OpenCage or formatted Nominatim)
   if (isEircode(address)) {
     try {
       const res = await fetch(`/api/geocode/eircode?q=${encodeURIComponent(formatEircode(address))}`)
-      if (res.ok) {
-        const d = await res.json()
-        if (d.lat) return d
-      }
-    } catch { /* fall through to Nominatim */ }
+      if (res.ok) { const d = await res.json(); if (d.lat) return d }
+    } catch { /* fall through */ }
   }
-
-  // 1st attempt: Dublin bounding box
   const dublinParams = new URLSearchParams({
     format: 'json',
     q: isEircode(address) ? `${formatEircode(address)}, Ireland` : address,
-    limit: 1,
-    viewbox: '-6.5,53.6,-6.0,53.2',
-    bounded: 1,
+    limit: 1, viewbox: '-6.5,53.6,-6.0,53.2', bounded: 1,
   })
   let res = await fetch(`${NOMINATIM}?${dublinParams}`, { headers })
   let data = await res.json()
-
-  // 2nd attempt: Ireland-wide (catches Eircodes & county names)
   if (!data.length) {
     const ieParams = new URLSearchParams({
       format: 'json',
       q: isEircode(address) ? `${formatEircode(address)}, Ireland` : address,
-      limit: 1,
-      countrycodes: 'ie',
+      limit: 1, countrycodes: 'ie',
     })
     res = await fetch(`${NOMINATIM}?${ieParams}`, { headers })
     data = await res.json()
   }
-
   if (!data.length) throw new Error(`No results found for "${address}"`)
-  return {
-    lat: parseFloat(data[0].lat),
-    lng: parseFloat(data[0].lon),
-    label: data[0].display_name,
-  }
-}
-
-function fmtDist(m) {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), label: data[0].display_name }
 }
 
 function fmtMin(min) {
   if (min < 1) return '<1 min'
   return `${Math.round(min)} min`
 }
-
-function PredictedStandsBadge({ n }) {
-  if (n == null) return null
-  const color = n === 0 ? '#e74c3c' : n <= 3 ? '#f39c12' : '#27ae60'
-  return (
-    <span style={{ color, fontWeight: 700, fontSize: '0.85rem' }}>
-      {' '}· 🔮 {n} stand{n !== 1 ? 's' : ''} predicted
-    </span>
-  )
+function fmtDist(m) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
 }
 
-function BikeRouteDetail({ pickup, dropoff, times, totalWalkingM, waypoints = [] }) {
-  return (
-    <>
-      <div style={s.step}>
-        <span style={s.stepIcon}>🚶</span>
-        <div>
-          <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
-          <div style={s.stepStation}>{pickup.name}</div>
-          <div style={s.stepDetail}>
-            {pickup.available_bikes} bike{pickup.available_bikes !== 1 ? 's' : ''} available
-            · {fmtDist(pickup.walking_distance_m)} away
-          </div>
-        </div>
-      </div>
-      <div style={s.connector} />
-      <div style={s.step}>
-        <span style={s.stepIcon}>🚲</span>
-        <div>
-          <div style={s.stepLabel}>Ride · {fmtMin(times.bike)}</div>
-          {waypoints.map((wp, i) => (
-            <div key={i} style={{ ...s.stepDetail, color: WAYPOINT_COLORS[i % WAYPOINT_COLORS.length], marginBottom: 2 }}>
-              📍 Stop {i + 1}: {wp.label}
-            </div>
-          ))}
-          <div style={s.stepStation}>{dropoff.name}</div>
-          <div style={s.stepDetail}>
-            {dropoff.available_bike_stands} stand{dropoff.available_bike_stands !== 1 ? 's' : ''} free now
-            <PredictedStandsBadge n={dropoff.predicted_stands} />
-          </div>
-        </div>
-      </div>
-      <div style={s.connector} />
-      <div style={s.step}>
-        <span style={s.stepIcon}>🏁</span>
-        <div>
-          <div style={s.stepLabel}>Walk to destination · {fmtMin(times.walk_to_destination)}</div>
-          <div style={s.stepDetail}>{fmtDist(dropoff.walking_distance_m)} away</div>
-        </div>
-      </div>
-      <div style={s.totalRow}>
-        Total ~{fmtMin(times.total_travel)}
-        <span style={s.totalSub}> · {fmtDist(totalWalkingM)} walking</span>
-      </div>
-    </>
-  )
-}
-
-
-function PlanResult({ plan, onSelectAlt }) {
-  const [showAlts, setShowAlts] = useState(false)
-
-  if (plan.mode === 'walk_only') {
-    return (
-      <div style={s.result}>
-        <div style={s.walkOnlyBadge}>Walk only</div>
-        <div style={s.step}>
-          <span style={s.stepIcon}>🚶</span>
-          <div>
-            <div style={s.stepLabel}>Walk directly to destination</div>
-            <div style={s.stepDetail}>{fmtMin(plan.walk_minutes)}</div>
-          </div>
-        </div>
-        <div style={s.totalRow}>{plan.reason}</div>
-      </div>
-    )
-  }
-
-  const { pickup_station: pickup, dropoff_station: dropoff, times_minutes: times, alternatives = [] } = plan
-  return (
-    <div style={s.result}>
-      <BikeRouteDetail
-        pickup={pickup}
-        dropoff={dropoff}
-        times={times}
-        totalWalkingM={plan.total_walking_m}
-        waypoints={plan._waypoints ?? []}
-      />
-
-      {alternatives.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <button
-            style={s.altToggleBtn}
-            onClick={() => setShowAlts(v => !v)}
-          >
-            {showAlts ? '▲ Hide' : `▼ ${alternatives.length} alternative route${alternatives.length > 1 ? 's' : ''}`}
-          </button>
-
-          {showAlts && alternatives.map((alt, i) => (
-            <div key={i} style={s.altCard}>
-              <div style={s.altHeader}>
-                <span style={s.altNum}>Option {i + 2}</span>
-                <span style={s.altTime}>~{fmtMin(alt.times_minutes.total_travel)}</span>
-                <button
-                  style={s.altSelectBtn}
-                  onClick={() => onSelectAlt(alt)}
-                >
-                  Use this
-                </button>
-              </div>
-              <div style={s.altBody}>
-                <span>🚶 {fmtMin(alt.times_minutes.walk_to_pickup)}</span>
-                <span style={{ color: '#aaa' }}>→</span>
-                <span style={s.altStation}>{alt.pickup.name}</span>
-                <span style={{ color: '#aaa' }}>→</span>
-                <span>🚲 {fmtMin(alt.times_minutes.bike)}</span>
-                <span style={{ color: '#aaa' }}>→</span>
-                <span style={s.altStation}>{alt.dropoff.name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StationInput({ label, dotColor, value, onChange, onSelectStation, onFocus, stations, placeholder }) {
+// ── Shared address input with station autocomplete ────────────────────────────
+function AddressInput({ label, dotColor, value, onChange, onSelectStation, onFocus, stations, placeholder }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
-
   const query = value.trim().toLowerCase()
   const suggestions = query.length >= 1
     ? stations.filter(st =>
-        st.name.toLowerCase().includes(query) ||
-        String(st.number).includes(query)
+        st.name.toLowerCase().includes(query) || String(st.number).includes(query)
       ).slice(0, 6)
     : []
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onClickOutside(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
@@ -223,16 +74,14 @@ function StationInput({ label, dotColor, value, onChange, onSelectStation, onFoc
           placeholder={placeholder}
           value={value}
           onChange={e => { onChange(e.target.value); setOpen(true) }}
-          onFocus={() => { onFocus(); setOpen(true) }}
+          onFocus={() => { onFocus?.(); setOpen(true) }}
           autoComplete="off"
         />
       </div>
       {open && suggestions.length > 0 && (
         <div style={s.dropdown}>
           {suggestions.map(st => (
-            <div
-              key={st.number}
-              style={s.suggestion}
+            <div key={st.number} style={s.suggestion}
               onMouseEnter={e => e.currentTarget.style.background = '#f0f4ff'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
               onMouseDown={e => {
@@ -252,90 +101,227 @@ function StationInput({ label, dotColor, value, onChange, onSelectStation, onFoc
   )
 }
 
-const WAYPOINT_COLORS = ['#9b59b6', '#e67e22', '#16a085', '#c0392b', '#2980b9']
+// ── Candidate station card ────────────────────────────────────────────────────
+function CandidateCard({ station, type, selected, onClick }) {
+  const value   = type === 'pickup' ? station.predicted_bikes : station.predicted_docks
+  const maxVal  = 20
+  const alpha   = 0.25 + Math.min(value / maxVal, 1) * 0.75
+  const bgColor = type === 'pickup'
+    ? `rgba(39,174,96,${alpha})`
+    : `rgba(231,76,60,${alpha})`
+  const label   = type === 'pickup' ? `🚲 ${value} bikes predicted` : `🅿️ ${value} docks predicted`
 
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        ...s.candidateCard,
+        border: selected ? '2px solid #1a73e8' : '2px solid transparent',
+        background: selected ? '#e8f0fe' : '#fff',
+      }}
+    >
+      <div style={{ ...s.candidateBar, background: bgColor }} />
+      <div style={s.candidateBody}>
+        <div style={s.candidateName}>{station.name}</div>
+        <div style={s.candidateMeta}>
+          {fmtDist(station.distance_m)} away · {label}
+        </div>
+      </div>
+      {selected && <span style={s.checkmark}>✓</span>}
+    </div>
+  )
+}
+
+// ── Multi-segment route result ────────────────────────────────────────────────
+function RouteResult({ plans }) {
+  const prefLabel = { recommended: 'Bike paths', fastest: 'Fastest', shortest: 'Shortest' }
+  const totalTime = plans.reduce((sum, p) => sum + (p.times_minutes?.total_travel ?? 0), 0)
+  const isMulti = plans.length > 1
+
+  return (
+    <div style={s.result}>
+      {plans.map((plan, i) => {
+        const { pickup_station: pickup, dropoff_station: dropoff,
+                times_minutes: times, cycling_preference } = plan
+        const isLast = i === plans.length - 1
+        return (
+          <div key={i}>
+            {isMulti && <div style={s.legHeader}>Leg {i + 1}</div>}
+            <div style={s.step}>
+              <span style={s.stepIcon}>🚶</span>
+              <div>
+                <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
+                <div style={s.stepStation}>{pickup.name}</div>
+                <div style={s.stepDetail}>{pickup.available_bikes} bikes available</div>
+              </div>
+            </div>
+            <div style={s.connector} />
+            <div style={s.step}>
+              <span style={s.stepIcon}>🚲</span>
+              <div>
+                <div style={s.stepLabel}>Ride · {fmtMin(times.bike)} · {prefLabel[cycling_preference]}</div>
+                <div style={s.stepStation}>{dropoff.name}</div>
+                <div style={s.stepDetail}>{dropoff.available_bike_stands} stands free</div>
+              </div>
+            </div>
+            <div style={s.connector} />
+            <div style={s.step}>
+              <span style={s.stepIcon}>{isLast ? '🏁' : '📍'}</span>
+              <div>
+                <div style={s.stepLabel}>
+                  {isLast ? 'Walk to destination' : `Walk to stop ${i + 1}`} · {fmtMin(times.walk_to_destination)}
+                </div>
+              </div>
+            </div>
+            {!isLast && <div style={s.legDivider} />}
+          </div>
+        )
+      })}
+      <div style={s.totalRow}>Total ~{fmtMin(totalTime)}</div>
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function RoutePlanner({
   startPoint, endPoint,
   setStartPoint, setEndPoint,
   clickMode, setClickMode,
-  plan, onPlanComputed, onClear,
-  stations = [],
+  onPlanComputed, onClear,
+  stations,
+  onFetchCandidates,
+  onSelectPickup, onSelectDropoff,
 }) {
-  const [startText, setStartText] = useState('')
-  const [endText, setEndText] = useState('')
-  // waypoints: array of { point: {lat,lng,label} | null, text: string }
-  const [waypoints, setWaypoints] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]               = useState(false)
+  const [phase, setPhase]             = useState('input')
+  const [startText, setStartText]     = useState('')
+  const [endText, setEndText]         = useState('')
+  const [departureTime, setDeparture] = useState(() => new Date().toISOString().slice(0, 16))
+  const [preference, setPreference]   = useState('recommended')
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState(null)
 
+  // Multi-stop state
+  const [waypointTexts, setWaypointTexts]     = useState([])   // raw text inputs
+  const [waypointPoints, setWaypointPoints]   = useState([])   // geocoded {lat,lng,label}
+  const [allCandidates, setAllCandidates]     = useState([])   // candidates per segment
+  const [segmentSelections, setSegSels]       = useState([])   // [{pickup,dropoff}] per segment
+  const [activeSegIdx, setActiveSegIdx]       = useState(0)
+  const [segmentPlans, setSegmentPlans]       = useState([])   // final route per segment
+
+  const currentCandidates = allCandidates[activeSegIdx]
+  const currentSel = segmentSelections[activeSegIdx] ?? { pickup: null, dropoff: null }
+
+  // ── Waypoint helpers ──────────────────────────────────────────────────────
+  function addWaypoint() {
+    setWaypointTexts(t => [...t, ''])
+    setWaypointPoints(p => [...p, null])
+  }
+  function removeWaypoint(i) {
+    setWaypointTexts(t => t.filter((_, j) => j !== i))
+    setWaypointPoints(p => p.filter((_, j) => j !== i))
+  }
+  function updateWaypointText(i, v) {
+    setWaypointTexts(t => t.map((x, j) => j === i ? v : x))
+    setWaypointPoints(p => p.map((x, j) => j === i ? null : x))
+  }
+  function setWaypointPoint(i, pt) {
+    setWaypointPoints(p => p.map((x, j) => j === i ? pt : x))
+    setWaypointTexts(t => t.map((x, j) => j === i ? '' : x))
+  }
+
+  // ── Segment navigation ────────────────────────────────────────────────────
+  function switchToSegment(idx) {
+    // When jumping forward via dots, ensure all prior legs are complete
+    if (idx > activeSegIdx) {
+      const firstIncomplete = segmentSelections.findIndex(
+        (sel, i) => i < idx && (!sel.pickup || !sel.dropoff)
+      )
+      if (firstIncomplete !== -1) {
+        setError(`Complete Leg ${firstIncomplete + 1} first (select both pickup and dropoff)`)
+        return
+      }
+    }
+    setError(null)
+    setActiveSegIdx(idx)
+    onFetchCandidates(allCandidates[idx])
+    const sel = segmentSelections[idx] ?? { pickup: null, dropoff: null }
+    onSelectPickup(sel.pickup)
+    onSelectDropoff(sel.dropoff)
+  }
+
+  function handlePickupSelect(st) {
+    const idx = activeSegIdx   // capture before async batching
+    setSegSels(prev => prev.map((sel, i) => i === idx ? { ...sel, pickup: st } : sel))
+    onSelectPickup(st)
+  }
+
+  function handleDropoffSelect(st) {
+    const idx = activeSegIdx
+    setSegSels(prev => prev.map((sel, i) => i === idx ? { ...sel, dropoff: st } : sel))
+    onSelectDropoff(st)
+  }
+
+  // ── Close / clear ─────────────────────────────────────────────────────────
   function handleClose() {
     setOpen(false)
-    setStartText('')
-    setEndText('')
-    setWaypoints([])
+    setPhase('input')
+    setStartText(''); setEndText('')
+    setWaypointTexts([]); setWaypointPoints([])
+    setAllCandidates([]); setSegSels([])
+    setActiveSegIdx(0); setSegmentPlans([])
+    setError(null)
     onClear()
+    onFetchCandidates(null)
+    onSelectPickup(null)
+    onSelectDropoff(null)
   }
 
-  function handleSwap() {
-    setStartText(endText); setStartPoint(endPoint)
-    setEndText(startText); setEndPoint(startPoint)
-  }
-
-  function addWaypoint() {
-    setWaypoints(wps => [...wps, { point: null, text: '' }])
-  }
-
-  function removeWaypoint(i) {
-    setWaypoints(wps => wps.filter((_, idx) => idx !== i))
-  }
-
-  function updateWaypointText(i, text) {
-    setWaypoints(wps => wps.map((wp, idx) => idx === i ? { ...wp, text, point: null } : wp))
-  }
-
-  function updateWaypointPoint(i, point) {
-    setWaypoints(wps => wps.map((wp, idx) => idx === i ? { ...wp, point, text: '' } : wp))
-  }
-
-  async function resolvePoint(point, text, label) {
-    if (point) return point
-    if (!text.trim()) throw new Error(`Please enter ${label}`)
-    return geocode(text)
-  }
-
-  async function handlePlan() {
+  // ── Phase 1 → 2: geocode all points, fetch candidates per segment ─────────
+  async function handleFindStations() {
     setError(null)
     setLoading(true)
     try {
-      const start = await resolvePoint(startPoint, startText, 'a start location')
+      const start = startPoint ?? await geocode(startText)
       setStartPoint(start)
 
-      const resolvedWaypoints = []
-      for (let i = 0; i < waypoints.length; i++) {
-        const wp = waypoints[i]
-        const resolved = await resolvePoint(wp.point, wp.text, `waypoint ${i + 1}`)
-        resolvedWaypoints.push(resolved)
-        updateWaypointPoint(i, resolved)
+      // Geocode waypoints sequentially (preserve order)
+      const resolvedWps = []
+      for (let i = 0; i < waypointTexts.length; i++) {
+        const pt = waypointPoints[i] ?? await geocode(waypointTexts[i])
+        resolvedWps.push(pt)
       }
+      setWaypointPoints(resolvedWps)
 
-      const end = await resolvePoint(endPoint, endText, 'a destination')
+      const end = endPoint ?? await geocode(endText)
       setEndPoint(end)
 
-      const params = new URLSearchParams({
-        start_lat: start.lat, start_lng: start.lng,
-        end_lat: end.lat, end_lng: end.lng,
-      })
-      if (resolvedWaypoints.length > 0) {
-        params.set('waypoints', resolvedWaypoints.map(p => `${p.lat},${p.lng}`).join(';'))
-      }
+      const allPoints = [start, ...resolvedWps, end]
+      const departureDt = new Date(departureTime).toISOString()
 
-      const res = await fetch(`/api/plan?${params}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? json.details ?? 'Failed to plan route')
-      // Attach resolved waypoints so map can show them
-      json._waypoints = resolvedWaypoints
-      onPlanComputed(json)
+      // Fetch candidates for all segments in parallel
+      const fetches = allPoints.slice(0, -1).map((from, i) => {
+        const to = allPoints[i + 1]
+        const params = new URLSearchParams({
+          start_lat: from.lat, start_lng: from.lng,
+          end_lat:   to.lat,   end_lng:   to.lng,
+          departure_time: departureDt,
+        })
+        return fetch(`/api/plan/candidates?${params}`)
+          .then(r => r.json().then(j => ({ ok: r.ok, data: j })))
+      })
+      const results = await Promise.all(fetches)
+
+      const failed = results.find(r => !r.ok)
+      if (failed) throw new Error(failed.data.error ?? 'Failed to fetch candidates')
+
+      const newAllCandidates = results.map(r => r.data)
+      setAllCandidates(newAllCandidates)
+      setSegSels(newAllCandidates.map(() => ({ pickup: null, dropoff: null })))
+      setActiveSegIdx(0)
+      onFetchCandidates(newAllCandidates[0])
+      onSelectPickup(null); onSelectDropoff(null)
+      setPhase('select')
     } catch (e) {
       setError(e.message)
     } finally {
@@ -343,6 +329,42 @@ export default function RoutePlanner({
     }
   }
 
+  // ── Phase 3 → 4: compute route for each segment ───────────────────────────
+  async function handleGetDirections() {
+    setError(null)
+    setLoading(true)
+    try {
+      const allPoints = [startPoint, ...waypointPoints, endPoint]
+      const fetches = segmentSelections.map((sel, i) => {
+        const from = allPoints[i]
+        const to   = allPoints[i + 1]
+        const params = new URLSearchParams({
+          pickup_id:  sel.pickup.station_id,
+          dropoff_id: sel.dropoff.station_id,
+          start_lat: from.lat, start_lng: from.lng,
+          end_lat:   to.lat,   end_lng:   to.lng,
+          preference,
+        })
+        return fetch(`/api/plan/route?${params}`)
+          .then(r => r.json().then(j => ({ ok: r.ok, data: j })))
+      })
+      const results = await Promise.all(fetches)
+
+      const failed = results.find(r => !r.ok)
+      if (failed) throw new Error(failed.data.error ?? 'Failed to compute route')
+
+      const plans = results.map(r => r.data)
+      setSegmentPlans(plans)
+      onPlanComputed(plans[0])   // send first leg to map for polyline
+      setPhase('result')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Closed state ──────────────────────────────────────────────────────────
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} style={s.openBtn}>
@@ -351,115 +373,280 @@ export default function RoutePlanner({
     )
   }
 
+  // ── Computed helpers for render ───────────────────────────────────────────
+  const allPoints = [startPoint, ...waypointPoints, endPoint]
+  const numSegs   = allCandidates.length
+  const allSegsSelected = segmentSelections.length > 0 &&
+    segmentSelections.every(sel => sel.pickup && sel.dropoff)
+
+  // Label letters: A, B, C, D...
+  const endLabel = String.fromCharCode(66 + waypointTexts.length)
+
   return (
     <div style={s.panel}>
       {/* Header */}
       <div style={s.header}>
         <span style={s.title}>Route Plan</span>
-        <button onClick={handleClose} style={s.closeBtn} title="Close">✕</button>
+        <button onClick={handleClose} style={s.closeBtn}>✕</button>
       </div>
 
-      {/* Inputs */}
-      <div style={s.inputs}>
-        <StationInput
-          label="A"
-          dotColor="#16a085"
-          placeholder="Start — station name, number or address"
-          value={startPoint ? startPoint.label : startText}
-          onChange={v => { setStartText(v); setStartPoint(null) }}
-          onSelectStation={pt => { setStartPoint(pt); setStartText('') }}
-          onFocus={() => setClickMode('start')}
-          stations={stations}
-        />
+      {/* ── Phase 1: Input ── */}
+      {phase === 'input' && (
+        <div style={s.body}>
+          <AddressInput
+            label="A" dotColor="#16a085"
+            placeholder="Start — station name or address"
+            value={startPoint ? startPoint.label : startText}
+            onChange={v => { setStartText(v); setStartPoint(null) }}
+            onSelectStation={pt => { setStartPoint(pt); setStartText('') }}
+            onFocus={() => setClickMode('start')}
+            stations={stations}
+          />
 
-        {/* Waypoints */}
-        {waypoints.map((wp, i) => (
-          <div key={i}>
-            <div style={s.waypointConnector}>
-              <div style={s.vertLine} />
-              <button
-                style={s.removeWpBtn}
-                onClick={() => removeWaypoint(i)}
-                title="Remove stop"
-              >✕</button>
+          {/* Waypoints */}
+          {waypointTexts.map((text, i) => (
+            <div key={i} style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+              <div style={{ flex: 1 }}>
+                <AddressInput
+                  label={String.fromCharCode(66 + i)}
+                  dotColor="#f39c12"
+                  placeholder={`Stop ${i + 1} — address`}
+                  value={waypointPoints[i] ? waypointPoints[i].label : text}
+                  onChange={v => updateWaypointText(i, v)}
+                  onSelectStation={pt => setWaypointPoint(i, pt)}
+                  stations={stations}
+                />
+              </div>
+              <button onClick={() => removeWaypoint(i)} style={s.removeWpBtn} title="Remove stop">×</button>
             </div>
-            <StationInput
-              label={String(i + 1)}
-              dotColor={WAYPOINT_COLORS[i % WAYPOINT_COLORS.length]}
-              placeholder={`Stop ${i + 1} — station or address`}
-              value={wp.point ? wp.point.label : wp.text}
-              onChange={v => updateWaypointText(i, v)}
-              onSelectStation={pt => updateWaypointPoint(i, pt)}
-              onFocus={() => {}}
+          ))}
+
+          <div style={{ marginTop: 8 }}>
+            <AddressInput
+              label={endLabel} dotColor="#e74c3c"
+              placeholder="Destination — station name or address"
+              value={endPoint ? endPoint.label : endText}
+              onChange={v => { setEndText(v); setEndPoint(null) }}
+              onSelectStation={pt => { setEndPoint(pt); setEndText('') }}
+              onFocus={() => setClickMode('end')}
               stations={stations}
             />
           </div>
-        ))}
 
-        <div style={s.swapRow}>
-          <div style={s.vertLine} />
-          <button onClick={handleSwap} style={s.swapBtn} title="Swap start and destination">⇅</button>
-          <button onClick={addWaypoint} style={s.addWpBtn} title="Add a stop">+ Stop</button>
-        </div>
+          <button onClick={addWaypoint} style={s.addWpBtn}>+ Add stop</button>
 
-        <StationInput
-          label="B"
-          dotColor="#e74c3c"
-          placeholder="Destination — station name, number or address"
-          value={endPoint ? endPoint.label : endText}
-          onChange={v => { setEndText(v); setEndPoint(null) }}
-          onSelectStation={pt => { setEndPoint(pt); setEndText('') }}
-          onFocus={() => setClickMode('end')}
-          stations={stations}
-        />
-      </div>
-
-      {/* Click-mode hint */}
-      {clickMode && (
-        <div style={s.clickHint}>
-          Click on the map to set {clickMode === 'start' ? 'start point' : 'destination'}
+          <div style={s.fieldRow}>
+            <label style={s.fieldLabel}>Departure time</label>
+            <input
+              type="datetime-local"
+              value={departureTime}
+              onChange={e => setDeparture(e.target.value)}
+              style={s.datetimeInput}
+            />
+          </div>
+          {clickMode && (
+            <div style={s.clickHint}>
+              Click on the map to set {clickMode === 'start' ? 'start point' : 'destination'}
+            </div>
+          )}
+          <button onClick={handleFindStations} disabled={loading} style={s.primaryBtn}>
+            {loading ? 'Finding stations…' : 'Find Stations'}
+          </button>
+          {error && <div style={s.error}>{error}</div>}
         </div>
       )}
 
-      {/* Action button */}
-      <button onClick={handlePlan} disabled={loading} style={s.planBtn}>
-        {loading ? 'Planning…' : 'Get Directions'}
-      </button>
+      {/* ── Phase 2: Select stations (segment by segment) ── */}
+      {phase === 'select' && currentCandidates && (
+        <div style={s.body}>
+          {/* Segment indicator dots (only if multi-stop) */}
+          {numSegs > 1 && (
+            <div style={s.segIndicator}>
+              {allCandidates.map((_, i) => {
+                const sel = segmentSelections[i]
+                const done = sel?.pickup && sel?.dropoff
+                return (
+                  <button
+                    key={i}
+                    onClick={() => switchToSegment(i)}
+                    style={{
+                      ...s.segDot,
+                      background: done ? '#16a085' : '#ddd',
+                      border: i === activeSegIdx ? '2px solid #1a73e8' : '2px solid transparent',
+                      color: done ? '#fff' : '#555',
+                    }}
+                  >
+                    {i + 1}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
-      {error && <div style={s.error}>{error}</div>}
+          {/* Current segment label */}
+          <div style={s.segLabel}>
+            {numSegs > 1 ? `Leg ${activeSegIdx + 1} of ${numSegs}` : 'Select stations'}
+            {allPoints[activeSegIdx] && allPoints[activeSegIdx + 1] && (
+              <span style={s.segRoute}>
+                {' '}{shortLabel(allPoints[activeSegIdx])} → {shortLabel(allPoints[activeSegIdx + 1])}
+              </span>
+            )}
+          </div>
 
-      {plan && (
-        <PlanResult
-          plan={plan}
-          onSelectAlt={alt => {
-            onPlanComputed({
-              ...plan,
-              pickup_station: {
-                station_id: alt.pickup.station_id,
-                name: alt.pickup.name,
-                position: { lat: alt.pickup.lat, lng: alt.pickup.lng },
-                available_bikes: alt.pickup.avail_bikes,
-                walking_distance_m: alt.pickup.distance_m,
-                status: alt.pickup.status,
-              },
-              dropoff_station: {
-                station_id: alt.dropoff.station_id,
-                name: alt.dropoff.name,
-                position: { lat: alt.dropoff.lat, lng: alt.dropoff.lng },
-                available_bike_stands: alt.dropoff.avail_docks,
-                walking_distance_m: alt.dropoff.distance_m,
-                status: alt.dropoff.status,
-              },
-              times_minutes: alt.times_minutes,
-              total_walking_m: Math.round(alt.pickup.distance_m + alt.dropoff.distance_m),
-              polylines: plan.polylines,
-              alternatives: [],
-            })
-          }}
-        />
+          {/* Pickup candidates */}
+          <div style={s.sectionTitle}>
+            Pickup station <span style={s.sectionSub}>(ML predicted · departure time)</span>
+          </div>
+          {currentCandidates.pickup_candidates.length === 0
+            ? <div style={s.emptyMsg}>No stations with enough bikes nearby.</div>
+            : currentCandidates.pickup_candidates.map(st => (
+                <CandidateCard
+                  key={st.station_id}
+                  station={st} type="pickup"
+                  selected={currentSel.pickup?.station_id === st.station_id}
+                  onClick={() => handlePickupSelect(st)}
+                />
+              ))
+          }
+
+          <div style={{ height: 10 }} />
+
+          {/* Dropoff candidates */}
+          <div style={s.sectionTitle}>
+            Dropoff station <span style={s.sectionSub}>(ML predicted · arrival time)</span>
+          </div>
+          {currentCandidates.dropoff_candidates.length === 0
+            ? <div style={s.emptyMsg}>No stations nearby.</div>
+            : currentCandidates.dropoff_candidates.map(st => (
+                <CandidateCard
+                  key={st.station_id}
+                  station={st} type="dropoff"
+                  selected={currentSel.dropoff?.station_id === st.station_id}
+                  onClick={() => handleDropoffSelect(st)}
+                />
+              ))
+          }
+
+          {error && <div style={s.error}>{error}</div>}
+
+          {/* Navigation */}
+          <div style={s.btnRow}>
+            <button
+              onClick={() => {
+                if (activeSegIdx === 0) { setPhase('input'); onFetchCandidates(null) }
+                else switchToSegment(activeSegIdx - 1)
+              }}
+              style={s.secondaryBtn}
+            >
+              ← {activeSegIdx === 0 ? 'Back' : 'Prev leg'}
+            </button>
+
+            {activeSegIdx < numSegs - 1 ? (
+              <button
+                onClick={() => {
+                  if (!currentSel.pickup || !currentSel.dropoff) {
+                    setError('Select both stations for this leg.'); return
+                  }
+                  setError(null)
+                  switchToSegment(activeSegIdx + 1)
+                }}
+                style={s.primaryBtn}
+              >
+                Next leg →
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (!allSegsSelected) {
+                    const missing = segmentSelections
+                      .map((sel, i) => {
+                        if (!sel.pickup && !sel.dropoff) return `Leg ${i + 1}: pickup & dropoff`
+                        if (!sel.pickup)  return `Leg ${i + 1}: pickup`
+                        if (!sel.dropoff) return `Leg ${i + 1}: dropoff`
+                        return null
+                      })
+                      .filter(Boolean)
+                    setError(`Still missing: ${missing.join(' · ')}`)
+                    return
+                  }
+                  setError(null)
+                  setPhase('preference')
+                }}
+                style={s.primaryBtn}
+              >
+                Next →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 3: Preference ── */}
+      {phase === 'preference' && (
+        <div style={s.body}>
+          <div style={s.summaryBox}>
+            {segmentSelections.map((sel, i) => (
+              <div key={i}>
+                {segmentSelections.length > 1 && (
+                  <div style={s.summaryLegHeader}>Leg {i + 1}</div>
+                )}
+                <div style={s.summaryRow}>
+                  <span style={s.summaryLabel}>Pickup</span>
+                  <span>{sel.pickup?.name}</span>
+                </div>
+                <div style={s.summaryRow}>
+                  <span style={s.summaryLabel}>Dropoff</span>
+                  <span>{sel.dropoff?.name}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={s.sectionTitle}>Cycling preference</div>
+          {[
+            { value: 'recommended', label: '🛤️ Bike paths preferred', desc: 'Safer, slightly longer' },
+            { value: 'fastest',     label: '⚡ Fastest',              desc: 'Shortest time' },
+            { value: 'shortest',    label: '📏 Shortest distance',    desc: 'Fewest kilometres' },
+          ].map(opt => (
+            <div
+              key={opt.value}
+              onClick={() => setPreference(opt.value)}
+              style={{
+                ...s.prefCard,
+                border: preference === opt.value ? '2px solid #1a73e8' : '2px solid #eee',
+                background: preference === opt.value ? '#e8f0fe' : '#fff',
+              }}
+            >
+              <div style={s.prefLabel}>{opt.label}</div>
+              <div style={s.prefDesc}>{opt.desc}</div>
+            </div>
+          ))}
+          {error && <div style={s.error}>{error}</div>}
+          <div style={s.btnRow}>
+            <button onClick={() => { setPhase('select'); switchToSegment(numSegs - 1) }} style={s.secondaryBtn}>← Back</button>
+            <button onClick={handleGetDirections} disabled={loading} style={s.primaryBtn}>
+              {loading ? 'Calculating…' : 'Get Directions'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 4: Result ── */}
+      {phase === 'result' && segmentPlans.length > 0 && (
+        <div>
+          <RouteResult plans={segmentPlans} />
+          <div style={{ padding: '0 12px 12px' }}>
+            <button onClick={() => setPhase('preference')} style={s.secondaryBtn}>← Change preference</button>
+          </div>
+        </div>
       )}
     </div>
   )
+}
+
+// Shorten a geocoded label to just the first part
+function shortLabel(pt) {
+  if (!pt) return ''
+  return (pt.label ?? '').split(',')[0] || pt.label
 }
 
 const s = {
@@ -483,288 +670,151 @@ const s = {
     borderRadius: '8px 8px 0 0',
   },
   title: { fontWeight: 700, fontSize: '0.95rem' },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    lineHeight: 1,
-    padding: 2,
-  },
-  inputs: { padding: '12px 12px 0' },
+  closeBtn: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1rem' },
+  body: { padding: '12px' },
   inputRow: { display: 'flex', alignItems: 'center', gap: 8 },
   dot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    color: '#fff',
-    fontSize: '0.72rem',
-    fontWeight: 700,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+    width: 22, height: 22, borderRadius: 11,
+    color: '#fff', fontSize: '0.72rem', fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   input: {
-    flex: 1,
-    border: '1px solid #ddd',
-    borderRadius: 4,
-    padding: '7px 10px',
-    fontSize: '0.85rem',
-    outline: 'none',
-    minWidth: 0,
+    flex: 1, border: '1px solid #ddd', borderRadius: 4,
+    padding: '7px 10px', fontSize: '0.85rem', outline: 'none', minWidth: 0,
   },
-  swapRow: {
-    display: 'flex',
-    alignItems: 'center',
-    height: 28,
-    paddingLeft: 3,
+  addWpBtn: {
+    marginTop: 8, background: 'none', border: 'none',
+    color: '#16a085', cursor: 'pointer',
+    fontSize: '0.82rem', fontWeight: 600, padding: '2px 0',
+    textDecoration: 'underline',
   },
-  vertLine: {
-    width: 2,
-    height: 28,
-    background: '#e0e0e0',
-    marginLeft: 9,
+  removeWpBtn: {
+    background: 'none', border: 'none',
+    color: '#aaa', cursor: 'pointer',
+    fontSize: '1.1rem', lineHeight: 1,
+    padding: '6px 4px', marginTop: 2,
+    flexShrink: 0,
   },
-  swapBtn: {
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: 4,
-    cursor: 'pointer',
-    fontSize: '1rem',
-    width: 28,
-    height: 28,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 'auto',
-    color: '#555',
+  fieldRow: { marginTop: 10 },
+  fieldLabel: { display: 'block', fontSize: '0.78rem', color: '#666', marginBottom: 4 },
+  datetimeInput: {
+    width: '100%', border: '1px solid #ddd', borderRadius: 4,
+    padding: '7px 10px', fontSize: '0.83rem', boxSizing: 'border-box',
   },
   clickHint: {
-    margin: '8px 12px 0',
-    padding: '5px 10px',
-    background: '#e8f0fe',
-    color: '#16a085',
-    borderRadius: 4,
-    fontSize: '0.78rem',
+    margin: '8px 0', padding: '5px 10px',
+    background: '#e8f0fe', color: '#16a085',
+    borderRadius: 4, fontSize: '0.78rem',
   },
-  planBtn: {
-    display: 'block',
-    width: 'calc(100% - 24px)',
-    margin: '12px',
-    padding: '9px',
-    background: '#16a085',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 4,
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.9rem',
+  primaryBtn: {
+    display: 'block', width: '100%', marginTop: 12,
+    padding: '9px', background: '#16a085', color: '#fff',
+    border: 'none', borderRadius: 4, cursor: 'pointer',
+    fontWeight: 600, fontSize: '0.9rem',
   },
+  secondaryBtn: {
+    padding: '7px 14px', background: '#f1f3f4', color: '#333',
+    border: 'none', borderRadius: 4, cursor: 'pointer',
+    fontSize: '0.85rem', fontWeight: 600,
+  },
+  btnRow: { display: 'flex', gap: 8, marginTop: 12, justifyContent: 'space-between' },
   error: {
-    margin: '-4px 12px 10px',
-    padding: '6px 10px',
-    background: '#fce8e6',
-    color: '#c5221f',
-    borderRadius: 4,
-    fontSize: '0.82rem',
+    marginTop: 8, padding: '6px 10px',
+    background: '#fce8e6', color: '#c5221f',
+    borderRadius: 4, fontSize: '0.82rem',
   },
-  result: {
-    borderTop: '1px solid #eee',
-    padding: '14px 12px',
+  segIndicator: {
+    display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center',
+  },
+  segDot: {
+    width: 26, height: 26, borderRadius: 13,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+    border: '2px solid transparent', transition: 'all 0.15s',
+    padding: 0,
+  },
+  segLabel: { fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: 8 },
+  segRoute: { fontWeight: 400, color: '#888', fontSize: '0.75rem' },
+  sectionTitle: {
+    fontSize: '0.8rem', fontWeight: 700, color: '#333',
+    marginBottom: 6, marginTop: 4,
+  },
+  sectionSub: { fontWeight: 400, color: '#888', fontSize: '0.75rem' },
+  emptyMsg: { fontSize: '0.82rem', color: '#999', padding: '6px 0' },
+  candidateCard: {
+    display: 'flex', alignItems: 'center',
+    borderRadius: 6, overflow: 'hidden',
+    marginBottom: 6, cursor: 'pointer',
+    transition: 'border-color 0.15s',
+    position: 'relative',
+  },
+  candidateBar: { width: 8, alignSelf: 'stretch', flexShrink: 0 },
+  candidateBody: { padding: '7px 10px', flex: 1, minWidth: 0 },
+  candidateName: { fontSize: '0.85rem', fontWeight: 600, color: '#1a1a1a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  candidateMeta: { fontSize: '0.75rem', color: '#555', marginTop: 2 },
+  checkmark: { color: '#1a73e8', fontWeight: 700, padding: '0 10px', fontSize: '1rem' },
+  summaryBox: {
+    background: '#f8f9fa', borderRadius: 6,
+    padding: '10px 12px', marginBottom: 12,
+  },
+  summaryLegHeader: {
+    fontSize: '0.75rem', fontWeight: 700, color: '#16a085',
+    textTransform: 'uppercase', letterSpacing: '0.03em',
+    marginTop: 8, marginBottom: 4,
+  },
+  summaryRow: {
+    display: 'flex', justifyContent: 'space-between',
+    fontSize: '0.83rem', color: '#333', marginBottom: 4,
+  },
+  summaryLabel: { color: '#888', marginRight: 8, fontWeight: 600 },
+  prefCard: {
+    borderRadius: 6, padding: '9px 12px',
+    marginBottom: 8, cursor: 'pointer',
+    transition: 'border-color 0.15s',
+  },
+  prefLabel: { fontSize: '0.88rem', fontWeight: 600, color: '#1a1a1a' },
+  prefDesc: { fontSize: '0.75rem', color: '#666', marginTop: 2 },
+  result: { borderTop: '1px solid #eee', padding: '14px 12px' },
+  legHeader: {
+    fontSize: '0.75rem', fontWeight: 700, color: '#16a085',
+    textTransform: 'uppercase', letterSpacing: '0.03em',
+    marginBottom: 8, marginTop: 4,
+  },
+  legDivider: {
+    borderTop: '2px dashed #e0e0e0', margin: '12px 0',
   },
   step: { display: 'flex', gap: 10, alignItems: 'flex-start' },
   stepIcon: { fontSize: '1.2rem', flexShrink: 0, marginTop: 1 },
   stepLabel: { fontSize: '0.8rem', color: '#666' },
   stepStation: { fontSize: '0.9rem', fontWeight: 600, color: '#1a1a1a', marginTop: 2 },
   stepDetail: { fontSize: '0.78rem', color: '#16a085', marginTop: 2 },
-  connector: {
-    borderLeft: '2px dashed #ddd',
-    height: 18,
-    margin: '4px 0 4px 11px',
-  },
+  connector: { borderLeft: '2px dashed #ddd', height: 18, margin: '4px 0 4px 11px' },
   totalRow: {
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: 12, paddingTop: 10,
     borderTop: '1px solid #f0f0f0',
-    fontSize: '0.82rem',
-    color: '#333',
-    fontWeight: 600,
-  },
-  totalSub: {
-    fontWeight: 400,
-    color: '#777',
-  },
-  waypointConnector: {
-    display: 'flex',
-    alignItems: 'center',
-    height: 28,
-    paddingLeft: 3,
-    gap: 6,
-  },
-  removeWpBtn: {
-    background: 'none',
-    border: '1px solid #ddd',
-    borderRadius: '50%',
-    width: 20,
-    height: 20,
-    fontSize: '0.7rem',
-    cursor: 'pointer',
-    color: '#999',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
-    marginLeft: 'auto',
-  },
-  addWpBtn: {
-    background: 'none',
-    border: '1px dashed #16a085',
-    borderRadius: 4,
-    color: '#16a085',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    padding: '2px 8px',
-    cursor: 'pointer',
-    marginLeft: 8,
-  },
-  segCard: {
-    border: '1px solid #eee',
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  segHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '5px 10px',
-    color: '#fff',
-    fontSize: '0.8rem',
-    fontWeight: 700,
-  },
-  segTime: { fontWeight: 400, fontSize: '0.78rem' },
-  segBody: { padding: '8px 10px' },
-  segRow: { fontSize: '0.8rem', color: '#333', marginBottom: 3 },
-  altToggleBtn: {
-    width: '100%',
-    background: 'none',
-    border: '1px solid #e0e0e0',
-    borderRadius: 4,
-    padding: '5px 8px',
-    cursor: 'pointer',
-    fontSize: '0.78rem',
-    color: '#555',
-    textAlign: 'left',
-  },
-  altCard: {
-    marginTop: 6,
-    border: '1px solid #eee',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  altHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '6px 10px',
-    background: '#f8f9fa',
-    borderBottom: '1px solid #eee',
-  },
-  altNum: { fontWeight: 700, fontSize: '0.78rem', color: '#555', flex: 1 },
-  altTime: { fontSize: '0.82rem', fontWeight: 600, color: '#16a085' },
-  altSelectBtn: {
-    background: '#16a085',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 4,
-    padding: '3px 8px',
-    cursor: 'pointer',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-  },
-  altBody: {
-    display: 'flex',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    padding: '6px 10px',
-    fontSize: '0.78rem',
-    color: '#333',
-  },
-  altStation: {
-    fontWeight: 600,
-    color: '#111',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    maxWidth: 80,
-  },
-  walkOnlyBadge: {
-    display: 'inline-block',
-    marginBottom: 10,
-    padding: '2px 8px',
-    background: '#f1f3f4',
-    color: '#555',
-    borderRadius: 12,
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-  },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    background: '#fff',
-    border: '1px solid #ddd',
-    borderRadius: '0 0 6px 6px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-    zIndex: 2000,
-    overflow: 'hidden',
-  },
-  suggestion: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: '0.83rem',
-    borderBottom: '1px solid #f5f5f5',
-    transition: 'background 0.1s',
-    ':hover': { background: '#f0f4ff' },
-  },
-  suggestNum: {
-    color: '#16a085',
-    fontWeight: 700,
-    fontSize: '0.78rem',
-    minWidth: 34,
-    flexShrink: 0,
-  },
-  suggestName: {
-    flex: 1,
-    color: '#222',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  suggestBikes: {
-    color: '#2ecc71',
-    fontSize: '0.78rem',
-    flexShrink: 0,
+    fontSize: '0.82rem', color: '#333', fontWeight: 600,
   },
   openBtn: {
     pointerEvents: 'auto',
-    background: '#16a085',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 6,
-    padding: '8px 14px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.9rem',
+    background: '#16a085', color: '#fff',
+    border: 'none', borderRadius: 6,
+    padding: '8px 14px', cursor: 'pointer',
+    fontWeight: 600, fontSize: '0.9rem',
     boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
   },
+  dropdown: {
+    position: 'absolute', top: '100%', left: 0, right: 0,
+    background: '#fff', border: '1px solid #ddd',
+    borderRadius: '0 0 6px 6px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    zIndex: 2000, overflow: 'hidden',
+  },
+  suggestion: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '8px 12px', cursor: 'pointer',
+    fontSize: '0.83rem', borderBottom: '1px solid #f5f5f5',
+  },
+  suggestNum: { color: '#16a085', fontWeight: 700, fontSize: '0.78rem', minWidth: 34, flexShrink: 0 },
+  suggestName: { flex: 1, color: '#222', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  suggestBikes: { color: '#2ecc71', fontSize: '0.78rem', flexShrink: 0 },
 }

@@ -14,11 +14,16 @@ export default function StationHistoryChart({ stationId, stationName, onClose })
     fetch(`/api/db/stations/${stationId}/history`)
       .then(r => r.json())
       .then(json => {
-        const formatted = (json.data ?? []).map(d => ({
-          time: new Date(d.update_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          'Available Bikes': d.avail_bikes,
-          'Free Stands': d.avail_bike_stands,
-        }))
+        const formatted = (json.data ?? []).map(d => {
+          const dt = new Date(d.update_time)
+          const label = `${(dt.getMonth() + 1).toString().padStart(2,'0')}/${dt.getDate().toString().padStart(2,'0')} ` +
+            `${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}`
+          return {
+            time: label,
+            'Available Bikes': d.avail_bikes,
+            'Free Stands': d.avail_bike_stands,
+          }
+        })
         setData(formatted)
         setLoading(false)
       })
@@ -45,7 +50,7 @@ export default function StationHistoryChart({ stationId, stationName, onClose })
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="time" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+              <XAxis dataKey="time" tick={{ fontSize: 10 }} interval={Math.floor(data.length / 8)} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend />

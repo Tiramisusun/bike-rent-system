@@ -28,7 +28,6 @@ function bikeIcon(color) {
 }
 
 const DUBLIN_CENTER = [53.3498, -6.2603]
-const SEGMENT_COLORS = ['#9b59b6', '#e67e22', '#16a085', '#c0392b', '#2980b9']
 
 /** Renders the three polylines + station halos for one bike segment. */
 function BikeSegmentOverlay({ seg }) {
@@ -60,6 +59,10 @@ function markerColor(availBikes, status) {
   if (availBikes === 0)  return '#e74c3c'
   if (availBikes <= 5)   return '#f39c12'
   return '#2ecc71'
+}
+
+function fmtDist(m) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
 }
 
 function fmtTime(ms) {
@@ -97,6 +100,9 @@ function MapClickHandler({ clickMode, onMapClick }) {
 }
 
 export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded, user, onRentalChange }) {
+  const [candidates, setCandidates]         = useState(null)  // { pickup_candidates, dropoff_candidates }
+  const [selectedPickup, setSelectedPickup] = useState(null)
+  const [selectedDropoff, setSelectedDropoff] = useState(null)
   const [stations, setStations]     = useState([])
   const [error, setError]           = useState(null)
   const [plan, setPlan]             = useState(null)
@@ -106,6 +112,14 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
   const [historyStation, setHistoryStation] = useState(null)  // { id, name }
   const [rentalMsg, setRentalMsg] = useState(null)
   const [activeRental, setActiveRental] = useState(null)
+  const [allPredictions, setAllPredictions] = useState({})   // station_id → {predicted_bikes, predicted_docks}
+  const [predictDatetime, setPredictDatetime] = useState(() => {
+    const now = new Date()
+    return now.toISOString().slice(0, 16)
+  })
+  const [predictLoading, setPredictLoading] = useState(false)
+  const [predictError, setPredictError] = useState(null)
+  const [predictedAt, setPredictedAt] = useState(null)
 
   // Load active rental when user logs in
   useEffect(() => {
@@ -169,6 +183,35 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
     setStartPoint(null)
     setEndPoint(null)
     setClickMode(null)
+    setCandidates(null)
+    setSelectedPickup(null)
+    setSelectedDropoff(null)
+  }
+
+  async function handlePredictAll() {
+    setPredictLoading(true)
+    setPredictError(null)
+    try {
+      const res = await fetch(`/api/predict/all?datetime=${encodeURIComponent(predictDatetime)}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Prediction failed')
+      const map = {}
+      for (const p of json.predictions) {
+        map[p.station_id] = { predicted_bikes: p.predicted_bikes, predicted_docks: p.predicted_docks }
+      }
+      setAllPredictions(map)
+      setPredictedAt(predictDatetime)
+    } catch (err) {
+      setPredictError(err.message)
+    } finally {
+      setPredictLoading(false)
+    }
+  }
+
+  function handleClearPredictions() {
+    setAllPredictions({})
+    setPredictedAt(null)
+    setPredictError(null)
   }
 
   // Cursor style for the map wrapper when click mode is active
@@ -219,6 +262,23 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
                 <div style={styles.popupFooter}>
                   Status: {station.status ?? '—'} · Updated: {fmtTime(station.last_update)}
                 </div>
+                {allPredictions[station.number] && (
+                  <div style={styles.predictionBox}>
+                    <div style={styles.predictionTitle}>Predicted at {predictedAt?.slice(11, 16)}</div>
+                    <div style={styles.predictionRow}>
+                      <span>🚲 Bikes</span>
+                      <span style={{ fontWeight: 700, color: allPredictions[station.number].predicted_bikes === 0 ? '#e74c3c' : allPredictions[station.number].predicted_bikes <= 5 ? '#f39c12' : '#2ecc71' }}>
+                        {allPredictions[station.number].predicted_bikes}
+                      </span>
+                    </div>
+                    <div style={styles.predictionRow}>
+                      <span>🅿️ Docks</span>
+                      <span style={{ fontWeight: 700, color: '#555' }}>
+                        {allPredictions[station.number].predicted_docks}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <button
                   style={styles.historyBtn}
                   onClick={() => setHistoryStation({ id: station.number, name: station.name })}
@@ -255,22 +315,53 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
           </CircleMarker>
         )}
 
-        {plan?.mode === 'bike' && (
-          <>
-            <BikeSegmentOverlay seg={plan} />
-            {/* Waypoint markers along the cycling route */}
-            {(plan._waypoints ?? []).map((wp, i) => (
-              <CircleMarker
-                key={i}
-                center={[wp.lat, wp.lng]}
-                radius={9}
-                pathOptions={{ fillColor: SEGMENT_COLORS[i % SEGMENT_COLORS.length], color: '#fff', weight: 2, fillOpacity: 1 }}
-              >
-                <Popup><strong>Stop {i + 1}:</strong> {wp.label}</Popup>
-              </CircleMarker>
-            ))}
-          </>
-        )}
+        {plan?.mode === 'bike' && <BikeSegmentOverlay seg={plan} />}
+
+        {/* ── Candidate pickup markers (green shades) ── */}
+        {candidates?.pickup_candidates?.map(st => {
+          const maxVal = 20
+          const alpha  = 0.3 + Math.min(st.predicted_bikes / maxVal, 1) * 0.7
+          const color  = `rgba(39,174,96,${alpha})`
+          const isSelected = selectedPickup?.station_id === st.station_id
+          return (
+            <CircleMarker
+              key={`pickup-${st.station_id}`}
+              center={[st.lat, st.lng]}
+              radius={isSelected ? 16 : 12}
+              pathOptions={{ fillColor: color, color: isSelected ? '#1a73e8' : '#fff', weight: isSelected ? 3 : 2, fillOpacity: 0.9 }}
+              eventHandlers={{ click: () => setSelectedPickup(st) }}
+            >
+              <Popup>
+                <strong>{st.name}</strong><br />
+                🚲 {st.predicted_bikes} bikes predicted<br />
+                {fmtDist(st.distance_m)} from start
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+
+        {/* ── Candidate dropoff markers (red shades) ── */}
+        {candidates?.dropoff_candidates?.map(st => {
+          const maxVal = 20
+          const alpha  = 0.3 + Math.min(st.predicted_docks / maxVal, 1) * 0.7
+          const color  = `rgba(231,76,60,${alpha})`
+          const isSelected = selectedDropoff?.station_id === st.station_id
+          return (
+            <CircleMarker
+              key={`dropoff-${st.station_id}`}
+              center={[st.lat, st.lng]}
+              radius={isSelected ? 16 : 12}
+              pathOptions={{ fillColor: color, color: isSelected ? '#1a73e8' : '#fff', weight: isSelected ? 3 : 2, fillOpacity: 0.9 }}
+              eventHandlers={{ click: () => setSelectedDropoff(st) }}
+            >
+              <Popup>
+                <strong>{st.name}</strong><br />
+                🅿️ {st.predicted_docks} docks predicted<br />
+                {fmtDist(st.distance_m)} from destination
+              </Popup>
+            </CircleMarker>
+          )
+        })}
 
         {error && (
           <div style={styles.errorBanner}>⚠️ {error}</div>
@@ -301,6 +392,27 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
         />
       )}
 
+      {/* ── Predict All control panel (bottom centre) ── */}
+      <div style={styles.predictAllPanel}>
+        <input
+          type="datetime-local"
+          value={predictDatetime}
+          onChange={e => setPredictDatetime(e.target.value)}
+          style={styles.predictAllInput}
+        />
+        <button
+          onClick={handlePredictAll}
+          disabled={predictLoading}
+          style={styles.predictAllBtn}
+        >
+          {predictLoading ? 'Predicting…' : '🔮 Predict All'}
+        </button>
+        {Object.keys(allPredictions).length > 0 && (
+          <button onClick={handleClearPredictions} style={styles.predictAllClearBtn}>✕ Clear</button>
+        )}
+        {predictError && <span style={styles.predictAllError}>{predictError}</span>}
+      </div>
+
       {/* ── Left sidebar: Route Plan / Predict / Forecast ── */}
       <div style={styles.leftSidebar}>
         <RoutePlanner
@@ -314,6 +426,12 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
           onPlanComputed={setPlan}
           onClear={handleClear}
           stations={stations}
+          candidates={candidates}
+          onFetchCandidates={setCandidates}
+          selectedPickup={selectedPickup}
+          selectedDropoff={selectedDropoff}
+          onSelectPickup={setSelectedPickup}
+          onSelectDropoff={setSelectedDropoff}
         />
         <PredictionWidget stations={stations} />
         <WeatherForecastWidget />
@@ -443,5 +561,74 @@ const styles = {
     zIndex: 9999,
     fontSize: '0.85rem',
     whiteSpace: 'nowrap',
+  },
+  predictAllPanel: {
+    position: 'absolute',
+    bottom: 52,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 1000,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    background: '#fff',
+    borderRadius: 8,
+    boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+    padding: '8px 14px',
+    pointerEvents: 'auto',
+  },
+  predictAllInput: {
+    border: '1px solid #ddd',
+    borderRadius: 4,
+    padding: '5px 8px',
+    fontSize: '0.85rem',
+    outline: 'none',
+  },
+  predictAllBtn: {
+    background: '#16a085',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 4,
+    padding: '6px 14px',
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: '0.85rem',
+    whiteSpace: 'nowrap',
+  },
+  predictAllClearBtn: {
+    background: '#e74c3c',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 4,
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+  },
+  predictAllError: {
+    color: '#c5221f',
+    fontSize: '0.8rem',
+  },
+  predictionBox: {
+    marginTop: 8,
+    padding: '6px 8px',
+    background: '#f0faf7',
+    borderRadius: 4,
+    border: '1px solid #b2dfdb',
+  },
+  predictionTitle: {
+    fontSize: '0.72rem',
+    color: '#16a085',
+    fontWeight: 700,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
+  },
+  predictionRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '0.82rem',
+    color: '#333',
+    marginBottom: 2,
   },
 }
