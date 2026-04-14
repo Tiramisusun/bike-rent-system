@@ -217,3 +217,7 @@ terraform/*.tfstate
 terraform/*.tfstate.backup
 data/final_merged_data.csv
 data/best_bike_model.pkl
+
+# AWS credentials / keys
+*.pem
+.env.RDS

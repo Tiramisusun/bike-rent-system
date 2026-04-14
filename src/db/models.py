@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models — one class per database table."""
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import DateTime, Double, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, Relationship, mapped_column
@@ -94,8 +94,6 @@ class Station(Base):
     name: Mapped[str] = mapped_column(String(60))
     longitude: Mapped[float] = mapped_column(type_=Double)
     latitude: Mapped[float] = mapped_column(type_=Double)
-    address: Mapped[List["Address"]] = Relationship(back_populates="station", cascade="all, delete-orphan")
-
     def __repr__(self):
         return f"Station(id={self.station_id}, name={self.name})"
 
@@ -114,18 +112,3 @@ class StationStatus(Base):
     def __repr__(self):
         return f"StationStatus(id={self.id}, station_id={self.station_id}, avail_bikes={self.avail_bikes})"
 
-
-class Address(Base):
-    __tablename__ = "address"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    station_id = mapped_column(ForeignKey("station.station_id"))
-    station: Mapped["Station"] = Relationship()
-    street1: Mapped[str] = mapped_column(String(30))
-    street2: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    county: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    city: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
-    eircode: Mapped[Optional[str]] = mapped_column(String(15), nullable=True)
-
-    def __repr__(self):
-        return f"Address(id={self.id}, street={self.street1}, eircode={self.eircode})"

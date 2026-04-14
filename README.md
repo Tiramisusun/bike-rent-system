@@ -36,7 +36,7 @@ The system fetches real-time bike and weather data from external APIs, stores it
 ├── src/                            # Python backend
 │   ├── db/                         # Database package (split by responsibility)
 │   │   ├── __init__.py             # Re-exports all public symbols (other files unchanged)
-│   │   ├── models.py               # SQLAlchemy ORM models (8 tables)
+│   │   ├── models.py               # SQLAlchemy ORM models (7 tables)
 │   │   ├── engine.py               # load_engine(), init_db()
 │   │   ├── writers.py              # db_from_request(), store_forecast_data()
 │   │   ├── readers.py              # get_latest_weather(), get_all_stations(), etc.
@@ -79,28 +79,22 @@ The system fetches real-time bike and weather data from external APIs, stores it
 
 ## Machine Learning
 
-The system includes a regression model that predicts the number of available bikes at a station given the time, location, weather, and recent demand history.
+The system includes a RandomForest regression model that predicts the number of available bikes at a station given the time, location, and weather.
 
-### Features used (28 total)
+### Features used (11 total)
 
 | Category | Features | Description |
 |---|---|---|
 | Station / location | `station_id`, `lat`, `lon` | Station identifier and coordinates |
 | Basic time | `hour`, `month`, `year`, `day_of_week` | Calendar fields |
-| Time flags | `is_weekend`, `rush_hour`, `is_morning_peak`, `is_evening_peak` | Derived from hour and day |
-| Cyclical time | `hour_sin`, `hour_cos`, `dow_sin`, `dow_cos` | Sine/cosine encoding to capture periodicity |
-| Weather | `max_air_temperature_celsius`, `air_temperature_std_deviation`, `max_relative_humidity_percent` | Temperature and humidity (mapped from OpenWeather at inference; std fixed to 0) |
-| Lag features | `lag_1`, `lag_2`, `lag_3`, `lag_24`, `lag_168` | Available bikes 1/2/3/24/168 hours ago |
-| Rolling statistics | `rolling_mean_3`, `rolling_mean_24`, `rolling_std_3`, `rolling_std_24` | Mean and std of available bikes over the last 3 and 24 hours |
-| Station baseline | `station_median_bikes` | Median available bikes for the station across all history |
-
-Lag and rolling features are computed from the `station_status` table at inference time. If historical records are insufficient, missing values fall back to 0.
+| Time flags | `rush_hour` | 1 during morning (7–9) and evening (16–19) peak hours |
+| Weather | `max_air_temperature_celsius`, `air_temperature_std_deviation`, `max_relative_humidity_percent` | Temperature and humidity (from OpenWeather at inference; std fixed to 0) |
 
 ### Training
 
 Open `data/bike_availability_time_features_updated.ipynb` and run all cells. The notebook:
 1. Loads `data/final_merged_data.csv` (historical Dublin Bikes + weather data)
-2. Engineers all 28 features including lag, rolling, and cyclical encodings
+2. Engineers time and weather features
 3. Compares multiple algorithms: Linear Regression, Decision Tree, RandomForest, Gradient Boosting, XGBoost
 4. Evaluates with MAE and R²
 5. Exports the best model to `data/best_bike_model.pkl`
@@ -221,7 +215,6 @@ Weather is read from the local database first, and falls back to the OpenWeather
 |---|---|---|---|
 | `start_lat`, `start_lng` | yes | — | Start coordinates |
 | `end_lat`, `end_lng` | yes | — | Destination coordinates |
-| `waypoints` | no | — | Intermediate stops as `lat,lng;lat,lng` |
 | `max_distance_m` | no | 1500 | Max walking distance to a station (metres) |
 | `candidates` | no | 4 | Candidate stations per side |
 
@@ -304,29 +297,36 @@ Tears down with `terraform destroy`.
 ### Option B — Manual SSH
 
 ```bash
-# SSH in
-ssh -i ~/.ssh/your-key.pem ec2-user@<EC2_PUBLIC_IP>
+# SSH in (aws-flask.pem is not tracked in git — keep it secure)
+ssh -i aws-flask.pem ubuntu@<EC2_PUBLIC_IP>
 
 # Install dependencies
-sudo dnf install -y python3 python3-pip git nodejs npm
+sudo apt-get install -y python3 python3-pip nodejs npm
 
 # Clone and set up
-git clone https://github.com/Tiramisusun/bike-rent-system.git app
-cd app
+git clone https://github.com/Tiramisusun/bike-rent-system.git bike-rent-system
+cd bike-rent-system
 pip3 install -r requirements.txt
 python3 src/db/cli.py init-db
 
 # Build frontend
 cd frontend && npm ci && npm run build && cd ..
 
-# Copy model file (from your local machine)
-# scp -i ~/.ssh/your-key.pem data/best_bike_model.pkl ec2-user@<EC2_PUBLIC_IP>:~/app/data/
+# Copy files not tracked in git (run from your local machine)
+scp -i aws-flask.pem data/best_bike_model.pkl ubuntu@<EC2_PUBLIC_IP>:~/bike-rent-system/data/
+scp -i aws-flask.pem .env.RDS ubuntu@<EC2_PUBLIC_IP>:~/bike-rent-system/.env
 
 # Run
 python3 app.py
 ```
 
-Set up nginx to proxy port 80 → 5000, and a systemd service for auto-restart on reboot (see full instructions in deployment docs).
+Cron jobs are configured to keep data fresh (every 5 minutes for bikes and weather, every 60 minutes for forecast):
+
+```
+*/5  * * * * curl -s http://localhost:5000/api/bikes > /dev/null
+*/5  * * * * curl -s http://localhost:5000/api/weather > /dev/null
+*/60 * * * * curl -s http://localhost:5000/api/weather/forecast > /dev/null
+```
 
 ---
 

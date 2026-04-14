@@ -42,9 +42,6 @@ function fmtMin(min) {
   if (min < 1) return '<1 min'
   return `${Math.round(min)} min`
 }
-function fmtDist(m) {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
-}
 
 // ── Shared address input with station autocomplete ────────────────────────────
 function AddressInput({ label, dotColor, value, onChange, onSelectStation, onFocus, stations, placeholder }) {
@@ -124,7 +121,7 @@ function CandidateCard({ station, type, selected, onClick }) {
       <div style={s.candidateBody}>
         <div style={s.candidateName}>{station.name}</div>
         <div style={s.candidateMeta}>
-          {fmtDist(station.distance_m)} away · {label}
+          {label} · {Math.round(station.distance_m ?? 0)} m away
         </div>
       </div>
       {selected && <span style={s.checkmark}>✓</span>}
@@ -132,52 +129,39 @@ function CandidateCard({ station, type, selected, onClick }) {
   )
 }
 
-// ── Multi-segment route result ────────────────────────────────────────────────
-function RouteResult({ plans }) {
+// ── Route result ──────────────────────────────────────────────────────────────
+function RouteResult({ plan }) {
   const prefLabel = { recommended: 'Bike paths', fastest: 'Fastest', shortest: 'Shortest' }
-  const totalTime = plans.reduce((sum, p) => sum + (p.times_minutes?.total_travel ?? 0), 0)
-  const isMulti = plans.length > 1
+  const { pickup_station: pickup, dropoff_station: dropoff,
+          times_minutes: times, cycling_preference } = plan
 
   return (
     <div style={s.result}>
-      {plans.map((plan, i) => {
-        const { pickup_station: pickup, dropoff_station: dropoff,
-                times_minutes: times, cycling_preference } = plan
-        const isLast = i === plans.length - 1
-        return (
-          <div key={i}>
-            {isMulti && <div style={s.legHeader}>Leg {i + 1}</div>}
-            <div style={s.step}>
-              <span style={s.stepIcon}>🚶</span>
-              <div>
-                <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
-                <div style={s.stepStation}>{pickup.name}</div>
-                <div style={s.stepDetail}>{pickup.available_bikes} bikes available</div>
-              </div>
-            </div>
-            <div style={s.connector} />
-            <div style={s.step}>
-              <span style={s.stepIcon}>🚲</span>
-              <div>
-                <div style={s.stepLabel}>Ride · {fmtMin(times.bike)} · {prefLabel[cycling_preference]}</div>
-                <div style={s.stepStation}>{dropoff.name}</div>
-                <div style={s.stepDetail}>{dropoff.available_bike_stands} stands free</div>
-              </div>
-            </div>
-            <div style={s.connector} />
-            <div style={s.step}>
-              <span style={s.stepIcon}>{isLast ? '🏁' : '📍'}</span>
-              <div>
-                <div style={s.stepLabel}>
-                  {isLast ? 'Walk to destination' : `Walk to stop ${i + 1}`} · {fmtMin(times.walk_to_destination)}
-                </div>
-              </div>
-            </div>
-            {!isLast && <div style={s.legDivider} />}
-          </div>
-        )
-      })}
-      <div style={s.totalRow}>Total ~{fmtMin(totalTime)}</div>
+      <div style={s.step}>
+        <span style={s.stepIcon}>🚶</span>
+        <div>
+          <div style={s.stepLabel}>Walk to pickup · {fmtMin(times.walk_to_pickup)}</div>
+          <div style={s.stepStation}>{pickup.name}</div>
+          <div style={s.stepDetail}>{pickup.available_bikes} bikes available</div>
+        </div>
+      </div>
+      <div style={s.connector} />
+      <div style={s.step}>
+        <span style={s.stepIcon}>🚲</span>
+        <div>
+          <div style={s.stepLabel}>Ride · {fmtMin(times.bike)} · {prefLabel[cycling_preference]}</div>
+          <div style={s.stepStation}>{dropoff.name}</div>
+          <div style={s.stepDetail}>{dropoff.available_bike_stands} stands free</div>
+        </div>
+      </div>
+      <div style={s.connector} />
+      <div style={s.step}>
+        <span style={s.stepIcon}>🏁</span>
+        <div>
+          <div style={s.stepLabel}>Walk to destination · {fmtMin(times.walk_to_destination)}</div>
+        </div>
+      </div>
+      <div style={s.totalRow}>Total ~{fmtMin(times.total_travel)}</div>
     </div>
   )
 }
@@ -201,75 +185,19 @@ export default function RoutePlanner({
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState(null)
 
-  // Multi-stop state
-  const [waypointTexts, setWaypointTexts]     = useState([])   // raw text inputs
-  const [waypointPoints, setWaypointPoints]   = useState([])   // geocoded {lat,lng,label}
-  const [allCandidates, setAllCandidates]     = useState([])   // candidates per segment
-  const [segmentSelections, setSegSels]       = useState([])   // [{pickup,dropoff}] per segment
-  const [activeSegIdx, setActiveSegIdx]       = useState(0)
-  const [segmentPlans, setSegmentPlans]       = useState([])   // final route per segment
-
-  const currentCandidates = allCandidates[activeSegIdx]
-  const currentSel = segmentSelections[activeSegIdx] ?? { pickup: null, dropoff: null }
-
-  // ── Waypoint helpers ──────────────────────────────────────────────────────
-  function addWaypoint() {
-    setWaypointTexts(t => [...t, ''])
-    setWaypointPoints(p => [...p, null])
-  }
-  function removeWaypoint(i) {
-    setWaypointTexts(t => t.filter((_, j) => j !== i))
-    setWaypointPoints(p => p.filter((_, j) => j !== i))
-  }
-  function updateWaypointText(i, v) {
-    setWaypointTexts(t => t.map((x, j) => j === i ? v : x))
-    setWaypointPoints(p => p.map((x, j) => j === i ? null : x))
-  }
-  function setWaypointPoint(i, pt) {
-    setWaypointPoints(p => p.map((x, j) => j === i ? pt : x))
-    setWaypointTexts(t => t.map((x, j) => j === i ? '' : x))
-  }
-
-  // ── Segment navigation ────────────────────────────────────────────────────
-  function switchToSegment(idx) {
-    // When jumping forward via dots, ensure all prior legs are complete
-    if (idx > activeSegIdx) {
-      const firstIncomplete = segmentSelections.findIndex(
-        (sel, i) => i < idx && (!sel.pickup || !sel.dropoff)
-      )
-      if (firstIncomplete !== -1) {
-        setError(`Complete Leg ${firstIncomplete + 1} first (select both pickup and dropoff)`)
-        return
-      }
-    }
-    setError(null)
-    setActiveSegIdx(idx)
-    onFetchCandidates(allCandidates[idx])
-    const sel = segmentSelections[idx] ?? { pickup: null, dropoff: null }
-    onSelectPickup(sel.pickup)
-    onSelectDropoff(sel.dropoff)
-  }
-
-  function handlePickupSelect(st) {
-    const idx = activeSegIdx   // capture before async batching
-    setSegSels(prev => prev.map((sel, i) => i === idx ? { ...sel, pickup: st } : sel))
-    onSelectPickup(st)
-  }
-
-  function handleDropoffSelect(st) {
-    const idx = activeSegIdx
-    setSegSels(prev => prev.map((sel, i) => i === idx ? { ...sel, dropoff: st } : sel))
-    onSelectDropoff(st)
-  }
+  const [candidates, setCandidates]   = useState(null)
+  const [pickup, setPickup]           = useState(null)
+  const [dropoff, setDropoff]         = useState(null)
+  const [plan, setPlan]               = useState(null)
 
   // ── Close / clear ─────────────────────────────────────────────────────────
   function handleClose() {
     setOpen(false)
     setPhase('input')
     setStartText(''); setEndText('')
-    setWaypointTexts([]); setWaypointPoints([])
-    setAllCandidates([]); setSegSels([])
-    setActiveSegIdx(0); setSegmentPlans([])
+    setCandidates(null)
+    setPickup(null); setDropoff(null)
+    setPlan(null)
     setError(null)
     onClear()
     onFetchCandidates(null)
@@ -277,49 +205,28 @@ export default function RoutePlanner({
     onSelectDropoff(null)
   }
 
-  // ── Phase 1 → 2: geocode all points, fetch candidates per segment ─────────
+  // ── Phase 1 → 2: geocode points, fetch candidates ─────────────────────────
   async function handleFindStations() {
     setError(null)
     setLoading(true)
     try {
       const start = startPoint ?? await geocode(startText)
       setStartPoint(start)
-
-      // Geocode waypoints sequentially (preserve order)
-      const resolvedWps = []
-      for (let i = 0; i < waypointTexts.length; i++) {
-        const pt = waypointPoints[i] ?? await geocode(waypointTexts[i])
-        resolvedWps.push(pt)
-      }
-      setWaypointPoints(resolvedWps)
-
       const end = endPoint ?? await geocode(endText)
       setEndPoint(end)
 
-      const allPoints = [start, ...resolvedWps, end]
-      const departureDt = new Date(departureTime).toISOString()
-
-      // Fetch candidates for all segments in parallel
-      const fetches = allPoints.slice(0, -1).map((from, i) => {
-        const to = allPoints[i + 1]
-        const params = new URLSearchParams({
-          start_lat: from.lat, start_lng: from.lng,
-          end_lat:   to.lat,   end_lng:   to.lng,
-          departure_time: departureDt,
-        })
-        return fetch(`/api/plan/candidates?${params}`)
-          .then(r => r.json().then(j => ({ ok: r.ok, data: j })))
+      const params = new URLSearchParams({
+        start_lat: start.lat, start_lng: start.lng,
+        end_lat:   end.lat,   end_lng:   end.lng,
+        departure_time: new Date(departureTime).toISOString(),
       })
-      const results = await Promise.all(fetches)
+      const res = await fetch(`/api/plan/candidates?${params}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Failed to fetch candidates')
 
-      const failed = results.find(r => !r.ok)
-      if (failed) throw new Error(failed.data.error ?? 'Failed to fetch candidates')
-
-      const newAllCandidates = results.map(r => r.data)
-      setAllCandidates(newAllCandidates)
-      setSegSels(newAllCandidates.map(() => ({ pickup: null, dropoff: null })))
-      setActiveSegIdx(0)
-      onFetchCandidates(newAllCandidates[0])
+      setCandidates(json)
+      setPickup(null); setDropoff(null)
+      onFetchCandidates(json)
       onSelectPickup(null); onSelectDropoff(null)
       setPhase('select')
     } catch (e) {
@@ -329,33 +236,36 @@ export default function RoutePlanner({
     }
   }
 
-  // ── Phase 3 → 4: compute route for each segment ───────────────────────────
+  function handlePickupSelect(st) {
+    setPickup(st)
+    onSelectPickup(st)
+  }
+
+  function handleDropoffSelect(st) {
+    setDropoff(st)
+    onSelectDropoff(st)
+  }
+
+  // ── Phase 3 → 4: compute route ────────────────────────────────────────────
   async function handleGetDirections() {
     setError(null)
     setLoading(true)
     try {
-      const allPoints = [startPoint, ...waypointPoints, endPoint]
-      const fetches = segmentSelections.map((sel, i) => {
-        const from = allPoints[i]
-        const to   = allPoints[i + 1]
-        const params = new URLSearchParams({
-          pickup_id:  sel.pickup.station_id,
-          dropoff_id: sel.dropoff.station_id,
-          start_lat: from.lat, start_lng: from.lng,
-          end_lat:   to.lat,   end_lng:   to.lng,
-          preference,
-        })
-        return fetch(`/api/plan/route?${params}`)
-          .then(r => r.json().then(j => ({ ok: r.ok, data: j })))
+      const start = startPoint
+      const end   = endPoint
+      const params = new URLSearchParams({
+        pickup_id:  pickup.station_id,
+        dropoff_id: dropoff.station_id,
+        start_lat: start.lat, start_lng: start.lng,
+        end_lat:   end.lat,   end_lng:   end.lng,
+        preference,
       })
-      const results = await Promise.all(fetches)
+      const res = await fetch(`/api/plan/route?${params}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Failed to compute route')
 
-      const failed = results.find(r => !r.ok)
-      if (failed) throw new Error(failed.data.error ?? 'Failed to compute route')
-
-      const plans = results.map(r => r.data)
-      setSegmentPlans(plans)
-      onPlanComputed(plans[0])   // send first leg to map for polyline
+      setPlan(json)
+      onPlanComputed(json)
       setPhase('result')
     } catch (e) {
       setError(e.message)
@@ -372,15 +282,6 @@ export default function RoutePlanner({
       </button>
     )
   }
-
-  // ── Computed helpers for render ───────────────────────────────────────────
-  const allPoints = [startPoint, ...waypointPoints, endPoint]
-  const numSegs   = allCandidates.length
-  const allSegsSelected = segmentSelections.length > 0 &&
-    segmentSelections.every(sel => sel.pickup && sel.dropoff)
-
-  // Label letters: A, B, C, D...
-  const endLabel = String.fromCharCode(66 + waypointTexts.length)
 
   return (
     <div style={s.panel}>
@@ -402,28 +303,9 @@ export default function RoutePlanner({
             onFocus={() => setClickMode('start')}
             stations={stations}
           />
-
-          {/* Waypoints */}
-          {waypointTexts.map((text, i) => (
-            <div key={i} style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-              <div style={{ flex: 1 }}>
-                <AddressInput
-                  label={String.fromCharCode(66 + i)}
-                  dotColor="#f39c12"
-                  placeholder={`Stop ${i + 1} — address`}
-                  value={waypointPoints[i] ? waypointPoints[i].label : text}
-                  onChange={v => updateWaypointText(i, v)}
-                  onSelectStation={pt => setWaypointPoint(i, pt)}
-                  stations={stations}
-                />
-              </div>
-              <button onClick={() => removeWaypoint(i)} style={s.removeWpBtn} title="Remove stop">×</button>
-            </div>
-          ))}
-
           <div style={{ marginTop: 8 }}>
             <AddressInput
-              label={endLabel} dotColor="#e74c3c"
+              label="B" dotColor="#e74c3c"
               placeholder="Destination — station name or address"
               value={endPoint ? endPoint.label : endText}
               onChange={v => { setEndText(v); setEndPoint(null) }}
@@ -432,8 +314,6 @@ export default function RoutePlanner({
               stations={stations}
             />
           </div>
-
-          <button onClick={addWaypoint} style={s.addWpBtn}>+ Add stop</button>
 
           <div style={s.fieldRow}>
             <label style={s.fieldLabel}>Departure time</label>
@@ -456,54 +336,19 @@ export default function RoutePlanner({
         </div>
       )}
 
-      {/* ── Phase 2: Select stations (segment by segment) ── */}
-      {phase === 'select' && currentCandidates && (
+      {/* ── Phase 2: Select stations ── */}
+      {phase === 'select' && candidates && (
         <div style={s.body}>
-          {/* Segment indicator dots (only if multi-stop) */}
-          {numSegs > 1 && (
-            <div style={s.segIndicator}>
-              {allCandidates.map((_, i) => {
-                const sel = segmentSelections[i]
-                const done = sel?.pickup && sel?.dropoff
-                return (
-                  <button
-                    key={i}
-                    onClick={() => switchToSegment(i)}
-                    style={{
-                      ...s.segDot,
-                      background: done ? '#16a085' : '#ddd',
-                      border: i === activeSegIdx ? '2px solid #1a73e8' : '2px solid transparent',
-                      color: done ? '#fff' : '#555',
-                    }}
-                  >
-                    {i + 1}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Current segment label */}
-          <div style={s.segLabel}>
-            {numSegs > 1 ? `Leg ${activeSegIdx + 1} of ${numSegs}` : 'Select stations'}
-            {allPoints[activeSegIdx] && allPoints[activeSegIdx + 1] && (
-              <span style={s.segRoute}>
-                {' '}{shortLabel(allPoints[activeSegIdx])} → {shortLabel(allPoints[activeSegIdx + 1])}
-              </span>
-            )}
-          </div>
-
-          {/* Pickup candidates */}
           <div style={s.sectionTitle}>
             Pickup station <span style={s.sectionSub}>(ML predicted · departure time)</span>
           </div>
-          {currentCandidates.pickup_candidates.length === 0
+          {candidates.pickup_candidates.length === 0
             ? <div style={s.emptyMsg}>No stations with enough bikes nearby.</div>
-            : currentCandidates.pickup_candidates.map(st => (
+            : candidates.pickup_candidates.map(st => (
                 <CandidateCard
                   key={st.station_id}
                   station={st} type="pickup"
-                  selected={currentSel.pickup?.station_id === st.station_id}
+                  selected={pickup?.station_id === st.station_id}
                   onClick={() => handlePickupSelect(st)}
                 />
               ))
@@ -511,17 +356,16 @@ export default function RoutePlanner({
 
           <div style={{ height: 10 }} />
 
-          {/* Dropoff candidates */}
           <div style={s.sectionTitle}>
             Dropoff station <span style={s.sectionSub}>(ML predicted · arrival time)</span>
           </div>
-          {currentCandidates.dropoff_candidates.length === 0
+          {candidates.dropoff_candidates.length === 0
             ? <div style={s.emptyMsg}>No stations nearby.</div>
-            : currentCandidates.dropoff_candidates.map(st => (
+            : candidates.dropoff_candidates.map(st => (
                 <CandidateCard
                   key={st.station_id}
                   station={st} type="dropoff"
-                  selected={currentSel.dropoff?.station_id === st.station_id}
+                  selected={dropoff?.station_id === st.station_id}
                   onClick={() => handleDropoffSelect(st)}
                 />
               ))
@@ -529,54 +373,20 @@ export default function RoutePlanner({
 
           {error && <div style={s.error}>{error}</div>}
 
-          {/* Navigation */}
           <div style={s.btnRow}>
+            <button onClick={() => { setPhase('input'); onFetchCandidates(null) }} style={s.secondaryBtn}>
+              ← Back
+            </button>
             <button
               onClick={() => {
-                if (activeSegIdx === 0) { setPhase('input'); onFetchCandidates(null) }
-                else switchToSegment(activeSegIdx - 1)
+                if (!pickup || !dropoff) { setError('Select both a pickup and dropoff station.'); return }
+                setError(null)
+                setPhase('preference')
               }}
-              style={s.secondaryBtn}
+              style={s.primaryBtn}
             >
-              ← {activeSegIdx === 0 ? 'Back' : 'Prev leg'}
+              Next →
             </button>
-
-            {activeSegIdx < numSegs - 1 ? (
-              <button
-                onClick={() => {
-                  if (!currentSel.pickup || !currentSel.dropoff) {
-                    setError('Select both stations for this leg.'); return
-                  }
-                  setError(null)
-                  switchToSegment(activeSegIdx + 1)
-                }}
-                style={s.primaryBtn}
-              >
-                Next leg →
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  if (!allSegsSelected) {
-                    const missing = segmentSelections
-                      .map((sel, i) => {
-                        if (!sel.pickup && !sel.dropoff) return `Leg ${i + 1}: pickup & dropoff`
-                        if (!sel.pickup)  return `Leg ${i + 1}: pickup`
-                        if (!sel.dropoff) return `Leg ${i + 1}: dropoff`
-                        return null
-                      })
-                      .filter(Boolean)
-                    setError(`Still missing: ${missing.join(' · ')}`)
-                    return
-                  }
-                  setError(null)
-                  setPhase('preference')
-                }}
-                style={s.primaryBtn}
-              >
-                Next →
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -585,21 +395,14 @@ export default function RoutePlanner({
       {phase === 'preference' && (
         <div style={s.body}>
           <div style={s.summaryBox}>
-            {segmentSelections.map((sel, i) => (
-              <div key={i}>
-                {segmentSelections.length > 1 && (
-                  <div style={s.summaryLegHeader}>Leg {i + 1}</div>
-                )}
-                <div style={s.summaryRow}>
-                  <span style={s.summaryLabel}>Pickup</span>
-                  <span>{sel.pickup?.name}</span>
-                </div>
-                <div style={s.summaryRow}>
-                  <span style={s.summaryLabel}>Dropoff</span>
-                  <span>{sel.dropoff?.name}</span>
-                </div>
-              </div>
-            ))}
+            <div style={s.summaryRow}>
+              <span style={s.summaryLabel}>Pickup</span>
+              <span>{pickup?.name}</span>
+            </div>
+            <div style={s.summaryRow}>
+              <span style={s.summaryLabel}>Dropoff</span>
+              <span>{dropoff?.name}</span>
+            </div>
           </div>
           <div style={s.sectionTitle}>Cycling preference</div>
           {[
@@ -622,7 +425,7 @@ export default function RoutePlanner({
           ))}
           {error && <div style={s.error}>{error}</div>}
           <div style={s.btnRow}>
-            <button onClick={() => { setPhase('select'); switchToSegment(numSegs - 1) }} style={s.secondaryBtn}>← Back</button>
+            <button onClick={() => setPhase('select')} style={s.secondaryBtn}>← Back</button>
             <button onClick={handleGetDirections} disabled={loading} style={s.primaryBtn}>
               {loading ? 'Calculating…' : 'Get Directions'}
             </button>
@@ -631,9 +434,9 @@ export default function RoutePlanner({
       )}
 
       {/* ── Phase 4: Result ── */}
-      {phase === 'result' && segmentPlans.length > 0 && (
+      {phase === 'result' && plan && (
         <div>
-          <RouteResult plans={segmentPlans} />
+          <RouteResult plan={plan} />
           <div style={{ padding: '0 12px 12px' }}>
             <button onClick={() => setPhase('preference')} style={s.secondaryBtn}>← Change preference</button>
           </div>
@@ -641,12 +444,6 @@ export default function RoutePlanner({
       )}
     </div>
   )
-}
-
-// Shorten a geocoded label to just the first part
-function shortLabel(pt) {
-  if (!pt) return ''
-  return (pt.label ?? '').split(',')[0] || pt.label
 }
 
 const s = {
@@ -682,19 +479,6 @@ const s = {
     flex: 1, border: '1px solid #ddd', borderRadius: 4,
     padding: '7px 10px', fontSize: '0.85rem', outline: 'none', minWidth: 0,
   },
-  addWpBtn: {
-    marginTop: 8, background: 'none', border: 'none',
-    color: '#16a085', cursor: 'pointer',
-    fontSize: '0.82rem', fontWeight: 600, padding: '2px 0',
-    textDecoration: 'underline',
-  },
-  removeWpBtn: {
-    background: 'none', border: 'none',
-    color: '#aaa', cursor: 'pointer',
-    fontSize: '1.1rem', lineHeight: 1,
-    padding: '6px 4px', marginTop: 2,
-    flexShrink: 0,
-  },
   fieldRow: { marginTop: 10 },
   fieldLabel: { display: 'block', fontSize: '0.78rem', color: '#666', marginBottom: 4 },
   datetimeInput: {
@@ -723,18 +507,6 @@ const s = {
     background: '#fce8e6', color: '#c5221f',
     borderRadius: 4, fontSize: '0.82rem',
   },
-  segIndicator: {
-    display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center',
-  },
-  segDot: {
-    width: 26, height: 26, borderRadius: 13,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-    border: '2px solid transparent', transition: 'all 0.15s',
-    padding: 0,
-  },
-  segLabel: { fontSize: '0.82rem', fontWeight: 700, color: '#333', marginBottom: 8 },
-  segRoute: { fontWeight: 400, color: '#888', fontSize: '0.75rem' },
   sectionTitle: {
     fontSize: '0.8rem', fontWeight: 700, color: '#333',
     marginBottom: 6, marginTop: 4,
@@ -757,11 +529,6 @@ const s = {
     background: '#f8f9fa', borderRadius: 6,
     padding: '10px 12px', marginBottom: 12,
   },
-  summaryLegHeader: {
-    fontSize: '0.75rem', fontWeight: 700, color: '#16a085',
-    textTransform: 'uppercase', letterSpacing: '0.03em',
-    marginTop: 8, marginBottom: 4,
-  },
   summaryRow: {
     display: 'flex', justifyContent: 'space-between',
     fontSize: '0.83rem', color: '#333', marginBottom: 4,
@@ -775,14 +542,6 @@ const s = {
   prefLabel: { fontSize: '0.88rem', fontWeight: 600, color: '#1a1a1a' },
   prefDesc: { fontSize: '0.75rem', color: '#666', marginTop: 2 },
   result: { borderTop: '1px solid #eee', padding: '14px 12px' },
-  legHeader: {
-    fontSize: '0.75rem', fontWeight: 700, color: '#16a085',
-    textTransform: 'uppercase', letterSpacing: '0.03em',
-    marginBottom: 8, marginTop: 4,
-  },
-  legDivider: {
-    borderTop: '2px dashed #e0e0e0', margin: '12px 0',
-  },
   step: { display: 'flex', gap: 10, alignItems: 'flex-start' },
   stepIcon: { fontSize: '1.2rem', flexShrink: 0, marginTop: 1 },
   stepLabel: { fontSize: '0.8rem', color: '#666' },
