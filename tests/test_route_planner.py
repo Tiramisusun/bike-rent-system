@@ -37,7 +37,7 @@ class TestMins:
 @pytest.fixture(scope="module")
 def client():
     from app import app as flask_app
-    from src.db import init_db, Station, StationStatus, Address
+    from src.db import init_db, Station, StationStatus
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
     from datetime import datetime, timezone
@@ -51,9 +51,6 @@ def client():
                       latitude=53.3410, longitude=-6.2605))
         s.add(Station(station_id=11, name="TRINITY", contract="dublin",
                       latitude=53.3453, longitude=-6.2593))
-        s.flush()
-        s.add(Address(station_id=10, street1="Grafton Street"))
-        s.add(Address(station_id=11, street1="Trinity College"))
         s.flush()
         now = datetime.now(timezone.utc)
         s.add(StationStatus(station_id=10, avail_bikes=8, avail_bike_stands=5,

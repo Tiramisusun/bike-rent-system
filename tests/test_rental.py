@@ -5,7 +5,7 @@ Run with:  pytest tests/test_rental.py -v
 import pytest
 from datetime import datetime, timezone
 from app import app as flask_app
-from src.db import init_db, Station, StationStatus, Address
+from src.db import init_db, Station, StationStatus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -24,9 +24,6 @@ def client():
         st2 = Station(station_id=2, name="STATION B", contract="dublin",
                       latitude=53.35, longitude=-6.27)
         s.add_all([st1, st2])
-        s.flush()
-        s.add(Address(station_id=1, street1="Addr A"))
-        s.add(Address(station_id=2, street1="Addr B"))
         s.flush()
         now = datetime.now(timezone.utc)
         s.add(StationStatus(station_id=1, avail_bikes=5, avail_bike_stands=10,

@@ -62,7 +62,7 @@ class TestBikeDataFormat:
 @pytest.fixture(scope="module")
 def client():
     from app import app as flask_app
-    from src.db import init_db, Station, StationStatus, Address
+    from src.db import init_db, Station, StationStatus
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
     from datetime import datetime, timezone
@@ -74,8 +74,6 @@ def client():
     with Session(engine) as s:
         s.add(Station(station_id=42, name="SMITHFIELD NORTH",
                       contract="dublin", latitude=53.3495, longitude=-6.2781))
-        s.flush()
-        s.add(Address(station_id=42, street1="Smithfield North"))
         s.flush()
         s.add(StationStatus(station_id=42, avail_bikes=5, avail_bike_stands=10,
                             status="OPEN", update_time=datetime.now(timezone.utc)))
