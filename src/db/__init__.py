@@ -15,7 +15,6 @@ from src.db.models import (
     Forecast,
     Station,
     StationStatus,
-    Address,
 )
 
 from src.db.engine import load_engine, init_db
@@ -33,7 +32,7 @@ from src.db.readers import (
 __all__ = [
     # models
     "Base", "User", "Rental", "Weather", "WeatherReport",
-    "Forecast", "Station", "StationStatus", "Address",
+    "Forecast", "Station", "StationStatus",
     # engine
     "load_engine", "init_db",
     # writers
