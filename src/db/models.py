@@ -112,3 +112,5 @@ class StationStatus(Base):
     def __repr__(self):
         return f"StationStatus(id={self.id}, station_id={self.station_id}, avail_bikes={self.avail_bikes})"
 
+
+

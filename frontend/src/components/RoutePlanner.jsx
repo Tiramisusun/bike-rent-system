@@ -189,6 +189,7 @@ export default function RoutePlanner({
   const [pickup, setPickup]           = useState(null)
   const [dropoff, setDropoff]         = useState(null)
   const [plan, setPlan]               = useState(null)
+  const [weatherAlert, setWeatherAlert] = useState(null)
 
   // ── Close / clear ─────────────────────────────────────────────────────────
   function handleClose() {
@@ -208,6 +209,7 @@ export default function RoutePlanner({
   // ── Phase 1 → 2: geocode points, fetch candidates ─────────────────────────
   async function handleFindStations() {
     setError(null)
+    setWeatherAlert(null)
     setLoading(true)
     try {
       const start = startPoint ?? await geocode(startText)
@@ -220,9 +222,28 @@ export default function RoutePlanner({
         end_lat:   end.lat,   end_lng:   end.lng,
         departure_time: new Date(departureTime).toISOString(),
       })
-      const res = await fetch(`/api/plan/candidates?${params}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Failed to fetch candidates')
+      const [candidatesRes, forecastRes] = await Promise.all([
+        fetch(`/api/plan/candidates?${params}`),
+        fetch('/api/weather/forecast'),
+      ])
+      const json = await candidatesRes.json()
+      if (!candidatesRes.ok) throw new Error(json.error ?? 'Failed to fetch candidates')
+
+      // Check for rain near departure time
+      if (forecastRes.ok) {
+        const forecastJson = await forecastRes.json()
+        const departureDt = new Date(departureTime).getTime() / 1000
+        const entries = forecastJson.data ?? []
+        const closest = entries.reduce((best, entry) =>
+          Math.abs(entry.dt - departureDt) < Math.abs(best.dt - departureDt) ? entry : best
+        , entries[0])
+        if (closest) {
+          const desc = (closest.description ?? '').toLowerCase()
+          if (desc.includes('rain') || desc.includes('drizzle') || desc.includes('shower')) {
+            setWeatherAlert(`⚠️ Rain expected around your departure time: ${closest.description}.`)
+          }
+        }
+      }
 
       setCandidates(json)
       setPickup(null); setDropoff(null)
@@ -290,6 +311,11 @@ export default function RoutePlanner({
         <span style={s.title}>Route Plan</span>
         <button onClick={handleClose} style={s.closeBtn}>✕</button>
       </div>
+
+      {/* Weather alert banner */}
+      {weatherAlert && (
+        <div style={s.weatherAlert}>{weatherAlert}</div>
+      )}
 
       {/* ── Phase 1: Input ── */}
       {phase === 'input' && (
@@ -552,6 +578,16 @@ const s = {
     marginTop: 12, paddingTop: 10,
     borderTop: '1px solid #f0f0f0',
     fontSize: '0.82rem', color: '#333', fontWeight: 600,
+  },
+  weatherAlert: {
+    margin: '8px 12px 0',
+    padding: '8px 12px',
+    background: '#fff8e1',
+    color: '#7a5800',
+    border: '1px solid #ffe082',
+    borderRadius: 6,
+    fontSize: '0.82rem',
+    lineHeight: 1.5,
   },
   openBtn: {
     pointerEvents: 'auto',

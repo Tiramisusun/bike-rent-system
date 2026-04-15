@@ -31,11 +31,11 @@ class TestCalculateCost:
 class TestPredictFeatures:
 
     def test_rush_hour_morning(self):
-        """hour=8 should produce rush_hour=1 and is_morning_peak=1."""
+        """hour=8 should set rush_hour=1."""
         captured = {}
         def fake_predict(df):
             captured["rush_hour"] = df["rush_hour"].iloc[0]
-            captured["is_morning_peak"] = df["is_morning_peak"].iloc[0]
+            captured["hour"] = df["hour"].iloc[0]
             return [5.0]
 
         m = MagicMock()
@@ -44,40 +44,36 @@ class TestPredictFeatures:
             predict(1, datetime(2024, 12, 15, 8, 0, tzinfo=timezone.utc),
                     53.34, -6.26, 12.0, 75)
         assert captured["rush_hour"] == 1
-        assert captured["is_morning_peak"] == 1
+        assert captured["hour"] == 8
 
-    def test_lag_features_from_recent_bikes(self):
+    def test_non_rush_hour_evening(self):
+        """hour=14 should set rush_hour=0."""
         captured = {}
         def fake_predict(df):
-            captured["lag_1"] = df["lag_1"].iloc[0]
-            captured["lag_2"] = df["lag_2"].iloc[0]
-            captured["rolling_mean_3"] = df["rolling_mean_3"].iloc[0]
+            captured["rush_hour"] = df["rush_hour"].iloc[0]
             return [5.0]
 
         m = MagicMock()
         m.predict.side_effect = fake_predict
-        recent = [10, 8, 6, 4, 2]  # newest first
         with patch("src.ml.occupancy_model._load_model", return_value=m):
-            predict(1, datetime(2024, 12, 15, 9, 0, tzinfo=timezone.utc),
-                    53.34, -6.26, 12.0, 75, recent_bikes=recent)
-        assert captured["lag_1"] == 10.0
-        assert captured["lag_2"] == 8.0
-        assert abs(captured["rolling_mean_3"] - (10 + 8 + 6) / 3) < 1e-9
+            predict(1, datetime(2024, 12, 15, 14, 0, tzinfo=timezone.utc),
+                    53.34, -6.26, 12.0, 75)
+        assert captured["rush_hour"] == 0
 
-    def test_missing_lag_falls_back_to_zero(self):
+    def test_features_passed_to_model(self):
+        """All 11 expected features are present in the DataFrame passed to model."""
         captured = {}
         def fake_predict(df):
-            captured["lag_24"] = df["lag_24"].iloc[0]
-            captured["lag_168"] = df["lag_168"].iloc[0]
+            captured["columns"] = list(df.columns)
             return [5.0]
 
         m = MagicMock()
         m.predict.side_effect = fake_predict
         with patch("src.ml.occupancy_model._load_model", return_value=m):
             predict(1, datetime(2024, 12, 15, 9, 0, tzinfo=timezone.utc),
-                    53.34, -6.26, 12.0, 75, recent_bikes=[5, 4, 3])
-        assert captured["lag_24"] == 0.0
-        assert captured["lag_168"] == 0.0
+                    53.34, -6.26, 12.0, 75)
+        from src.ml.occupancy_model import FEATURES
+        assert captured["columns"] == FEATURES
 
 
 # ── Integration tests ─────────────────────────────────────────────────────────

@@ -4,13 +4,13 @@ export default function AppNavbar({ currentPage, onNavigate, user, onLogout }) {
       <div style={s.left}>
         <span style={s.logo}>🚲 Dublin Bikes Hub</span>
         <nav style={s.nav}>
-          {['map', 'account'].map(page => (
+          {['map', 'how-to', 'account'].map(page => (
             <button
               key={page}
               style={{ ...s.navLink, ...(currentPage === page ? s.navLinkActive : {}) }}
               onClick={() => onNavigate(page)}
             >
-              {page === 'map' ? 'Main Map' : 'Login / Account'}
+              {page === 'map' ? 'Main Map' : page === 'how-to' ? 'How To' : 'Login / Account'}
             </button>
           ))}
         </nav>

@@ -3,9 +3,15 @@
 ## Description
 
 Dublin Bikes Application developed as a requirement of the Software Engineering Module (2026).  
-The system fetches real-time bike and weather data from external APIs, stores it in a MySQL database, and serves a React frontend through a Flask backend. It includes route planning, bike rental, user authentication, and a machine learning model for predicting bike availability.
+The system fetches real-time bike and weather data from external APIs, stores it in a MySQL database, and serves a React frontend through a Flask backend. It includes route planning with weather alerts, bike rental and billing, user authentication, availability prediction using a machine learning model, and a How To guide for new users.
 
----
+## Features
+
+1. **Weather Forecast** — Provides a 5-day forecast updated every 3 hours, including temperature, humidity, and rain conditions. A weather alert is shown in the route planner if rain is expected around the departure time.
+2. **Route Planning** — Users enter a start and destination; the system recommends pickup stations within 1500m with more than 2 available bikes. It then estimates travel time and uses machine learning to recommend dropoff stations within 1500m of the destination with more than 2 free stands.
+3. **Bike Rental & Billing** — Users can rent and return bikes after logging in. Rental history and costs are displayed on the account page. The first 30 minutes are free; each additional 30-minute block costs €0.50.
+4. **Availability Prediction** — Users select a station and a future time; the ML model combines historical data and current weather conditions to predict the number of available bikes and free stands at that station.
+5. **How To Guide** — A dedicated page introducing the three main features (route planning, availability prediction, and bike rental) to help new users get started quickly.
 
 ## Project Structure
 
@@ -23,15 +29,19 @@ The system fetches real-time bike and weather data from external APIs, stores it
 │
 ├── frontend/                       # React + Vite frontend
 │   └── src/
-│       ├── App.jsx                 # Root component, auth state, navbar
+│       ├── App.jsx                 # Root component, page routing, auth state
 │       └── components/
 │           ├── BikeMap.jsx              # Leaflet map, station markers, predict-all panel
-│           ├── RoutePlanner.jsx         # Route planning sidebar (left)
-│           ├── PredictionWidget.jsx     # Single-station prediction sidebar (left)
-│           ├── WeatherForecastWidget.jsx # 5-day weather forecast sidebar (left)
+│           ├── RoutePlanner.jsx         # Route planning panel with weather alert
+│           ├── PredictionWidget.jsx     # Single-station prediction sidebar
+│           ├── PredictionPanel.jsx      # Prediction results panel
+│           ├── WeatherForecast.jsx      # Full weather forecast view
+│           ├── WeatherForecastWidget.jsx # 5-day weather forecast sidebar
 │           ├── StationHistoryChart.jsx  # Historical availability chart modal
-│           ├── StatusBar.jsx            # Bottom status bar
-│           └── AppNavbar.jsx            # Top navigation bar
+│           ├── AccountPage.jsx          # Login, register, rental history
+│           ├── HowToPage.jsx            # How To page — feature guide (3 cards)
+│           ├── StatusBar.jsx            # Bottom status bar with Refresh button
+│           └── AppNavbar.jsx            # Top navigation bar (Map, How To, Account)
 │
 ├── src/                            # Python backend
 │   ├── db/                         # Database package (split by responsibility)
@@ -47,7 +57,7 @@ The system fetches real-time bike and weather data from external APIs, stores it
 │   ├── routes/
 │   │   ├── bikes_routes.py         # GET /api/bikes, /api/db/stations
 │   │   ├── weather_routes.py       # GET /api/weather, /api/weather/forecast
-│   │   ├── route_planner_routes.py # GET /api/plan
+│   │   ├── route_planner_routes.py # GET /api/plan, /api/plan/candidates, /api/plan/route
 │   │   ├── prediction_routes.py    # GET /api/predict, /api/predict/all
 │   │   ├── auth_routes.py          # POST /api/auth/register, /api/auth/login
 │   │   ├── rental_routes.py        # POST /api/rental/start|end, GET /api/rental/active|history
@@ -209,7 +219,33 @@ Weather is read from the local database first, and falls back to the OpenWeather
 
 ### Route Planning
 
-**`GET /api/plan`** — Plan an optimal bike journey.
+**`GET /api/plan/candidates`** — Step 1: fetch ML-ranked pickup and dropoff candidate stations.
+
+| Parameter | Required | Default | Description |
+|---|---|---|---|
+| `start_lat`, `start_lng` | yes | — | Start coordinates |
+| `end_lat`, `end_lng` | yes | — | Destination coordinates |
+| `departure_time` | no | now | ISO 8601 departure datetime |
+
+Returns `pickup_candidates` and `dropoff_candidates`, each ranked by predicted availability. Only stations with more than 2 available bikes (pickup) or free stands (dropoff) are included.
+
+---
+
+**`GET /api/plan/route`** — Step 2: compute the three-leg route for user-selected stations.
+
+| Parameter | Required | Default | Description |
+|---|---|---|---|
+| `pickup_id` | yes | — | Selected pickup station ID |
+| `dropoff_id` | yes | — | Selected dropoff station ID |
+| `start_lat`, `start_lng` | yes | — | Start coordinates |
+| `end_lat`, `end_lng` | yes | — | Destination coordinates |
+| `preference` | no | `recommended` | `recommended` / `fastest` / `shortest` |
+
+Returns a three-leg journey: walk to pickup → cycle → walk to destination, with times for each leg.
+
+---
+
+**`GET /api/plan`** — Legacy single-call route planner (geocode + candidates + route in one request).
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
@@ -218,7 +254,17 @@ Weather is read from the local database first, and falls back to the OpenWeather
 | `max_distance_m` | no | 1500 | Max walking distance to a station (metres) |
 | `candidates` | no | 4 | Candidate stations per side |
 
-The response includes `dropoff_station.predicted_stands` — the ML model's prediction of how many stands will be free at the dropoff station when you arrive.
+---
+
+### Geocoding
+
+**`GET /api/geocode/eircode`** — Resolve an Irish Eircode to lat/lng coordinates.
+
+| Parameter | Required | Description |
+|---|---|---|
+| `q` | yes | Eircode in canonical form, e.g. `A96 R8C4` |
+
+Uses OpenCage if `OPENCAGE_API_KEY` is set, otherwise falls back to Nominatim.
 
 ---
 
@@ -283,18 +329,8 @@ The test suite covers four levels:
 
 ## Deployment on AWS EC2
 
-### Option A — Terraform
 
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# Fill in db_password, jcdecaux_api_key, openweather_api_key
-terraform init && terraform apply
-```
-
-Tears down with `terraform destroy`.
-
-### Option B — Manual SSH
+### Manual SSH
 
 ```bash
 # SSH in (aws-flask.pem is not tracked in git — keep it secure)

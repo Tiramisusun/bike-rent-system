@@ -3,6 +3,7 @@ import AppNavbar from './components/AppNavbar'
 import BikeMap from './components/BikeMap'
 import StatusBar from './components/StatusBar'
 import AccountPage from './components/AccountPage'
+import HowToPage from './components/HowToPage'
 
 export default function App() {
   const [weather, setWeather] = useState(null)
@@ -51,6 +52,8 @@ export default function App() {
       {currentPage === 'account' && (
         <AccountPage user={user} onLogin={handleLogin} onLogout={handleLogout} rentalVersion={rentalVersion} />
       )}
+
+      {currentPage === 'how-to' && <HowToPage />}
 
     </div>
   )
