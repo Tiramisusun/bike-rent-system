@@ -84,6 +84,7 @@ def api_plan():
         max_distance_m = _int_param("max_distance_m", 1500)
         candidates = _int_param("candidates", 4)
     except ValueError as exc:
+        current_app.logger.warning(f"[/api/plan] Invalid params: {exc}")
         return jsonify({"error": str(exc)}), 400
 
     # Parse optional waypoints: "lat1,lng1;lat2,lng2"
@@ -96,7 +97,8 @@ def api_plan():
                 if pair:
                     lat_s, lng_s = pair.split(",")
                     waypoints.append((float(lat_s), float(lng_s)))
-        except Exception:
+        except Exception as exc:
+            current_app.logger.warning(f"[/api/plan] Invalid waypoints '{waypoints_raw}': {exc}")
             return jsonify({"error": "Invalid waypoints format. Use 'lat,lng;lat,lng'"}), 400
 
     try:
@@ -112,9 +114,10 @@ def api_plan():
         return jsonify(result)
 
     except RoutePlanningError as exc:
+        current_app.logger.error(f"[/api/plan] RoutePlanningError: {exc}", exc_info=True)
         return jsonify({"error": str(exc)}), 502
     except Exception as exc:
-        current_app.logger.exception("Unexpected route planning failure")
+        current_app.logger.exception(f"[/api/plan] Unexpected route planning failure: {exc}")
         return jsonify({"error": f"Route planning failed: {exc}"}), 500
 
 
@@ -130,13 +133,15 @@ def api_plan_candidates():
         end_lat   = _float_param("end_lat")
         end_lng   = _float_param("end_lng")
     except ValueError as exc:
+        current_app.logger.warning(f"[/api/plan/candidates] Invalid params: {exc}")
         return jsonify({"error": str(exc)}), 400
 
     dt_raw = request.args.get("departure_time", "").strip()
     if dt_raw:
         try:
             departure_dt = datetime.fromisoformat(dt_raw).replace(tzinfo=timezone.utc)
-        except ValueError:
+        except ValueError as exc:
+            current_app.logger.warning(f"[/api/plan/candidates] Invalid departure_time '{dt_raw}': {exc}")
             return jsonify({"error": "Invalid departure_time format. Use ISO 8601."}), 400
     else:
         departure_dt = datetime.now(timezone.utc)
@@ -151,7 +156,7 @@ def api_plan_candidates():
         )
         return jsonify(result)
     except Exception as exc:
-        current_app.logger.exception("get_candidates failed")
+        current_app.logger.exception(f"[/api/plan/candidates] get_candidates failed: {exc}")
         return jsonify({"error": str(exc)}), 500
 
 
@@ -169,6 +174,7 @@ def api_plan_route():
         pickup_id  = _int_param("pickup_id",  None)
         dropoff_id = _int_param("dropoff_id", None)
     except ValueError as exc:
+        current_app.logger.warning(f"[/api/plan/route] Invalid params: {exc}")
         return jsonify({"error": str(exc)}), 400
 
     if pickup_id is None or dropoff_id is None:
@@ -189,7 +195,8 @@ def api_plan_route():
         )
         return jsonify(result)
     except RoutePlanningError as exc:
+        current_app.logger.error(f"[/api/plan/route] RoutePlanningError: {exc}", exc_info=True)
         return jsonify({"error": str(exc)}), 404
     except Exception as exc:
-        current_app.logger.exception("plan_route_simple failed")
+        current_app.logger.exception(f"[/api/plan/route] plan_route_simple failed: {exc}")
         return jsonify({"error": str(exc)}), 500
