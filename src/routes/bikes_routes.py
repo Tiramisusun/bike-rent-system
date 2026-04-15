@@ -28,12 +28,14 @@ def api_bikes():
             db_from_request(data, "bike-static", engine=engine)   # upsert stations first (satisfies FK)
             db_from_request(data, "bike-dynamic", engine=engine)   # then insert status records
         except Exception as e:
-            current_app.logger.warning(f"bike insert failed: {e}")
+            current_app.logger.warning(f"bike insert failed: {e}", exc_info=True)
 
         return jsonify({"source": "jcdecaux", "count": len(data), "data": data})
     except requests.RequestException as e:
+        current_app.logger.error(f"[/api/bikes] JCDecaux request failed: {e}", exc_info=True)
         return jsonify({"source": "jcdecaux", "error": "Request failed", "details": str(e)}), 502
     except Exception as e:
+        current_app.logger.error(f"[/api/bikes] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "jcdecaux", "error": "Server error", "details": str(e)}), 500
 
 
@@ -53,6 +55,7 @@ def api_db_stations():
         data = get_all_stations(engine)
         return jsonify({"source": "database", "count": len(data), "data": data})
     except Exception as e:
+        current_app.logger.error(f"[/api/db/stations] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
 
 
@@ -77,6 +80,7 @@ def api_db_station_history(station_id):
         data = get_station_history(engine, station_id)
         return jsonify({"source": "database", "station_id": station_id, "count": len(data), "data": data})
     except Exception as e:
+        current_app.logger.error(f"[/api/db/stations/{station_id}/history] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
 
 
@@ -96,4 +100,5 @@ def api_db_station_status():
         data = get_latest_station_status(engine)
         return jsonify({"source": "database", "count": len(data), "data": data})
     except Exception as e:
+        current_app.logger.error(f"[/api/db/stations/status] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500

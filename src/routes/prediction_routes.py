@@ -107,6 +107,7 @@ def api_predict():
             humidity = raw["main"]["humidity"]
             weather_source = "openweather"
         except Exception as e:
+            current_app.logger.error(f"[/api/predict] Weather fetch failed: {e}", exc_info=True)
             return jsonify({"error": "Weather data unavailable", "details": str(e)}), 502
 
     # 5. Run prediction
@@ -116,8 +117,10 @@ def api_predict():
             recent_bikes=recent_bikes, station_median=station_median,
         )
     except FileNotFoundError as e:
+        current_app.logger.error(f"[/api/predict] Model file not found: {e}", exc_info=True)
         return jsonify({"error": "ML model not found. Run the notebook first.", "details": str(e)}), 503
     except Exception as e:
+        current_app.logger.error(f"[/api/predict] Prediction failed: {e}", exc_info=True)
         return jsonify({"error": "Prediction failed", "details": str(e)}), 500
 
     return jsonify({

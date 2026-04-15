@@ -28,13 +28,15 @@ def api_weather():
         try:
             db_from_request(data, "weather", engine=engine)
         except Exception as e:
-            current_app.logger.error(f"weather insert failed: {e}", exc_info=True)
+            current_app.logger.error(f"[/api/weather] DB insert failed: {e}", exc_info=True)
             return jsonify({"source": "openweather", "data": data, "db_warning": str(e)}), 200
 
         return jsonify({"source": "openweather", "data": data})
     except requests.RequestException as e:
+        current_app.logger.error(f"[/api/weather] OpenWeather request failed: {e}", exc_info=True)
         return jsonify({"source": "openweather", "error": "Request failed", "details": str(e)}), 502
     except Exception as e:
+        current_app.logger.error(f"[/api/weather] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "openweather", "error": "Server error", "details": str(e)}), 500
 
 
@@ -59,7 +61,7 @@ def api_weather_forecast():
         try:
             store_forecast_data(engine, forecast_list)
         except Exception as e:
-            current_app.logger.warning(f"forecast insert failed: {e}")
+            current_app.logger.warning(f"[/api/weather/forecast] DB insert failed: {e}", exc_info=True)
 
         items = [
             {
@@ -76,8 +78,10 @@ def api_weather_forecast():
         ]
         return jsonify({"source": "openweather", "count": len(items), "data": items})
     except requests.RequestException as e:
+        current_app.logger.error(f"[/api/weather/forecast] OpenWeather request failed: {e}", exc_info=True)
         return jsonify({"source": "openweather", "error": "Request failed", "details": str(e)}), 502
     except Exception as e:
+        current_app.logger.error(f"[/api/weather/forecast] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "openweather", "error": "Server error", "details": str(e)}), 500
 
 
@@ -101,4 +105,5 @@ def api_db_weather():
             return jsonify({"source": "database", "error": "No weather data found"}), 404
         return jsonify({"source": "database", "data": data})
     except Exception as e:
+        current_app.logger.error(f"[/api/db/weather] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
