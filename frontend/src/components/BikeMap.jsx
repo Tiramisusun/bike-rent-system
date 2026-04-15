@@ -112,14 +112,6 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
   const [historyStation, setHistoryStation] = useState(null)  // { id, name }
   const [rentalMsg, setRentalMsg] = useState(null)
   const [activeRental, setActiveRental] = useState(null)
-  const [allPredictions, setAllPredictions] = useState({})   // station_id → {predicted_bikes, predicted_docks}
-  const [predictDatetime, setPredictDatetime] = useState(() => {
-    const now = new Date()
-    return now.toISOString().slice(0, 16)
-  })
-  const [predictLoading, setPredictLoading] = useState(false)
-  const [predictError, setPredictError] = useState(null)
-  const [predictedAt, setPredictedAt] = useState(null)
 
   // Load active rental when user logs in
   useEffect(() => {
@@ -188,32 +180,6 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
     setSelectedDropoff(null)
   }
 
-  async function handlePredictAll() {
-    setPredictLoading(true)
-    setPredictError(null)
-    try {
-      const res = await fetch(`/api/predict/all?datetime=${encodeURIComponent(predictDatetime)}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Prediction failed')
-      const map = {}
-      for (const p of json.predictions) {
-        map[p.station_id] = { predicted_bikes: p.predicted_bikes, predicted_docks: p.predicted_docks }
-      }
-      setAllPredictions(map)
-      setPredictedAt(predictDatetime)
-    } catch (err) {
-      setPredictError(err.message)
-    } finally {
-      setPredictLoading(false)
-    }
-  }
-
-  function handleClearPredictions() {
-    setAllPredictions({})
-    setPredictedAt(null)
-    setPredictError(null)
-  }
-
   // Cursor style for the map wrapper when click mode is active
   const wrapperStyle = {
     position: 'relative',
@@ -262,23 +228,6 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
                 <div style={styles.popupFooter}>
                   Status: {station.status ?? '—'} · Updated: {fmtTime(station.last_update)}
                 </div>
-                {allPredictions[station.number] && (
-                  <div style={styles.predictionBox}>
-                    <div style={styles.predictionTitle}>Predicted at {predictedAt?.slice(11, 16)}</div>
-                    <div style={styles.predictionRow}>
-                      <span>🚲 Bikes</span>
-                      <span style={{ fontWeight: 700, color: allPredictions[station.number].predicted_bikes === 0 ? '#e74c3c' : allPredictions[station.number].predicted_bikes <= 5 ? '#f39c12' : '#2ecc71' }}>
-                        {allPredictions[station.number].predicted_bikes}
-                      </span>
-                    </div>
-                    <div style={styles.predictionRow}>
-                      <span>🅿️ Docks</span>
-                      <span style={{ fontWeight: 700, color: '#555' }}>
-                        {allPredictions[station.number].predicted_docks}
-                      </span>
-                    </div>
-                  </div>
-                )}
                 <button
                   style={styles.historyBtn}
                   onClick={() => setHistoryStation({ id: station.number, name: station.name })}
@@ -391,27 +340,6 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
           onClose={() => setHistoryStation(null)}
         />
       )}
-
-      {/* ── Predict All control panel (bottom centre) ── */}
-      <div style={styles.predictAllPanel}>
-        <input
-          type="datetime-local"
-          value={predictDatetime}
-          onChange={e => setPredictDatetime(e.target.value)}
-          style={styles.predictAllInput}
-        />
-        <button
-          onClick={handlePredictAll}
-          disabled={predictLoading}
-          style={styles.predictAllBtn}
-        >
-          {predictLoading ? 'Predicting…' : '🔮 Predict All'}
-        </button>
-        {Object.keys(allPredictions).length > 0 && (
-          <button onClick={handleClearPredictions} style={styles.predictAllClearBtn}>✕ Clear</button>
-        )}
-        {predictError && <span style={styles.predictAllError}>{predictError}</span>}
-      </div>
 
       {/* ── Left sidebar: Route Plan / Predict / Forecast ── */}
       <div style={styles.leftSidebar}>
@@ -561,74 +489,5 @@ const styles = {
     zIndex: 9999,
     fontSize: '0.85rem',
     whiteSpace: 'nowrap',
-  },
-  predictAllPanel: {
-    position: 'absolute',
-    bottom: 52,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 1000,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    background: '#fff',
-    borderRadius: 8,
-    boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
-    padding: '8px 14px',
-    pointerEvents: 'auto',
-  },
-  predictAllInput: {
-    border: '1px solid #ddd',
-    borderRadius: 4,
-    padding: '5px 8px',
-    fontSize: '0.85rem',
-    outline: 'none',
-  },
-  predictAllBtn: {
-    background: '#16a085',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 4,
-    padding: '6px 14px',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '0.85rem',
-    whiteSpace: 'nowrap',
-  },
-  predictAllClearBtn: {
-    background: '#e74c3c',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 4,
-    padding: '6px 10px',
-    cursor: 'pointer',
-    fontSize: '0.82rem',
-    fontWeight: 600,
-  },
-  predictAllError: {
-    color: '#c5221f',
-    fontSize: '0.8rem',
-  },
-  predictionBox: {
-    marginTop: 8,
-    padding: '6px 8px',
-    background: '#f0faf7',
-    borderRadius: 4,
-    border: '1px solid #b2dfdb',
-  },
-  predictionTitle: {
-    fontSize: '0.72rem',
-    color: '#16a085',
-    fontWeight: 700,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: '0.03em',
-  },
-  predictionRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '0.82rem',
-    color: '#333',
-    marginBottom: 2,
   },
 }
