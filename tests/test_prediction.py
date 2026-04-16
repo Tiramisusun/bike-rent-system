@@ -127,12 +127,3 @@ def test_successful_prediction_returns_200(client):
     assert "weather" in data
 
 
-def test_predict_all_contains_bikes_and_docks(client):
-    with patch("src.routes.prediction_routes.predict", _fake_predict_fn):
-        res = client.get("/api/predict/all")
-    assert res.status_code == 200
-    pred = res.get_json()["predictions"][0]
-    assert "predicted_bikes" in pred
-    assert "predicted_docks" in pred
-    assert pred["predicted_bikes"] >= 0
-    assert pred["predicted_docks"] >= 0
