@@ -65,8 +65,14 @@ def get_latest_station_status(engine: Engine) -> list[dict]:
 
 
 def get_station_history(engine: Engine, station_id: int) -> list[dict]:
-    """Return historical status records for a single station (last 14 days)."""
+    """Return the most recent continuous segment of status records for a station.
+
+    Looks back up to 14 days and trims the result to the latest unbroken run,
+    where a break is defined as a gap of more than 2 hours between consecutive
+    records.
+    """
     from datetime import timedelta
+    GAP_THRESHOLD = timedelta(hours=2)
     cutoff = datetime.now(timezone.utc) - timedelta(days=14)
     with Session(engine) as session:
         statuses = session.scalars(
@@ -77,6 +83,19 @@ def get_station_history(engine: Engine, station_id: int) -> list[dict]:
             )
             .order_by(StationStatus.update_time.asc())
         ).all()
+
+        if not statuses:
+            return []
+
+        # Walk backwards to find the start of the most recent continuous segment
+        i = len(statuses) - 1
+        while i > 0:
+            gap = statuses[i].update_time - statuses[i - 1].update_time
+            if gap > GAP_THRESHOLD:
+                break
+            i -= 1
+        statuses = statuses[i:]
+
         return [
             {
                 "avail_bikes": s.avail_bikes,

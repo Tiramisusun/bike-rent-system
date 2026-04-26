@@ -142,6 +142,12 @@ Update `.env`:
 DB_URL=mysql+pymysql://root:root@localhost:3306/softwaredb
 ```
 
+If podman is running:
+```bash
+python3 -m src.db.cli init-db
+
+```
+
 ### 2. Create a Python virtual environment
 
 ```bash
