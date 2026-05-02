@@ -31,7 +31,7 @@ The system fetches real-time bike and weather data from external APIs, stores it
 │   └── src/
 │       ├── App.jsx                 # Root component, page routing, auth state
 │       └── components/
-│           ├── BikeMap.jsx              # Leaflet map, station markers, predict-all panel
+│           ├── BikeMap.jsx              # Leaflet map, station markers
 │           ├── RoutePlanner.jsx         # Route planning panel with weather alert
 │           ├── PredictionWidget.jsx     # Single-station prediction sidebar
 │           ├── PredictionPanel.jsx      # Prediction results panel
@@ -41,7 +41,8 @@ The system fetches real-time bike and weather data from external APIs, stores it
 │           ├── AccountPage.jsx          # Login, register, rental history
 │           ├── HowToPage.jsx            # How To page — feature guide (3 cards)
 │           ├── StatusBar.jsx            # Bottom status bar with Refresh button
-│           └── AppNavbar.jsx            # Top navigation bar (Map, How To, Account)
+│           ├── AppNavbar.jsx            # Top navigation bar (Map, How To, Account)
+│           └── Navbar.jsx               # Navigation bar component
 │
 ├── src/                            # Python backend
 │   ├── db/                         # Database package (split by responsibility)
@@ -113,7 +114,6 @@ Open `data/bike_availability_time_features_updated.ipynb` and run all cells. The
 
 The trained model is used in three places:
 - **`GET /api/predict`** — predict available bikes for a single station at a given date/time
-- **`GET /api/predict/all`** — predict available bikes and free stands for all stations at once; results are shown in each station's map popup
 - **`GET /api/plan`** — when planning a route, the dropoff station shows predicted available stands on arrival
 
 ---
@@ -168,11 +168,10 @@ python3 -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 ```
 
-### 3. Install Python dependencies and initialise the database
+### 3. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
-python3 src/db/cli.py init-db
 ```
 
 ### 4. Start the Flask backend
@@ -197,7 +196,7 @@ The app is available at `http://localhost:5173`. API calls are proxied to Flask 
 
 | Variable | Required | Description |
 |---|---|---|
-| `DB_URL` | yes | SQLAlchemy DB URL, e.g. `mysql+pymysql://root:root@localhost:3306/softwaredb` |
+| `DB_URL` | yes | SQLAlchemy DB URL, e.g. `mysql+pymysql://root:root@localhost:3307/softwaredb` |
 | `JWT_SECRET_KEY` | yes | Secret key for signing JWT tokens |
 | `JCDECAUX_API_KEY` | yes | JCDecaux API key for live Dublin Bikes data |
 | `JCDECAUX_CONTRACT_NAME` | yes | JCDecaux contract name (e.g. `dublin`) |
@@ -341,7 +340,7 @@ The test suite covers four levels:
 | `test_bike_api.py` | Integration | JCDecaux service, `/api/bikes`, `/api/db/stations` |
 | `test_weather_api.py` | Integration | OpenWeather service, `/api/weather`, `/api/weather/forecast` |
 | `test_route_planner.py` | Unit + Integration | Haversine, scoring penalties, `/api/plan` with/without waypoints |
-| `test_prediction.py` | Unit + Integration | Pricing logic, feature engineering, `/api/predict`, `/api/predict/all` |
+| `test_prediction.py` | Unit + Integration | Feature engineering, `/api/predict` |
 | `test_db.py` | Shared fixtures | Reused across test files |
 
 ---
