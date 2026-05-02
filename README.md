@@ -66,16 +66,16 @@ The system fetches real-time bike and weather data from external APIs, stores it
 │   │   ├── bikes_service.py        # JCDecaux API fetch
 │   │   ├── weather_service.py      # OpenWeather API fetch
 │   │   └── routing_service.py      # OSRM routing
-│   └── tasks/                      # Background data-fetch tasks
+│   └── tasks/                      # Background data-fetch tasks (local use)
 │       ├── bicycle/
-│       │   └── stations_fetch_current.py
+│       │   └── stations_fetch_current.py  # Fetches bike data every 5 min for 2 days → local DB
 │       └── openweather/
-│           └── fetch_current.py
+│           └── fetch_current.py           # Fetches weather data every 5 min for 2 days → local DB
 │
 ├── sql/                            # Database schema scripts
 │   ├── softwaredb.sql
 │   └── bike_app.sql
-├── terraform/                      # AWS infrastructure as code
+├
 └── tests/
     ├── test_bike_api.py            # JCDecaux service & bike endpoints
     ├── test_weather_api.py         # OpenWeather service & weather endpoints
@@ -130,6 +130,8 @@ podman run -d \
   mysql:8.0
 ```
 
+> `-p 3307:3306` maps port 3307 on your machine to port 3306 inside the container.
+
 Grant remote access (required for Podman's network routing):
 
 ```bash
@@ -139,14 +141,25 @@ podman exec softwaredb mysql -u root -proot -e \
 
 Update `.env`:
 ```env
-DB_URL=mysql+pymysql://root:root@localhost:3306/softwaredb
+DB_URL=mysql+pymysql://root:root@localhost:3307/softwaredb
 ```
 
-If podman is running:
+Initialise the database tables (first time only):
 ```bash
 python3 -m src.db.cli init-db
-
 ```
+
+### 1a. Run background data collection tasks (optional)
+
+Once the local database is running, you can start the background tasks to collect bike and weather data every 5 minutes for 2 days:
+
+```bash
+# In separate terminals:
+python -m src.tasks.bicycle.stations_fetch_current
+python -m src.tasks.openweather.fetch_current
+```
+
+Each task fetches data from the external API and stores it directly into the local `softwaredb` database (576 runs × 5 minutes = 2 days).
 
 ### 2. Create a Python virtual environment
 
@@ -362,13 +375,15 @@ scp -i aws-flask.pem .env.RDS ubuntu@<EC2_PUBLIC_IP>:~/bike-rent-system/.env
 python3 app.py
 ```
 
-Cron jobs are configured to keep data fresh (every 5 minutes for bikes and weather, every 60 minutes for forecast):
+Cron jobs are configured on the EC2 instance to keep data fresh (every 5 minutes for bikes and weather, every 60 minutes for forecast). To view or edit them, SSH into the EC2 instance and run `crontab -e`:
 
 ```
 */5  * * * * curl -s http://localhost:5000/api/bikes > /dev/null
 */5  * * * * curl -s http://localhost:5000/api/weather > /dev/null
 */60 * * * * curl -s http://localhost:5000/api/weather/forecast > /dev/null
 ```
+
+Each cron job calls the Flask API, which fetches data from the external API and stores it in the RDS database.
 
 ---
 
