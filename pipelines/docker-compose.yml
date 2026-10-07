@@ -51,7 +51,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-bikes}
       MYSQL_DATABASE: bike_app
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"   # localhost only — never expose the DB publicly
     volumes:
       - mysql-db-volume:/var/lib/mysql
       - ../dump.sql:/docker-entrypoint-initdb.d/01_dump.sql:ro
@@ -62,12 +62,15 @@ services:
       start_period: 30s
     restart: always
 
+  # Airflow metadata DB + the analytics warehouse (separate `warehouse` database).
   postgres:
     image: postgres:16
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+    ports:
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
@@ -150,6 +153,7 @@ services:
         /entrypoint airflow config list >/dev/null
         chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config} /opt/airflow/project/data/raw
         cd /opt/airflow/project && /entrypoint python -m src.db.cli migrate
+        cd /opt/airflow/project && /entrypoint python -m src.warehouse.setup
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
