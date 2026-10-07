@@ -165,4 +165,5 @@ def api_compare_eta():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # 5001: macOS AirPlay Receiver occupies 5000
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5001)), debug=True)

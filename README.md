@@ -188,7 +188,7 @@ npm install
 npm run dev
 ```
 
-The app is available at `http://localhost:5173`. API calls are proxied to Flask on port 5000.
+The app is available at `http://localhost:5173`. API calls are proxied to Flask on port 5001 (5000 is taken by macOS AirPlay Receiver).
 
 ---
 
