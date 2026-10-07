@@ -221,3 +221,10 @@ data/best_bike_model.pkl
 # AWS credentials / keys
 *.pem
 .env.RDS
+
+# Data platform
+data/raw/
+pipelines/.env
+pipelines/logs/
+pipelines/config/
+pipelines/plugins/
