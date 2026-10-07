@@ -25,6 +25,7 @@ from src.db.readers import (
     get_latest_weather,
     get_all_stations,
     get_latest_station_status,
+    get_latest_availability,
     get_station_history,
     get_forecast_data,
 )
@@ -39,5 +40,5 @@ __all__ = [
     "db_from_request", "store_forecast_data",
     # readers
     "get_latest_weather", "get_all_stations",
-    "get_latest_station_status", "get_station_history", "get_forecast_data",
+    "get_latest_station_status", "get_latest_availability", "get_station_history", "get_forecast_data",
 ]

@@ -1,8 +1,8 @@
 """Database read helpers — query operations."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -62,6 +62,50 @@ def get_latest_station_status(engine: Engine) -> list[dict]:
             }
             for s in statuses
         ]
+
+
+def get_latest_availability(
+    engine: Engine, drop_after: timedelta = timedelta(hours=24)
+) -> tuple[list[dict], datetime | None]:
+    """Latest snapshot per station, in the JCDecaux /stations shape the frontend uses.
+
+    Stations whose latest snapshot is more than `drop_after` older than the newest
+    snapshot overall are left out (they've disappeared from the live feed).
+    Returns (stations, newest snapshot time as naive UTC or None).
+    """
+    latest = (
+        select(StationStatus.station_id, func.max(StationStatus.update_time).label("t"))
+        .group_by(StationStatus.station_id)
+        .subquery()
+    )
+    query = (
+        select(Station, StationStatus)
+        .join(StationStatus, StationStatus.station_id == Station.station_id)
+        .join(latest, (latest.c.station_id == StationStatus.station_id)
+              & (latest.c.t == StationStatus.update_time))
+    )
+    with Session(engine) as session:
+        rows = session.execute(query).all()
+    if not rows:
+        return [], None
+
+    newest = max(status.update_time for _, status in rows)
+    stations = [
+        {
+            "number": station.station_id,
+            "contract_name": station.contract,
+            "name": station.name,
+            "position": {"lat": station.latitude, "lng": station.longitude},
+            "bike_stands": station.bike_stands,
+            "available_bikes": status.avail_bikes,
+            "available_bike_stands": status.avail_bike_stands,
+            "status": status.status,
+            "last_update": int(status.update_time.replace(tzinfo=timezone.utc).timestamp() * 1000),
+        }
+        for station, status in rows
+        if newest - status.update_time <= drop_after
+    ]
+    return sorted(stations, key=lambda s: s["number"]), newest
 
 
 def get_station_history(engine: Engine, station_id: int) -> list[dict]:
