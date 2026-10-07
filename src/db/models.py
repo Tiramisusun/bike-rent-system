@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DateTime, Double, ForeignKey, String
+from sqlalchemy import DateTime, Double, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, Relationship, mapped_column
 
 
@@ -55,7 +55,10 @@ class Weather(Base):
 
 
 class WeatherReport(Base):
+    """Observed (current) weather only. Forecasts live in weather_forecast."""
     __tablename__ = "weather_report"
+    # update_time is OpenWeather's observation time (`dt`), so re-polling is a no-op.
+    __table_args__ = (UniqueConstraint("update_time", name="uq_weather_report_time"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     update_time: Mapped[datetime] = mapped_column(DateTime)
@@ -70,20 +73,23 @@ class WeatherReport(Base):
         return f"WeatherReport(id={self.id}, temp={self.temp}, update_time={self.update_time})"
 
 
-class Forecast(Base):
-    __tablename__ = "forecast"
+class WeatherForecast(Base):
+    """Latest 3-hourly forecast per target time (every vintage is kept in data/raw/)."""
+    __tablename__ = "weather_forecast"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    datetime: Mapped[int]
-    period: Mapped[str] = mapped_column(String(15))
+    forecast_time: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    # When we fetched this forecast; NULL for rows migrated from the legacy forecast table.
+    fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     temp: Mapped[float]
+    feels_like: Mapped[Optional[float]]
+    humidity: Mapped[Optional[int]]
+    wind_speed: Mapped[Optional[float]]
+    visibility: Mapped[Optional[int]]
     weather_id: Mapped[int] = mapped_column(ForeignKey("weather.id"))
     weather: Mapped["Weather"] = Relationship()
-    report_id: Mapped[int] = mapped_column("report", ForeignKey("weather_report.id"))
-    report: Mapped["WeatherReport"] = Relationship()
 
     def __repr__(self):
-        return f"Forecast(id={self.id}, datetime={self.datetime}, period={self.period})"
+        return f"WeatherForecast(forecast_time={self.forecast_time}, temp={self.temp})"
 
 
 class Station(Base):
@@ -94,12 +100,18 @@ class Station(Base):
     name: Mapped[str] = mapped_column(String(60))
     longitude: Mapped[float] = mapped_column(type_=Double)
     latitude: Mapped[float] = mapped_column(type_=Double)
+    bike_stands: Mapped[Optional[int]] = mapped_column(nullable=True)  # total docks
+
     def __repr__(self):
         return f"Station(id={self.station_id}, name={self.name})"
 
 
 class StationStatus(Base):
     __tablename__ = "station_status"
+    # One row per station per JCDecaux update — repeated polls are no-ops.
+    __table_args__ = (
+        UniqueConstraint("station_id", "update_time", name="uq_station_status_station_time"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     station_id = mapped_column(ForeignKey("station.station_id"))
@@ -111,6 +123,3 @@ class StationStatus(Base):
 
     def __repr__(self):
         return f"StationStatus(id={self.id}, station_id={self.station_id}, avail_bikes={self.avail_bikes})"
-
-
-

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from src.db.models import Forecast, Station, StationStatus, WeatherReport
+from src.db.models import Station, StationStatus, WeatherForecast, WeatherReport
 
 
 def get_latest_weather(engine: Engine) -> dict | None:
@@ -107,17 +107,19 @@ def get_station_history(engine: Engine, station_id: int) -> list[dict]:
 
 
 def get_forecast_data(engine: Engine) -> list[dict]:
-    """Return all forecast entries ordered by time ascending."""
+    """Return upcoming forecast entries ordered by time ascending."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     with Session(engine) as session:
         forecasts = session.scalars(
-            select(Forecast).order_by(Forecast.datetime.asc())
+            select(WeatherForecast)
+            .where(WeatherForecast.forecast_time >= now)
+            .order_by(WeatherForecast.forecast_time.asc())
         ).all()
         return [
             {
-                "dt": f.datetime,
-                "time": datetime.fromtimestamp(f.datetime, tz=timezone.utc).strftime("%a %H:%M"),
+                "dt": int(f.forecast_time.replace(tzinfo=timezone.utc).timestamp()),
+                "time": f.forecast_time.strftime("%a %H:%M"),
                 "temp": round(f.temp),
-                "period": f.period,
                 "weather_id": f.weather_id,
             }
             for f in forecasts
