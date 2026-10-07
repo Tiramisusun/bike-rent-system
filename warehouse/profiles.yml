@@ -1,0 +1,14 @@
+# Connection comes from the same env vars as src/warehouse/config.py.
+# In Docker the defaults work; from your machine use WAREHOUSE_HOST=localhost WAREHOUSE_PORT=5433.
+dublinbikes:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('WAREHOUSE_HOST', 'postgres') }}"
+      port: "{{ env_var('WAREHOUSE_PORT', '5432') | as_number }}"
+      user: "{{ env_var('WAREHOUSE_USER', 'warehouse') }}"
+      password: "{{ env_var('WAREHOUSE_PASSWORD', 'warehouse') }}"
+      dbname: "{{ env_var('WAREHOUSE_DB', 'warehouse') }}"
+      schema: analytics
+      threads: 4

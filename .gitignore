@@ -228,3 +228,7 @@ pipelines/.env
 pipelines/logs/
 pipelines/config/
 pipelines/plugins/
+warehouse/target/
+warehouse/dbt_packages/
+warehouse/logs/
+warehouse/.user.yml

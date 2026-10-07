@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Copies of the MySQL operational tables, loaded by src/warehouse/sync.py. All timestamps are naive UTC.
+    schema: raw
+    tables:
+      - name: station
+        description: JCDecaux station metadata (upserted on every ingestion run).
+      - name: station_status
+        description: One row per station per JCDecaux `last_update` — deduplicated at load time.
+      - name: weather
+        description: OpenWeather condition codes (id, main group, description, icon).
+      - name: weather_report
+        description: Observed current weather, one row per OpenWeather observation time (`dt`).
+      - name: weather_forecast
+        description: Latest 3-hourly forecast per target time.
+      - name: rental
+        description: Rentals made through the website.

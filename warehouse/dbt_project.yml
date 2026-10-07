@@ -1,0 +1,39 @@
+name: dublinbikes
+version: "1.0.0"
+config-version: 2
+profile: dublinbikes
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # All raw timestamps are naive UTC; business logic (peak hours, weekdays,
+  # holidays) uses Dublin local time.
+  local_timezone: "Europe/Dublin"
+  # Local hours counted as commuter peak on working days (same as the ML features).
+  peak_hours: [7, 8, 9, 16, 17, 18, 19]
+  # A snapshot counts for the time until the station's next snapshot, capped
+  # here so collection outages don't count as hours of "empty" or "full".
+  max_snapshot_minutes: 30
+  dim_time_start: "2026-01-01"
+  dim_time_end: "2027-12-31"
+
+models:
+  dublinbikes:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  dublinbikes:
+    +schema: reference

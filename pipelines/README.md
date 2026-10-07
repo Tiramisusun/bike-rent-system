@@ -1,6 +1,7 @@
-# Ingestion pipeline (Airflow)
+# Pipelines (Airflow)
 
-Two DAGs replace the sleep-loop scripts in `src/tasks/`:
+Three DAGs. The two ingestion DAGs replace the sleep-loop scripts in `src/tasks/`;
+`dublinbikes_transform` builds the analytics warehouse (see [warehouse/README.md](../warehouse/README.md)).
 
 ```
 dublinbikes_ingest (every 5 min)
@@ -9,6 +10,9 @@ dublinbikes_ingest (every 5 min)
 
 dublinbikes_forecast (hourly, :07)
   extract_forecast ──► load_forecast   OpenWeather → data/raw/weather_forecast/...           → weather_forecast
+
+dublinbikes_transform (hourly, :15)
+  sync_to_warehouse ──► dbt_build      MySQL → Postgres warehouse.raw → staging → marts (+ tests)
 ```
 
 - **Raw first.** Extract tasks only call the API and archive the JSON; load tasks read the archived file.
@@ -36,7 +40,9 @@ docker compose up -d --build
 Open http://localhost:8080 (airflow / airflow), unpause `dublinbikes_ingest`.
 
 The stack includes a project MySQL (`bike_app`, host port **3307**, root / `bikes`) seeded from `dump.sql`
-on first start. `airflow-init` runs `python -m src.db.cli migrate` on every start (a no-op once applied):
+on first start, and Postgres (host port **5433**) holding both the Airflow metadata and the `warehouse`
+database (user / password `warehouse`). Both ports are bound to 127.0.0.1 only. `airflow-init` also runs
+`python -m src.warehouse.setup`, which creates the warehouse role, database and `raw` schema if missing. `airflow-init` runs `python -m src.db.cli migrate` on every start (a no-op once applied):
 
 - **001** dedupes `station_status`, adds its unique key and `station.bike_stands`.
   On the seeded dump: 1,132 duplicate snapshots removed (1,840 → 708 rows, 61.5% duplicates).
