@@ -51,7 +51,7 @@ last 24 h (broken or blocked docks — e.g. YORK STREET WEST had 20 of 40).
 Every task in every DAG has `on_failure_callback=notify_failure` ([src/monitoring/alerts.py](../src/monitoring/alerts.py)),
 sent once retries are exhausted. Configure with the `SMTP_*` / `ALERT_EMAIL_TO` variables in `.env`:
 
-- **Local:** `docker compose --profile mail up -d` starts [Mailpit](https://mailpit.axllent.org/); alerts appear at http://localhost:8025.
+- **Local:** `docker compose --profile mail up -d` starts [Mailpit](https://mailpit.axllent.org/); alerts appear at http://127.0.0.1:8025.
 - **Real e-mail (Gmail):** enable 2-step verification, create an *app password*, then set
   `SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_STARTTLS=true SMTP_USER=<you>@gmail.com SMTP_PASSWORD=<app password> ALERT_EMAIL_TO=<you>@gmail.com`.
 
@@ -65,7 +65,7 @@ cp .env.example .env        # fill in JCDECAUX_API_KEY and OPENWEATHER_API_KEY
 docker compose up -d --build
 ```
 
-Open http://localhost:8080 (airflow / airflow) and unpause the four `dublinbikes_*` DAGs (new DAGs start paused).
+Open http://127.0.0.1:8080 (airflow / airflow) and unpause the four `dublinbikes_*` DAGs (new DAGs start paused).
 
 The stack includes a project MySQL (`bike_app`, host port **3307**, root / `bikes`) seeded from `dump.sql`
 on first start, and Postgres (host port **5433**) holding both the Airflow metadata and the `warehouse`

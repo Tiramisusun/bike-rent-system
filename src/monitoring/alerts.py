@@ -6,7 +6,7 @@ breaks a pipeline.
 
     SMTP_HOST, SMTP_PORT (587), SMTP_USER, SMTP_PASSWORD, SMTP_STARTTLS (true)
     ALERT_EMAIL_TO, ALERT_EMAIL_FROM (defaults to SMTP_USER)
-    AIRFLOW_UI_URL (http://localhost:8080) — used for links in the e-mail
+    AIRFLOW_UI_URL (http://127.0.0.1:8080) — used for links in the e-mail
 """
 
 import json
@@ -69,7 +69,7 @@ def dbt_failures(target: Path | None = None, artifact: str = "run_results.json")
 def build_failure_message(context: dict) -> tuple[str, str]:
     ti = context["ti"]
     dag_id, task_id, run_id = ti.dag_id, ti.task_id, ti.run_id
-    ui = os.getenv("AIRFLOW_UI_URL", "http://localhost:8080").rstrip("/")
+    ui = os.getenv("AIRFLOW_UI_URL", "http://127.0.0.1:8080").rstrip("/")
     lines = [
         f"DAG:     {dag_id}",
         f"Task:    {task_id}",

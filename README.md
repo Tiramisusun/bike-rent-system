@@ -82,12 +82,12 @@ flowchart LR
 
 ## Quick start
 
-**Data platform** (Docker; Airflow UI at http://localhost:8080, login `airflow` / `airflow`):
+**Data platform** (Docker; Airflow UI at http://127.0.0.1:8080, login `airflow` / `airflow`):
 
 ```bash
 cd pipelines
 cp .env.example .env          # add JCDECAUX_API_KEY and OPENWEATHER_API_KEY
-docker compose up -d --build  # add --profile mail to catch alert e-mails at http://localhost:8025
+docker compose up -d --build  # add --profile mail to catch alert e-mails at http://127.0.0.1:8025
 ```
 
 This starts Airflow, MySQL (seeded from `dump.sql`, port 3307) and Postgres (port 5433); migrations and
