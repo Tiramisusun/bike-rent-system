@@ -20,6 +20,22 @@ dublinbikes_monitor (every 10 min)
   check_ingestion_health               MySQL: newest snapshot ≤ 15 min, weather ≤ 60 min, ≥ 100 stations reporting
 ```
 
+## Design
+
+- **Raw first.** Extract tasks only call the API and archive the JSON; load tasks read the archived file.
+  A failed load retries without re-calling the API, and any archived day can be replayed.
+- **Idempotent loads.** Every table is keyed on the source's own timestamp and written with upserts, so
+  re-running a load or polling unchanged data adds no rows:
+
+  | Table | Key | Source of the key |
+  |---|---|---|
+  | `station_status` | `(station_id, update_time)` | JCDecaux `last_update` |
+  | `station` | `station_id` | JCDecaux `number` (also refreshes `bike_stands`) |
+  | `weather_report` | `update_time` | OpenWeather `dt` (observation time) |
+  | `weather_forecast` | `forecast_time` | OpenWeather forecast `dt`; keeps the latest forecast per time |
+
+  Every forecast vintage is still in `data/raw/weather_forecast/`, so the table only keeps the latest.
+
 ## Data quality and alerts
 
 | Layer | Check | When | On failure |
@@ -41,20 +57,6 @@ sent once retries are exhausted. Configure with the `SMTP_*` / `ALERT_EMAIL_TO` 
 
 With `SMTP_HOST` unset, alerts are only written to the task log.
 
-- **Raw first.** Extract tasks only call the API and archive the JSON; load tasks read the archived file.
-  A failed load retries without re-calling the API, and any archived day can be replayed.
-- **Idempotent loads.** Every table is keyed on the source's own timestamp and written with upserts, so
-  re-running a load or polling unchanged data adds no rows:
-
-  | Table | Key | Source of the key |
-  |---|---|---|
-  | `station_status` | `(station_id, update_time)` | JCDecaux `last_update` |
-  | `station` | `station_id` | JCDecaux `number` (also refreshes `bike_stands`) |
-  | `weather_report` | `update_time` | OpenWeather `dt` (observation time) |
-  | `weather_forecast` | `forecast_time` | OpenWeather forecast `dt`; keeps the latest forecast per time |
-
-  Every forecast vintage is still in `data/raw/weather_forecast/`, so the table only keeps the latest.
-
 ## Run locally
 
 ```bash
@@ -63,12 +65,15 @@ cp .env.example .env        # fill in JCDECAUX_API_KEY and OPENWEATHER_API_KEY
 docker compose up -d --build
 ```
 
-Open http://localhost:8080 (airflow / airflow), unpause `dublinbikes_ingest`.
+Open http://localhost:8080 (airflow / airflow) and unpause the four `dublinbikes_*` DAGs (new DAGs start paused).
 
 The stack includes a project MySQL (`bike_app`, host port **3307**, root / `bikes`) seeded from `dump.sql`
 on first start, and Postgres (host port **5433**) holding both the Airflow metadata and the `warehouse`
-database (user / password `warehouse`). Both ports are bound to 127.0.0.1 only. `airflow-init` also runs
-`python -m src.warehouse.setup`, which creates the warehouse role, database and `raw` schema if missing. `airflow-init` runs `python -m src.db.cli migrate` on every start (a no-op once applied):
+database (user / password `warehouse`). Both ports are bound to 127.0.0.1 only.
+
+On every start, `airflow-init` runs two idempotent setup steps (no-ops once applied):
+`python -m src.warehouse.setup` creates the warehouse role, database and `raw` schema if missing, and
+`python -m src.db.cli migrate` applies the MySQL migrations:
 
 - **001** dedupes `station_status`, adds its unique key and `station.bike_stands`.
   On the seeded dump: 1,132 duplicate snapshots removed (1,840 → 708 rows, 61.5% duplicates).
