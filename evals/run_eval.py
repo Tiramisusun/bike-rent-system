@@ -14,6 +14,7 @@ before/after fingerprint of the adversarial run.
 
 import argparse
 import json
+import math
 import os
 import statistics
 from concurrent.futures import ThreadPoolExecutor
@@ -79,7 +80,8 @@ def summarise(rows):
         "recovered_after_failure": sum(r["correct"] for r in with_failures),
         "recovery_rate": acc(with_failures),
         "median_latency_s": round(statistics.median(latencies), 2) if latencies else None,
-        "p90_latency_s": round(latencies[int(0.9 * (len(latencies) - 1))], 2) if latencies else None,
+        # nearest-rank percentile: the smallest value with >= 90% of runs at or below it
+        "p90_latency_s": round(latencies[max(0, math.ceil(0.9 * len(latencies)) - 1)], 2) if latencies else None,
         "avg_prompt_tokens": round(statistics.mean(r["prompt_tokens"] for r in rows)) if rows else None,
         "avg_completion_tokens": round(statistics.mean(r["completion_tokens"] for r in rows)) if rows else None,
         "provider_errors": sum(bool(r["error"]) for r in rows),
