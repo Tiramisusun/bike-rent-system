@@ -41,6 +41,21 @@ Defined once in `agg_station_hourly` / `mart_station_kpis`; descriptions live in
 A snapshot counts for the time until the station's next snapshot, capped at 30 minutes
 (`max_snapshot_minutes`) so collection outages aren't counted as empty/full time.
 
+## Tests
+
+`dbt build` runs 63 nodes: 1 seed, 14 models and 48 data tests. Beyond keys and relationships, the business
+rules in `_marts.yml` / `_staging.yml` use the generic `expression_is_true` test (`tests/generic/`):
+
+| Test | Rule | Severity |
+|---|---|---|
+| `snapshot_counts_non_negative` | bikes ≥ 0 and docks ≥ 0 | error |
+| `snapshot_within_capacity` | bikes + docks ≤ capacity (capacity reconciliation) | error |
+| `snapshot_most_docks_usable` | bikes + docks ≥ 75 % of capacity, last 24 h | warn |
+| `station_capacity_positive`, `station_located_in_dublin` | sane station metadata | error |
+| `weather_values_plausible_for_dublin` | −25…40 °C, humidity 0–100 %, wind ≥ 0 | error |
+
+`dbt source freshness` checks the raw tables (synced hourly): snapshots warn after 2 h, error after 6 h.
+
 ## Run locally
 
 ```bash

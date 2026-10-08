@@ -3,6 +3,15 @@ version: 2
 models:
   - name: dim_station
     description: One row per bike station.
+    data_tests:
+      - expression_is_true:
+          name: station_capacity_positive
+          arguments:
+            expression: "capacity > 0"
+      - expression_is_true:
+          name: station_located_in_dublin
+          arguments:
+            expression: "latitude between 53.2 and 53.5 and longitude between -6.45 and -6.05"
     columns:
       - name: station_id
         description: JCDecaux station number.
@@ -56,6 +65,26 @@ models:
     description: >
       Grain: one row per station availability snapshot. JCDecaux updates each
       station every few minutes; duplicate polls were removed at load time.
+    data_tests:
+      # Hard rules — impossible values mean the feed or the load is broken.
+      - expression_is_true:
+          name: snapshot_counts_non_negative
+          arguments:
+            expression: "available_bikes >= 0 and available_docks >= 0"
+      - expression_is_true:
+          name: snapshot_within_capacity
+          arguments:
+            expression: "available_bikes + available_docks <= capacity"
+      # Soft rule — docks that hold no bike and can't take one are broken or
+      # blocked. Real but worth knowing: warn when over a quarter of a station
+      # is unusable in the last 24 h (e.g. YORK STREET WEST: 20 of 40).
+      - expression_is_true:
+          name: snapshot_most_docks_usable
+          arguments:
+            expression: "available_bikes + available_docks >= 0.75 * capacity"
+          config:
+            severity: warn
+            where: "snapshot_at_utc > (now() at time zone 'utc') - interval '24 hours'"
     columns:
       - name: snapshot_id
         data_tests: [unique, not_null]

@@ -39,6 +39,16 @@ models:
 
   - name: stg_weather_report
     description: Observed weather, one row per observation time.
+    data_tests:
+      # Dublin's recorded extremes are about -19 °C and 33 °C. Values outside
+      # these bounds mean wrong units (e.g. Kelvin, ~280) or a corrupt payload.
+      - expression_is_true:
+          name: weather_values_plausible_for_dublin
+          arguments:
+            expression: >
+              temperature_c between -25 and 40
+              and humidity_pct between 0 and 100
+              and wind_speed_ms >= 0
     columns:
       - name: observed_at_utc
         data_tests: [unique, not_null]
