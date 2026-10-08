@@ -1,7 +1,8 @@
 # Trimmed from the official Airflow 3.3.2 docker-compose.yaml:
 # LocalExecutor instead of Celery (no redis/worker/flower), example DAGs off,
 # the project root mounted so DAGs can import src/, and a project MySQL
-# seeded from dump.sql (host port 3307).
+# (host port 3307). Locally docker-compose.override.yml seeds it from dump.sql;
+# production adds docker-compose.prod.yml instead (see deploy/README.md).
 #
 #   cd pipelines && cp .env.example .env   # fill in keys
 #   docker compose up -d --build           # UI: http://127.0.0.1:8080
@@ -16,7 +17,7 @@ x-airflow-common:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres/airflow
     AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY:-}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -27,6 +28,7 @@ x-airflow-common:
     # Project code + raw archive
     PYTHONPATH: /opt/airflow/project
     RAW_DATA_DIR: /opt/airflow/project/data/raw
+    WAREHOUSE_ADMIN_URL: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres:5432/airflow
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -44,7 +46,7 @@ x-airflow-common:
       condition: service_healthy
 
 services:
-  # Project database (bike_app). Seeded from ../dump.sql on first start only.
+  # Project database (bike_app).
   mysql:
     image: mysql:8.0
     environment:
@@ -54,7 +56,6 @@ services:
       - "127.0.0.1:3307:3306"   # localhost only — never expose the DB publicly
     volumes:
       - mysql-db-volume:/var/lib/mysql
-      - ../dump.sql:/docker-entrypoint-initdb.d/01_dump.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-bikes}"]
       interval: 10s
@@ -76,7 +77,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
       POSTGRES_DB: airflow
     ports:
       - "127.0.0.1:5433:5432"
@@ -93,7 +94,7 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"   # admin UI: localhost only (SSH tunnel on a server)
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:8080/api/v2/monitor/health"]
       interval: 30s

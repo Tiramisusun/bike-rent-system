@@ -1,0 +1,8 @@
+# Local development only — `docker compose up` loads this file automatically.
+# Production uses `-f docker-compose.yml -f docker-compose.prod.yml`, which skips it.
+
+services:
+  mysql:
+    volumes:
+      # Seeds the sample data on first start (empty volume) only.
+      - ../dump.sql:/docker-entrypoint-initdb.d/01_dump.sql:ro

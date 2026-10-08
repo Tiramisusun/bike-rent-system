@@ -121,3 +121,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  docker-image:
+    name: Production web image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t dublinbikes-web .
+      - name: Image contains no .env files and runs as non-root
+        run: |
+          test -z "$(docker run --rm --entrypoint sh dublinbikes-web -c 'find / -name ".env*" -not -path "/proc/*" 2>/dev/null')"
+          test "$(docker run --rm --entrypoint id dublinbikes-web -u)" != "0"
+
