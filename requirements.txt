@@ -14,3 +14,6 @@ cryptography
 psycopg2-binary==2.9.11
 Flask-Limiter==4.1.1
 gunicorn==26.2.0
+openai==3.26.1
+sqlglot==30.21.0
+PyYAML==6.0.3

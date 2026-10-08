@@ -22,3 +22,19 @@ def warehouse_engine() -> Engine:
         s = warehouse_settings()
         url = f"postgresql+psycopg2://{s['user']}:{s['password']}@{s['host']}:{s['port']}/{s['dbname']}"
     return create_engine(url, pool_pre_ping=True)
+
+
+def agent_settings() -> dict:
+    """Read-only role used by the Text-to-SQL agent (see src/warehouse/setup.py)."""
+    s = warehouse_settings()
+    return {**s, "user": os.getenv("AGENT_DB_USER", "agent_ro"),
+            "password": os.getenv("AGENT_DB_PASSWORD", "agent_ro")}
+
+
+def agent_engine() -> Engine:
+    url = os.getenv("AGENT_DB_URL")
+    if not url:
+        s = agent_settings()
+        url = f"postgresql+psycopg2://{s['user']}:{s['password']}@{s['host']}:{s['port']}/{s['dbname']}"
+    return create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=2)
+
