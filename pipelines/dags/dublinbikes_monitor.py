@@ -19,7 +19,10 @@ from src.monitoring.alerts import notify_failure
     max_active_runs=1,
     default_args={
         "owner": "dublinbikes",
-        "retries": 0,                         # a failed check is the signal, not a flake
+        # One quick retry absorbs infrastructure blips (e.g. the worker restarting
+        # mid-run during a deploy) without delaying a real alert by more than a minute.
+        "retries": 1,
+        "retry_delay": timedelta(minutes=1),
         "execution_timeout": timedelta(minutes=2),
         "on_failure_callback": notify_failure,
     },
