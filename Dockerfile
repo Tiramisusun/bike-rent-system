@@ -7,6 +7,9 @@ WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
+# Baked into the JS bundle (tile keys are public by nature). Empty = OSM tiles.
+ARG VITE_CARTO_API_KEY=""
+ENV VITE_CARTO_API_KEY=$VITE_CARTO_API_KEY
 RUN npm run build                      # -> /src/frontend/dist
 
 # --- app --------------------------------------------------------------------

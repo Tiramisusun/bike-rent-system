@@ -232,3 +232,7 @@ warehouse/target/
 warehouse/dbt_packages/
 warehouse/logs/
 warehouse/.user.yml
+
+# Vite local env files (may hold VITE_CARTO_API_KEY)
+.env.local
+.env.*.local
