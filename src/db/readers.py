@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from src.db.models import Station, StationStatus, WeatherForecast, WeatherReport
+from src.db.models import Station, StationStatus, Weather, WeatherForecast, WeatherReport
 
 
 def get_latest_weather(engine: Engine) -> dict | None:
@@ -150,21 +150,60 @@ def get_station_history(engine: Engine, station_id: int) -> list[dict]:
         ]
 
 
-def get_forecast_data(engine: Engine) -> list[dict]:
-    """Return upcoming forecast entries ordered by time ascending."""
+def _utc_epoch(dt: datetime) -> int:
+    return int(dt.replace(tzinfo=timezone.utc).timestamp())
+
+
+def get_current_weather(engine: Engine) -> tuple[dict | None, datetime | None]:
+    """Latest observation in the OpenWeather /weather shape, plus its time (naive UTC)."""
+    with Session(engine) as session:
+        row = session.execute(
+            select(WeatherReport, Weather)
+            .join(Weather, Weather.id == WeatherReport.weather_id, isouter=True)
+            .order_by(WeatherReport.update_time.desc())
+            .limit(1)
+        ).first()
+    if not row:
+        return None, None
+    report, condition = row
+    payload = {
+        "dt": _utc_epoch(report.update_time),
+        "main": {"temp": report.temp, "feels_like": report.feels_like, "humidity": report.humidity},
+        "wind": {"speed": report.wind_speed},
+        "visibility": report.visibility,
+        "weather": [{
+            "id": report.weather_id,
+            "main": condition.main if condition else None,
+            "description": condition.description if condition else None,
+            "icon": condition.icon if condition else None,
+        }],
+    }
+    return payload, report.update_time
+
+
+def get_forecast_data(engine: Engine) -> tuple[list[dict], datetime | None]:
+    """Upcoming forecast entries (same fields as /api/weather/forecast), and when
+    the newest forecast was fetched (naive UTC)."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     with Session(engine) as session:
-        forecasts = session.scalars(
-            select(WeatherForecast)
+        rows = session.execute(
+            select(WeatherForecast, Weather)
+            .join(Weather, Weather.id == WeatherForecast.weather_id, isouter=True)
             .where(WeatherForecast.forecast_time >= now)
             .order_by(WeatherForecast.forecast_time.asc())
         ).all()
-        return [
-            {
-                "dt": int(f.forecast_time.replace(tzinfo=timezone.utc).timestamp()),
-                "time": f.forecast_time.strftime("%a %H:%M"),
-                "temp": round(f.temp),
-                "weather_id": f.weather_id,
-            }
-            for f in forecasts
-        ]
+        fetched_at = session.scalar(select(func.max(WeatherForecast.fetched_at)))
+    items = [
+        {
+            "dt": _utc_epoch(f.forecast_time),
+            "time": f.forecast_time.strftime("%a %H:%M"),
+            "temp": round(f.temp),
+            "feels_like": round(f.feels_like) if f.feels_like is not None else None,
+            "humidity": f.humidity,
+            "description": w.description if w else None,
+            "icon": w.icon if w else None,
+            "wind_speed": f.wind_speed,
+        }
+        for f, w in rows
+    ]
+    return items, fetched_at

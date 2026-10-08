@@ -55,7 +55,8 @@ def api_bikes():
         if stations:   # an old snapshot beats an empty map
             return jsonify({"source": "database", "as_of": as_of.isoformat(), "stale": True,
                             "count": len(stations), "data": stations})
-        return jsonify({"source": "jcdecaux", "error": "Request failed", "details": str(e)}), 502
+        current_app.logger.exception("Request failed with 502")
+        return jsonify({"source": "jcdecaux", "error": "Request failed"}), 502
 
 
 @bikes_bp.route("/api/db/stations")
@@ -75,7 +76,7 @@ def api_db_stations():
         return jsonify({"source": "database", "count": len(data), "data": data})
     except Exception as e:
         current_app.logger.error(f"[/api/db/stations] Unexpected error: {e}", exc_info=True)
-        return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
+        return jsonify({"source": "database", "error": "Server error"}), 500
 
 
 @bikes_bp.route("/api/db/stations/<int:station_id>/history")
@@ -100,7 +101,7 @@ def api_db_station_history(station_id):
         return jsonify({"source": "database", "station_id": station_id, "count": len(data), "data": data})
     except Exception as e:
         current_app.logger.error(f"[/api/db/stations/{station_id}/history] Unexpected error: {e}", exc_info=True)
-        return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
+        return jsonify({"source": "database", "error": "Server error"}), 500
 
 
 @bikes_bp.route("/api/db/stations/status")
@@ -120,4 +121,4 @@ def api_db_station_status():
         return jsonify({"source": "database", "count": len(data), "data": data})
     except Exception as e:
         current_app.logger.error(f"[/api/db/stations/status] Unexpected error: {e}", exc_info=True)
-        return jsonify({"source": "database", "error": "Server error", "details": str(e)}), 500
+        return jsonify({"source": "database", "error": "Server error"}), 500
