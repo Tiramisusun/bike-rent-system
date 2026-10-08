@@ -79,8 +79,9 @@ On every start, `airflow-init` runs two idempotent setup steps (no-ops once appl
   On the seeded dump: 1,132 duplicate snapshots removed (1,840 → 708 rows, 61.5% duplicates).
 - **002** moves forecasts out of `weather_report` into `weather_forecast`. Forecasts had been stored as
   `weather_report` rows with future timestamps, so `get_latest_weather()` — used by `/api/predict` and the
-  route planner — returned a forecast ~5 days ahead. On the seeded data: 221 → 14 `weather_report` rows
-  (200 were forecasts, 7 duplicate observations); 200 forecast rows → 103 distinct forecast times.
+  route planner — returned a forecast ~5 days ahead (on the dump: 2026-04-18 18:00 while the newest
+  observation was 2026-04-13 20:46). On the seeded dump: 96 → 9 `weather_report` rows (80 were forecasts,
+  7 duplicate observations); 80 forecast rows → 63 distinct forecast times.
 
 To use your own MySQL instead, set `DB_URL` to `...@host.docker.internal:3306/bike_app` — inside the
 container `localhost` is the container itself. To point the Flask app at the compose database, use
