@@ -53,6 +53,11 @@ def setup() -> None:
         conn.exec_driver_sql(f"ALTER ROLE {agent} SET statement_timeout = '{AGENT_STATEMENT_TIMEOUT}'")
         conn.exec_driver_sql(f"ALTER ROLE {agent} SET idle_in_transaction_session_timeout = '30s'")
         conn.exec_driver_sql(f"ALTER ROLE {agent} CONNECTION LIMIT 5")
+        # Postgres lets PUBLIC connect to every database by default; only the
+        # warehouse should be reachable by the warehouse and agent roles.
+        for other in conn.scalars(text(
+            "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> :d"), {"d": db}):
+            conn.exec_driver_sql(f'REVOKE CONNECT ON DATABASE "{other}" FROM PUBLIC')
     admin.dispose()
 
     # raw schema belongs to the warehouse role; dbt creates staging/marts itself (it owns the db)

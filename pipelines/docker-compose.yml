@@ -27,6 +27,7 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # Project code + raw archive
     PYTHONPATH: /opt/airflow/project
+    DBT_SEND_ANONYMOUS_USAGE_STATS: "false"   # also stops dbt writing .user.yml into the project
     RAW_DATA_DIR: /opt/airflow/project/data/raw
     WAREHOUSE_ADMIN_URL: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres:5432/airflow
   volumes:
@@ -158,10 +159,15 @@ services:
     command:
       - -c
       - |
-        mkdir -p /opt/airflow/{logs,dags,plugins,config} /opt/airflow/project/data/raw
+        # Dirs the Airflow user must write to inside the (root-owned) project checkout:
+        # the raw archive and dbt's target/ and logs/. Docker Desktop ignores ownership,
+        # a Linux server does not.
+        mkdir -p /opt/airflow/{logs,dags,plugins,config} /opt/airflow/project/data/raw \
+                 /opt/airflow/project/warehouse/target /opt/airflow/project/warehouse/logs
         /entrypoint airflow version
         /entrypoint airflow config list >/dev/null
-        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config} /opt/airflow/project/data/raw
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config} /opt/airflow/project/data/raw \
+                 /opt/airflow/project/warehouse/target /opt/airflow/project/warehouse/logs
         cd /opt/airflow/project && /entrypoint python -m src.db.cli migrate
         cd /opt/airflow/project && /entrypoint python -m src.warehouse.setup
     environment:
