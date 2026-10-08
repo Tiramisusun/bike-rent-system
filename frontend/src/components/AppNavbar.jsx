@@ -1,16 +1,23 @@
+const PAGES = [
+  { id: 'map', label: 'Main Map' },
+  { id: 'ask', label: 'Ask the Data' },
+  { id: 'how-to', label: 'How To' },
+  { id: 'account', label: 'Login / Account' },
+]
+
 export default function AppNavbar({ currentPage, onNavigate, user, onLogout }) {
   return (
     <header style={s.navbar}>
       <div style={s.left}>
         <span style={s.logo}>🚲 Dublin Bikes Hub</span>
         <nav style={s.nav}>
-          {['map', 'how-to', 'account'].map(page => (
+          {PAGES.map(page => (
             <button
-              key={page}
-              style={{ ...s.navLink, ...(currentPage === page ? s.navLinkActive : {}) }}
-              onClick={() => onNavigate(page)}
+              key={page.id}
+              style={{ ...s.navLink, ...(currentPage === page.id ? s.navLinkActive : {}) }}
+              onClick={() => onNavigate(page.id)}
             >
-              {page === 'map' ? 'Main Map' : page === 'how-to' ? 'How To' : 'Login / Account'}
+              {page.label}
             </button>
           ))}
         </nav>

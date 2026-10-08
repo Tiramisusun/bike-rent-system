@@ -105,6 +105,27 @@ jobs:
       - name: dbt build (models + data tests)
         working-directory: warehouse
         run: '"$RUNNER_TEMP/dbt/bin/dbt" build --no-use-colors'
+      - name: Agent role can read marts and nothing else
+        env:
+          AGENT_DB_URL: postgresql+psycopg2://agent_ro:agent_ro@127.0.0.1:5432/warehouse
+        run: |
+          python - <<'PY'
+          from sqlalchemy import text
+          from src.warehouse.config import agent_engine
+          e = agent_engine()
+          with e.connect() as c:
+              assert c.execute(text("SELECT count(*) FROM marts.dim_station")).scalar() > 0
+          for sql in ["SELECT 1 FROM raw.station LIMIT 1", "DELETE FROM marts.dim_station",
+                      "CREATE TEMP TABLE t (x int)", "SELECT pg_sleep(6)"]:
+              try:
+                  with e.connect() as c:
+                      c.execute(text(sql))
+                  raise SystemExit(f"agent_ro was allowed: {sql}")
+              except SystemExit:
+                  raise
+              except Exception as ex:
+                  print(f"blocked as expected: {sql} -> {str(getattr(ex, 'orig', ex)).splitlines()[0]}")
+          PY
 
   frontend:
     name: Frontend builds

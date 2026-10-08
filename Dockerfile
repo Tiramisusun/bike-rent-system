@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py ./
 COPY src/ ./src/
+# dbt model docs: the Text-to-SQL agent's semantic layer (column meanings, metrics)
+COPY warehouse/models/ ./warehouse/models/
 COPY --from=frontend /src/frontend/dist ./frontend/dist
 
 RUN useradd --create-home --uid 10001 web
