@@ -12,11 +12,14 @@ from datetime import datetime, timedelta
 
 from airflow.sdk import dag, task
 
+from src.monitoring.alerts import notify_failure
+
 default_args = {
     "owner": "dublinbikes",
     "retries": 2,
     "retry_delay": timedelta(minutes=1),
     "execution_timeout": timedelta(minutes=3),
+    "on_failure_callback": notify_failure,   # e-mail once retries are exhausted
 }
 
 

@@ -1,7 +1,8 @@
 # Pipelines (Airflow)
 
-Three DAGs. The two ingestion DAGs replace the sleep-loop scripts in `src/tasks/`;
-`dublinbikes_transform` builds the analytics warehouse (see [warehouse/README.md](../warehouse/README.md)).
+Four DAGs. The two ingestion DAGs replace the sleep-loop scripts in `src/tasks/`;
+`dublinbikes_transform` builds the analytics warehouse (see [warehouse/README.md](../warehouse/README.md));
+`dublinbikes_monitor` checks that data is still arriving.
 
 ```
 dublinbikes_ingest (every 5 min)
@@ -12,8 +13,33 @@ dublinbikes_forecast (hourly, :07)
   extract_forecast ──► load_forecast   OpenWeather → data/raw/weather_forecast/...           → weather_forecast
 
 dublinbikes_transform (hourly, :15)
-  sync_to_warehouse ──► dbt_build      MySQL → Postgres warehouse.raw → staging → marts (+ tests)
+  sync_to_warehouse ──► dbt_build ──► dbt_source_freshness
+                                       MySQL → Postgres warehouse.raw → staging → marts (+ tests)
+
+dublinbikes_monitor (every 10 min)
+  check_ingestion_health               MySQL: newest snapshot ≤ 15 min, weather ≤ 60 min, ≥ 100 stations reporting
 ```
+
+## Data quality and alerts
+
+| Layer | Check | When | On failure |
+|---|---|---|---|
+| Ingestion (MySQL) | newest snapshot ≤ 15 min old, newest weather ≤ 60 min, ≥ 100 stations reported in 30 min | every 10 min | e-mail |
+| Warehouse sources | `dbt source freshness`: snapshots warn > 2 h / error > 6 h | hourly | e-mail |
+| Warehouse models | `dbt build`: keys, relationships, accepted values, business rules | hourly | e-mail listing the failed tests; downstream marts are skipped, so bad rows never reach them |
+
+Business rules (error): bikes and docks ≥ 0; bikes + docks ≤ capacity; capacity > 0; station inside Dublin;
+weather within Dublin's plausible range. Warning only: more than a quarter of a station's docks unusable in the
+last 24 h (broken or blocked docks — e.g. YORK STREET WEST had 20 of 40).
+
+Every task in every DAG has `on_failure_callback=notify_failure` ([src/monitoring/alerts.py](../src/monitoring/alerts.py)),
+sent once retries are exhausted. Configure with the `SMTP_*` / `ALERT_EMAIL_TO` variables in `.env`:
+
+- **Local:** `docker compose --profile mail up -d` starts [Mailpit](https://mailpit.axllent.org/); alerts appear at http://localhost:8025.
+- **Real e-mail (Gmail):** enable 2-step verification, create an *app password*, then set
+  `SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_STARTTLS=true SMTP_USER=<you>@gmail.com SMTP_PASSWORD=<app password> ALERT_EMAIL_TO=<you>@gmail.com`.
+
+With `SMTP_HOST` unset, alerts are only written to the task log.
 
 - **Raw first.** Extract tasks only call the API and archive the JSON; load tasks read the archived file.
   A failed load retries without re-calling the API, and any archived day can be replayed.

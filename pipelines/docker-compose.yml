@@ -62,6 +62,15 @@ services:
       start_period: 30s
     restart: always
 
+  # Local mail catcher for alert e-mails (web UI: http://localhost:8025).
+  # Only started with `--profile mail`; on a server, point SMTP_* at a real provider.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: ["mail"]
+    ports:
+      - "127.0.0.1:8025:8025"
+    restart: always
+
   # Airflow metadata DB + the analytics warehouse (separate `warehouse` database).
   postgres:
     image: postgres:16
