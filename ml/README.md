@@ -42,6 +42,21 @@ of October 2026 data (35k snapshots), five time-series folds:
 | Same configuration retrained on our data | 0.458 | 4.85 |
 | Baseline: each station's average from the training fold | 0.380 | 5.60 |
 
+**Persistence baseline ("bikes later = bikes now")**, on exactly the same test rows:
+
+| | R² | MAE |
+|---|---|---|
+| Last value per station before the test window (same information the models had) | **0.600** | **3.75** |
+| Bikes 10 min earlier | 0.974 | 0.74 |
+| Bikes 1 h earlier | 0.871 | 1.94 |
+| Bikes 3 h earlier | 0.587 | 3.87 |
+| Bikes at the same time yesterday (53 % of rows have it; retrained RF on those rows: 0.391) | 0.257 | 5.87 |
+
+With the same information, persistence beats both random forests (4 of 5 folds). Up to about
+three hours ahead, the current count is by far the best predictor; only for day-ahead predictions
+does the time/weather model add value over "same time yesterday". So the next model should take
+recent availability as a feature and must be reported against this baseline at each horizon.
+
 The deployed model has gone stale — on current data it is worse than a per-station average.
 Retraining on our own data looks better, but two days without a weekend can't support that
 conclusion; revisit after ~3 weeks of collection, adding recent-availability features and a
