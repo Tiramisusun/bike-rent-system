@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: stg_station
+    description: One row per station. Renamed only.
+    columns:
+      - name: station_id
+        description: JCDecaux station number.
+        data_tests: [unique, not_null]
+      - name: reported_capacity
+        description: Total docks reported by JCDecaux (`bike_stands`). Null for stations not seen since the column was added.
+
+  - name: stg_station_status
+    description: One row per station availability snapshot. Timestamps in UTC and Dublin local time.
+    columns:
+      - name: snapshot_id
+        data_tests: [unique, not_null]
+      - name: station_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_station')
+                field: station_id
+      - name: snapshot_at_utc
+        description: JCDecaux `last_update` (naive UTC).
+        data_tests: [not_null]
+      - name: station_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['OPEN', 'CLOSED']
+
+  - name: stg_weather_condition
+    description: OpenWeather condition codes.
+    columns:
+      - name: weather_code
+        data_tests: [unique, not_null]
+
+  - name: stg_weather_report
+    description: Observed weather, one row per observation time.
+    data_tests:
+      # Dublin's recorded extremes are about -19 °C and 33 °C. Values outside
+      # these bounds mean wrong units (e.g. Kelvin, ~280) or a corrupt payload.
+      - expression_is_true:
+          name: weather_values_plausible_for_dublin
+          arguments:
+            expression: >
+              temperature_c between -25 and 40
+              and humidity_pct between 0 and 100
+              and wind_speed_ms >= 0
+    columns:
+      - name: observed_at_utc
+        data_tests: [unique, not_null]
+      - name: weather_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_weather_condition')
+                field: weather_code
+
+  - name: stg_weather_forecast
+    description: Latest forecast per target time.
+    columns:
+      - name: forecast_for_utc
+        data_tests: [unique, not_null]
+
+  - name: stg_rental
+    description: One row per rental.
+    columns:
+      - name: rental_id
+        data_tests: [unique, not_null]

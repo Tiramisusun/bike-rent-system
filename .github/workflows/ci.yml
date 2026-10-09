@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt pytest
+      - run: pytest -q
+
+  dag-integrity:
+    name: Airflow DAGs import cleanly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Airflow (same version as the Docker image)
+        run: >
+          pip install "apache-airflow==3.3.2"
+          --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-3.12.txt"
+      - name: Load every DAG and fail on import errors
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          AIRFLOW_HOME: ${{ runner.temp }}/airflow
+          AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+          AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/pipelines/dags
+        run: |
+          python - <<'PY'
+          from airflow.models.dagbag import DagBag
+          bag = DagBag()
+          assert not bag.import_errors, bag.import_errors
+          expected = {"dublinbikes_ingest", "dublinbikes_forecast", "dublinbikes_transform", "dublinbikes_monitor"}
+          assert expected <= set(bag.dags), f"missing DAGs: {expected - set(bag.dags)}"
+          for dag_id in sorted(expected):
+              dag = bag.dags[dag_id]
+              assert all(t.on_failure_callback for t in dag.tasks), f"{dag_id}: task without failure alert"
+              print(f"{dag_id}: {len(dag.tasks)} tasks OK")
+          PY
+
+  warehouse:
+    name: Migrate, sync and dbt build
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: bikes
+          MYSQL_DATABASE: bike_app
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -pbikes"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+          POSTGRES_DB: airflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U airflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DB_URL: mysql+pymysql://root:bikes@127.0.0.1:3306/bike_app
+      WAREHOUSE_ADMIN_URL: postgresql+psycopg2://airflow:airflow@127.0.0.1:5432/airflow
+      WAREHOUSE_HOST: 127.0.0.1
+      WAREHOUSE_PORT: "5432"
+      DBT_PROFILES_DIR: ${{ github.workspace }}/warehouse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Install dbt in its own venv (as in the Airflow image)
+        run: |
+          python -m venv "$RUNNER_TEMP/dbt"
+          "$RUNNER_TEMP/dbt/bin/pip" install dbt-core==1.12.5 dbt-postgres==1.11.0
+      - name: Seed MySQL from dump.sql
+        run: mysql -h 127.0.0.1 -uroot -pbikes bike_app < dump.sql
+      - name: Apply migrations (twice — must be idempotent)
+        run: |
+          python -m src.db.cli migrate
+          python -m src.db.cli migrate
+      - name: Create warehouse and sync MySQL -> Postgres
+        run: |
+          python -m src.warehouse.setup
+          python -c "from src.warehouse.sync import run; print(run())"
+      - name: dbt build (models + data tests)
+        working-directory: warehouse
+        run: '"$RUNNER_TEMP/dbt/bin/dbt" build --no-use-colors'
+      - name: Agent role can read marts and nothing else
+        env:
+          AGENT_DB_URL: postgresql+psycopg2://agent_ro:agent_ro@127.0.0.1:5432/warehouse
+        run: |
+          python - <<'PY'
+          from sqlalchemy import text
+          from src.warehouse.config import agent_engine
+          e = agent_engine()
+          with e.connect() as c:
+              assert c.execute(text("SELECT count(*) FROM marts.dim_station")).scalar() > 0
+          for sql in ["SELECT 1 FROM raw.station LIMIT 1", "DELETE FROM marts.dim_station",
+                      "CREATE TEMP TABLE t (x int)", "SELECT pg_sleep(6)"]:
+              try:
+                  with e.connect() as c:
+                      c.execute(text(sql))
+                  raise SystemExit(f"agent_ro was allowed: {sql}")
+              except SystemExit:
+                  raise
+              except Exception as ex:
+                  print(f"blocked as expected: {sql} -> {str(getattr(ex, 'orig', ex)).splitlines()[0]}")
+          PY
+
+  frontend:
+    name: Frontend builds
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  docker-image:
+    name: Production web image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t dublinbikes-web .
+      - name: Image contains no .env files and runs as non-root
+        run: |
+          test -z "$(docker run --rm --entrypoint sh dublinbikes-web -c 'find / -name ".env*" -not -path "/proc/*" 2>/dev/null')"
+          test "$(docker run --rm --entrypoint id dublinbikes-web -u)" != "0"
+

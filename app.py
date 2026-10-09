@@ -4,6 +4,9 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+from src.extensions import limiter
 
 from src.services.routing_service import get_route_eta, compare_eta
 from src.services.weather_service import fetch_openweather_current
@@ -15,13 +18,40 @@ from src.routes.auth_routes import auth_bp
 from src.routes.rental_routes import rental_bp
 from src.routes.geocode_routes import geocode_bp
 from src.routes.prediction_routes import prediction_bp
+from src.routes.agent_routes import agent_bp
 
 load_dotenv(override=False)  # env vars already set (e.g. in tests) take priority
 
 DIST_DIR = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+
+
+def jwt_secret() -> str:
+    """JWT signing key from the environment. No default: a key committed to a
+    public repo would let anyone forge a token for any user."""
+    secret = os.getenv("JWT_SECRET_KEY", "")
+    if len(secret) < 32:
+        raise RuntimeError("JWT_SECRET_KEY must be set to at least 32 characters "
+                           "(e.g. `openssl rand -hex 32`)")
+    return secret
+
+
 app = Flask(__name__, static_folder=DIST_DIR, static_url_path='')
-app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "dublin-bikes-secret-key")
+app.config["JWT_SECRET_KEY"] = jwt_secret()
 JWTManager(app)
+
+# Behind the Caddy reverse proxy the client IP arrives in X-Forwarded-For;
+# trust exactly one proxy hop, and only when told we are behind one.
+if os.getenv("TRUST_PROXY") == "1":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+app.config["RATELIMIT_ENABLED"] = os.getenv("RATELIMIT_ENABLED", "true").lower() == "true"
+app.config["RATELIMIT_HEADERS_ENABLED"] = True
+limiter.init_app(app)
+
+
+@app.errorhandler(429)
+def too_many_requests(e):
+    return jsonify({"error": "Too many requests, please slow down"}), 429
 Swagger(app, template={
     "info": {
         "title": "Dublin Bike & Weather API",
@@ -50,6 +80,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(rental_bp)
 app.register_blueprint(geocode_bp)
 app.register_blueprint(prediction_bp)
+app.register_blueprint(agent_bp)
 
 
 @app.route("/", defaults={"path": ""})
@@ -105,9 +136,11 @@ def api_route():
     except ValueError as e:
         return jsonify({"source": "osrm", "error": "Bad request", "details": str(e)}), 400
     except requests.RequestException as e:
-        return jsonify({"source": "osrm", "error": "Routing request failed", "details": str(e)}), 502
+        app.logger.exception("Request failed with 502")
+        return jsonify({"source": "osrm", "error": "Routing request failed"}), 502
     except Exception as e:
-        return jsonify({"source": "osrm", "error": "Server error", "details": str(e)}), 500
+        app.logger.exception("Request failed with 500")
+        return jsonify({"source": "osrm", "error": "Server error"}), 500
 
 
 @app.route("/api/compare-eta")
@@ -159,10 +192,16 @@ def api_compare_eta():
     except ValueError as e:
         return jsonify({"error": "Bad request", "details": str(e)}), 400
     except requests.RequestException as e:
-        return jsonify({"error": "External request failed", "details": str(e)}), 502
+        app.logger.exception("Request failed with 502")
+        return jsonify({"error": "External request failed"}), 502
     except Exception as e:
-        return jsonify({"error": "Server error", "details": str(e)}), 500
+        app.logger.exception("Request failed with 500")
+        return jsonify({"error": "Server error"}), 500
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Development server only — production runs gunicorn (see Dockerfile).
+    # The debugger allows arbitrary code execution, so it is opt-in.
+    # 5001: macOS AirPlay Receiver occupies 5000
+    app.run(host="127.0.0.1", port=int(os.getenv("PORT", 5001)),
+            debug=os.getenv("FLASK_DEBUG") == "1")

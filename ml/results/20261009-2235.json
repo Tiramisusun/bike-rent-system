@@ -1,0 +1,133 @@
+{
+  "trained_at": "2026-10-09T22:35:01+00:00",
+  "data": {
+    "rows": 298946,
+    "stations": 115,
+    "from": "2024-12-01 00:10:00",
+    "to": "2024-12-31 23:50:00"
+  },
+  "features": [
+    "station_id",
+    "hour",
+    "month",
+    "year",
+    "lat",
+    "lon",
+    "day_of_week",
+    "rush_hour",
+    "max_air_temperature_celsius",
+    "air_temperature_std_deviation",
+    "max_relative_humidity_percent"
+  ],
+  "selection_rule": "smallest model with ts-CV MAE within 2% of the baseline",
+  "candidates": [
+    {
+      "name": "baseline (notebook)",
+      "params": {
+        "n_estimators": 100
+      },
+      "random_split_mae": 1.5396,
+      "random_split_r2": 0.9262,
+      "ts_cv_mae": 6.4502,
+      "ts_cv_r2": 0.1867,
+      "ts_cv_r2_folds": [
+        0.2519,
+        0.3793,
+        0.3103,
+        -0.0547,
+        0.0467
+      ],
+      "size_mb": 1092.5,
+      "load_s": 6.99,
+      "eval_s": 320
+    },
+    {
+      "name": "depth 20, leaf 5, 50 trees",
+      "params": {
+        "n_estimators": 50,
+        "max_depth": 20,
+        "min_samples_leaf": 5
+      },
+      "random_split_mae": 2.1715,
+      "random_split_r2": 0.8826,
+      "ts_cv_mae": 6.3999,
+      "ts_cv_r2": 0.2021,
+      "ts_cv_r2_folds": [
+        0.2554,
+        0.3943,
+        0.3296,
+        -0.0379,
+        0.0691
+      ],
+      "size_mb": 136.8,
+      "load_s": 0.46,
+      "eval_s": 108
+    },
+    {
+      "name": "depth 15, leaf 10, 50 trees",
+      "params": {
+        "n_estimators": 50,
+        "max_depth": 15,
+        "min_samples_leaf": 10
+      },
+      "random_split_mae": 3.3415,
+      "random_split_r2": 0.7789,
+      "ts_cv_mae": 6.2831,
+      "ts_cv_r2": 0.2404,
+      "ts_cv_r2_folds": [
+        0.276,
+        0.4179,
+        0.3638,
+        0.0112,
+        0.1331
+      ],
+      "size_mb": 39.8,
+      "load_s": 0.02,
+      "eval_s": 84
+    },
+    {
+      "name": "depth 12, leaf 20, 100 trees",
+      "params": {
+        "n_estimators": 100,
+        "max_depth": 12,
+        "min_samples_leaf": 20
+      },
+      "random_split_mae": 4.4234,
+      "random_split_r2": 0.6542,
+      "ts_cv_mae": 6.2118,
+      "ts_cv_r2": 0.2769,
+      "ts_cv_r2_folds": [
+        0.2985,
+        0.4302,
+        0.3806,
+        0.0861,
+        0.1892
+      ],
+      "size_mb": 23.6,
+      "load_s": 0.02,
+      "eval_s": 140
+    },
+    {
+      "name": "leaf 20, 50 trees",
+      "params": {
+        "n_estimators": 50,
+        "min_samples_leaf": 20
+      },
+      "random_split_mae": 3.1408,
+      "random_split_r2": 0.7994,
+      "ts_cv_mae": 6.299,
+      "ts_cv_r2": 0.2363,
+      "ts_cv_r2_folds": [
+        0.2805,
+        0.4143,
+        0.3604,
+        0.0072,
+        0.119
+      ],
+      "size_mb": 41.5,
+      "load_s": 0.03,
+      "eval_s": 87
+    }
+  ],
+  "chosen": "depth 12, leaf 20, 100 trees"
+}

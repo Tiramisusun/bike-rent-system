@@ -1,0 +1,41 @@
+# Production overlay: adds the web app and the public reverse proxy.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Only Caddy publishes a port to the internet (80). MySQL, Postgres and the
+# Airflow UI stay bound to 127.0.0.1 (see docker-compose.yml).
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VITE_CARTO_API_KEY: ${VITE_CARTO_API_KEY:-}   # from .env; empty = OpenStreetMap tiles
+    image: dublinbikes-web
+    env_file:
+      - .env
+    environment:
+      TRUST_PROXY: "1"            # client IP comes from Caddy's X-Forwarded-For
+    volumes:
+      # Trained model (gitignored, built by `python -m ml.train`, copied to the server).
+      # Missing file = /api/predict answers 503; the rest of the app still works.
+      - ../data:/app/data:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: always
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+    volumes:
+      - ../deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - web
+    restart: always
+
+volumes:
+  caddy-data:

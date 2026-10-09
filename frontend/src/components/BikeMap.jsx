@@ -29,6 +29,20 @@ function bikeIcon(color) {
 
 const DUBLIN_CENTER = [53.3498, -6.2603]
 
+// CARTO basemaps need a (free) API key: https://carto.com/basemaps/apikey
+// Set VITE_CARTO_API_KEY at build time; without it fall back to the standard
+// OpenStreetMap tiles, which need no key (fine for low traffic, attribution required).
+const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY
+const BASEMAP = CARTO_API_KEY
+  ? {
+      url: `https://basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=${CARTO_API_KEY}`,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+    }
+  : {
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }
+
 /** Renders the three polylines + station halos for one bike segment. */
 function BikeSegmentOverlay({ seg }) {
   if (!seg.polylines) return null
@@ -190,11 +204,7 @@ export default function BikeMap({ refreshKey, onWeatherLoaded, onStationsLoaded,
   return (
     <div style={wrapperStyle}>
       <MapContainer center={DUBLIN_CENTER} zoom={14} style={{ height: '100%' }}>
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>'
-          maxZoom={19}
-        />
+        <TileLayer url={BASEMAP.url} attribution={BASEMAP.attribution} maxZoom={19} />
 
         <MapClickHandler clickMode={clickMode} onMapClick={handleMapClick} />
         <FlyToBounds startPoint={startPoint} endPoint={endPoint} />

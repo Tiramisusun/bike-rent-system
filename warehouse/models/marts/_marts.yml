@@ -1,0 +1,173 @@
+version: 2
+
+models:
+  - name: dim_station
+    description: One row per bike station.
+    data_tests:
+      - expression_is_true:
+          name: station_capacity_positive
+          arguments:
+            expression: "capacity > 0"
+      - expression_is_true:
+          name: station_located_in_dublin
+          arguments:
+            expression: "latitude between 53.2 and 53.5 and longitude between -6.45 and -6.05"
+    columns:
+      - name: station_id
+        description: JCDecaux station number.
+        data_tests: [unique, not_null]
+      - name: station_name
+        description: Station name as shown on the map.
+      - name: capacity
+        description: Total docks. Reported by JCDecaux; falls back to the most bikes + free docks ever observed.
+        data_tests: [not_null]
+      - name: capacity_source
+        description: "'reported' (JCDecaux bike_stands) or 'max_observed' (fallback)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['reported', 'max_observed']
+      - name: distance_to_centre_km
+        description: Haversine distance to O'Connell Bridge in km.
+      - name: zone
+        description: "city_centre (< 1 km from O'Connell Bridge), inner (< 2.5 km) or outer."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['city_centre', 'inner', 'outer']
+
+  - name: dim_time
+    description: One row per hour in Dublin local time, 2026-2027.
+    columns:
+      - name: hour_key
+        description: Local time truncated to the hour. Join key for every fact.
+        data_tests: [unique, not_null]
+      - name: day_of_week
+        description: ISO day of week, 1 = Monday ... 7 = Sunday.
+      - name: is_public_holiday
+        description: Irish public holiday (seeds/irish_public_holidays.csv).
+      - name: is_working_day
+        description: Monday-Friday and not a public holiday.
+      - name: is_peak_hour
+        description: Working day and local hour in var('peak_hours') (07-09 and 16-19).
+
+  - name: dim_weather
+    description: One row per OpenWeather condition code.
+    columns:
+      - name: weather_code
+        data_tests: [unique, not_null]
+      - name: condition_group
+        description: OpenWeather main group, e.g. Clear, Clouds, Rain, Drizzle.
+      - name: is_precipitation
+        description: Rain, Drizzle, Thunderstorm or Snow.
+
+  - name: fct_station_snapshot
+    description: >
+      Grain: one row per station availability snapshot. JCDecaux updates each
+      station every few minutes; duplicate polls were removed at load time.
+    data_tests:
+      # Hard rules — impossible values mean the feed or the load is broken.
+      - expression_is_true:
+          name: snapshot_counts_non_negative
+          arguments:
+            expression: "available_bikes >= 0 and available_docks >= 0"
+      - expression_is_true:
+          name: snapshot_within_capacity
+          arguments:
+            expression: "available_bikes + available_docks <= capacity"
+      # Soft rule — docks that hold no bike and can't take one are broken or
+      # blocked. Real but worth knowing: warn when over a quarter of a station
+      # is unusable in the last 24 h (e.g. YORK STREET WEST: 20 of 40).
+      - expression_is_true:
+          name: snapshot_most_docks_usable
+          arguments:
+            expression: "available_bikes + available_docks >= 0.75 * capacity"
+          config:
+            severity: warn
+            where: "snapshot_at_utc > (now() at time zone 'utc') - interval '24 hours'"
+    columns:
+      - name: snapshot_id
+        data_tests: [unique, not_null]
+      - name: station_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_station')
+                field: station_id
+      - name: hour_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_time')
+                field: hour_key
+      - name: available_bikes
+        description: Bikes available to rent.
+      - name: available_docks
+        description: Free docks available to return a bike.
+      - name: is_empty
+        description: Station open with 0 bikes — nobody can rent here.
+      - name: is_full
+        description: Station open with 0 free docks — nobody can return here.
+      - name: minutes_observed
+        description: How long this state lasted (until the next snapshot), capped at 30 minutes.
+      - name: weather_code
+        description: Weather observed at most 1 hour before the snapshot; null if none.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_weather')
+                field: weather_code
+
+  - name: fct_rental
+    description: Grain — one row per rental made through the website.
+    columns:
+      - name: rental_id
+        data_tests: [unique, not_null]
+      - name: pickup_station_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_station')
+                field: station_id
+      - name: duration_minutes
+        description: Rental length in minutes; null while the rental is active.
+      - name: cost_eur
+        description: Charged cost in EUR; null while the rental is active.
+
+  - name: agg_station_hourly
+    description: >
+      Grain — one row per station per local hour with at least one snapshot.
+      The shared source for dashboards and model features.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [station_id, hour_key]
+    columns:
+      - name: observed_minutes
+        description: Sum of minutes_observed — how much of the hour is covered by data.
+      - name: empty_minutes
+        description: Minutes the station was open with 0 bikes.
+      - name: full_minutes
+        description: Minutes the station was open with 0 free docks.
+      - name: had_precipitation
+        description: Any snapshot in the hour had rain/drizzle/thunderstorm/snow observed. Null when no weather data.
+
+  - name: mart_station_kpis
+    description: >
+      Grain — one row per station. Standard operational metrics; the dashboard
+      and any analysis should read these instead of re-deriving them.
+    columns:
+      - name: station_id
+        data_tests: [unique, not_null]
+      - name: empty_minutes
+        description: Total minutes open with 0 bikes.
+      - name: full_minutes
+        description: Total minutes open with 0 free docks.
+      - name: empty_share
+        description: empty_minutes / observed_minutes.
+      - name: peak_shortage_rate
+        description: Share of observed peak-hour minutes (working days, 07-09 and 16-19 local) the station was empty.
+      - name: rain_bike_delta
+        description: Average available bikes in hours with precipitation minus in dry hours. Null until both are observed.
