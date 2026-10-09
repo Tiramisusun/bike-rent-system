@@ -236,3 +236,6 @@ warehouse/.user.yml
 # Vite local env files (may hold VITE_CARTO_API_KEY)
 .env.local
 .env.*.local
+
+# Trained models (large binaries) — rebuilt by `python -m ml.train`
+data/*.pkl

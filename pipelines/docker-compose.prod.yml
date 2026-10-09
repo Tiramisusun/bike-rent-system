@@ -17,6 +17,10 @@ services:
       - .env
     environment:
       TRUST_PROXY: "1"            # client IP comes from Caddy's X-Forwarded-For
+    volumes:
+      # Trained model (gitignored, built by `python -m ml.train`, copied to the server).
+      # Missing file = /api/predict answers 503; the rest of the app still works.
+      - ../data:/app/data:ro
     depends_on:
       mysql:
         condition: service_healthy
