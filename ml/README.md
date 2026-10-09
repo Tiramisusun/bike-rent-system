@@ -29,3 +29,20 @@ Full results: `ml/results/20261009-2235.json`.
   (e.g. bikes at the same station an hour ago) would likely help far more than tuning the forest.
 - **Weather feature mismatch.** Training uses short-interval max temperature and its standard
   deviation; at prediction time the app passes the current temperature and a deviation of 0.
+
+## Early check on our own data (exploratory, 2026-10-09)
+
+`python -m ml.explore_warehouse --data <export of intermediate.int_station_snapshot_enriched>` scores
+models on what the pipeline has collected, using the app's own weather inputs. With only two days
+of October 2026 data (35k snapshots), five time-series folds:
+
+| | Mean R² | Mean MAE |
+|---|---|---|
+| Deployed model (trained on Dec 2024) | 0.144 | 6.65 |
+| Same configuration retrained on our data | 0.458 | 4.85 |
+| Baseline: each station's average from the training fold | 0.380 | 5.60 |
+
+The deployed model has gone stale — on current data it is worse than a per-station average.
+Retraining on our own data looks better, but two days without a weekend can't support that
+conclusion; revisit after ~3 weeks of collection, adding recent-availability features and a
+"bikes now = bikes later" baseline. Results: `ml/results/explore-warehouse-*.json`.
