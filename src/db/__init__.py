@@ -12,7 +12,7 @@ from src.db.models import (
     Rental,
     Weather,
     WeatherReport,
-    Forecast,
+    WeatherForecast,
     Station,
     StationStatus,
 )
@@ -23,8 +23,10 @@ from src.db.writers import db_from_request, store_forecast_data
 
 from src.db.readers import (
     get_latest_weather,
+    get_current_weather,
     get_all_stations,
     get_latest_station_status,
+    get_latest_availability,
     get_station_history,
     get_forecast_data,
 )
@@ -32,12 +34,12 @@ from src.db.readers import (
 __all__ = [
     # models
     "Base", "User", "Rental", "Weather", "WeatherReport",
-    "Forecast", "Station", "StationStatus",
+    "WeatherForecast", "Station", "StationStatus",
     # engine
     "load_engine", "init_db",
     # writers
     "db_from_request", "store_forecast_data",
     # readers
-    "get_latest_weather", "get_all_stations",
-    "get_latest_station_status", "get_station_history", "get_forecast_data",
+    "get_latest_weather", "get_current_weather", "get_all_stations",
+    "get_latest_station_status", "get_latest_availability", "get_station_history", "get_forecast_data",
 ]

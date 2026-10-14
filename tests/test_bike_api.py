@@ -84,20 +84,113 @@ def client():
         yield c
 
 
-def test_api_bikes_success(client, bike_dynamic_data):
-    """/api/bikes returns source, count and data when JCDecaux call succeeds."""
+# ── /api/bikes: served from the pipeline's latest snapshot ───────────────────
+
+@pytest.fixture
+def bikes_app():
+    """Fresh in-memory DB per test, swapped into the app and restored afterwards."""
+    from app import app as flask_app
+    from src.db import init_db
+    from sqlalchemy import create_engine
+
+    engine = create_engine("sqlite:///:memory:")
+    init_db(engine)
+    original = flask_app.extensions["engine"]
+    flask_app.extensions["engine"] = engine
+    with flask_app.test_client() as c:
+        yield c, engine
+    flask_app.extensions["engine"] = original
+
+
+def _seed_snapshot(engine, station_id, age, bikes=5):
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy.orm import Session
+    from src.db import Station, StationStatus
+    with Session(engine) as s:
+        if not s.get(Station, station_id):
+            s.add(Station(station_id=station_id, name=f"S{station_id}", contract="dublin",
+                          latitude=53.35, longitude=-6.26, bike_stands=20))
+        s.add(StationStatus(station_id=station_id, avail_bikes=bikes, avail_bike_stands=20 - bikes,
+                            status="OPEN",
+                            update_time=datetime.now(timezone.utc).replace(tzinfo=None) - age))
+        s.commit()
+
+
+def _status_rows(engine):
+    from sqlalchemy import func, select
+    from sqlalchemy.orm import Session
+    from src.db import StationStatus
+    with Session(engine) as s:
+        return s.scalar(select(func.count()).select_from(StationStatus))
+
+
+def test_api_bikes_fresh_snapshot_served_from_db_without_calling_jcdecaux(bikes_app):
+    from datetime import timedelta
+    client, engine = bikes_app
+    _seed_snapshot(engine, 42, age=timedelta(minutes=2), bikes=7)
+
+    with patch("src.services.bikes_service.requests.get") as live:
+        res = client.get("/api/bikes")
+
+    live.assert_not_called()
+    body = res.get_json()
+    assert res.status_code == 200
+    assert body["source"] == "database" and body["stale"] is False
+    station = body["data"][0]
+    # same shape as the JCDecaux payload the frontend reads
+    assert station["number"] == 42
+    assert station["available_bikes"] == 7
+    assert station["position"] == {"lat": 53.35, "lng": -6.26}
+    assert isinstance(station["last_update"], int)
+
+
+def test_api_bikes_drops_stations_missing_from_feed(bikes_app):
+    from datetime import timedelta
+    client, engine = bikes_app
+    _seed_snapshot(engine, 42, age=timedelta(minutes=2))
+    _seed_snapshot(engine, 30, age=timedelta(days=3))     # gone from the live feed
+
+    body = client.get("/api/bikes").get_json()
+    assert [s["number"] for s in body["data"]] == [42]
+
+
+def test_api_bikes_stale_snapshot_falls_back_to_jcdecaux_without_writing(bikes_app, bike_dynamic_data):
+    from datetime import timedelta
+    client, engine = bikes_app
+    _seed_snapshot(engine, 42, age=timedelta(hours=1))
     mock_resp = MagicMock()
     mock_resp.json.return_value = [bike_dynamic_data]
     mock_resp.raise_for_status.return_value = None
 
     with patch("src.services.bikes_service.requests.get", return_value=mock_resp):
+        body = client.get("/api/bikes").get_json()
+
+    assert body["source"] == "jcdecaux"
+    assert body["count"] == 1
+    assert _status_rows(engine) == 1        # page loads never write
+
+
+def test_api_bikes_stale_snapshot_and_jcdecaux_down_returns_stale_data(bikes_app):
+    import requests as req
+    from datetime import timedelta
+    client, engine = bikes_app
+    _seed_snapshot(engine, 42, age=timedelta(hours=1))
+
+    with patch("src.services.bikes_service.requests.get", side_effect=req.ConnectionError("down")):
         res = client.get("/api/bikes")
 
+    body = res.get_json()
     assert res.status_code == 200
-    data = res.get_json()
-    assert data["source"] == "jcdecaux"
-    assert data["count"] == 1
-    assert isinstance(data["data"], list)
+    assert body["source"] == "database" and body["stale"] is True
+    assert body["count"] == 1
+
+
+def test_api_bikes_no_data_and_jcdecaux_down_returns_502(bikes_app):
+    import requests as req
+    client, _ = bikes_app
+    with patch("src.services.bikes_service.requests.get", side_effect=req.ConnectionError("down")):
+        res = client.get("/api/bikes")
+    assert res.status_code == 502
 
 
 def test_api_db_stations_returns_list(client):

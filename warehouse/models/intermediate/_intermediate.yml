@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: int_station_snapshot_enriched
+    description: >
+      Station snapshots with how long each state lasted and the weather at the
+      time. Building block for fct_station_snapshot.
+    columns:
+      - name: snapshot_id
+        data_tests: [unique, not_null]
+      - name: minutes_observed
+        description: >
+          Minutes until the station's next snapshot, capped at
+          var('max_snapshot_minutes') (30). The latest snapshot per station counts as 5.
+        data_tests: [not_null]
+      - name: hour_key
+        description: Snapshot time truncated to the hour, Dublin local time. Joins to dim_time.
+      - name: weather_code
+        description: Weather at or before the snapshot (≤ 1 h old); null when no observation that recent.

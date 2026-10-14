@@ -1,0 +1,301 @@
+# Text-to-SQL benchmark for the Dublin Bikes marts.
+#
+# Each question has a hand-written gold SQL. Scoring is by *execution*: the agent's
+# final result set is compared with the gold result set at eval time (see
+# src/agent/evaluation.py), so answers stay correct as data accumulates.
+#
+# order_matters: true  -> ranked lists ("top 5 ..."), rows must come in the same order
+# Questions avoid ties at the cut-off of ranked answers (checked when written).
+
+- id: e01
+  difficulty: easy
+  question: How many bike stations are there?
+  gold_sql: SELECT count(*) FROM marts.dim_station
+
+- id: e02
+  difficulty: easy
+  question: How many stations are in the city centre zone?
+  gold_sql: SELECT count(*) FROM marts.dim_station WHERE zone = 'city_centre'
+
+- id: e03
+  difficulty: easy
+  question: What is the total number of docks across all stations?
+  gold_sql: SELECT sum(capacity) FROM marts.dim_station
+
+- id: e04
+  difficulty: easy
+  question: How many docks does the BENSON STREET station have?
+  gold_sql: SELECT capacity FROM marts.dim_station WHERE station_name = 'BENSON STREET'
+
+- id: e05
+  difficulty: easy
+  question: Which zone is SMITHFIELD NORTH in?
+  gold_sql: SELECT zone FROM marts.dim_station WHERE station_name = 'SMITHFIELD NORTH'
+
+- id: e06
+  difficulty: easy
+  question: List the stations in the outer zone.
+  gold_sql: SELECT station_name FROM marts.dim_station WHERE zone = 'outer'
+
+- id: e07
+  difficulty: easy
+  question: How many stations have exactly 40 docks?
+  gold_sql: SELECT count(*) FROM marts.dim_station WHERE capacity = 40
+
+- id: e08
+  difficulty: easy
+  question: What is the average number of docks per station?
+  gold_sql: SELECT avg(capacity) FROM marts.dim_station
+
+- id: e09
+  difficulty: easy
+  question: How many stations are more than 2 km from O'Connell Bridge?
+  gold_sql: SELECT count(*) FROM marts.dim_station WHERE distance_to_centre_km > 2
+
+- id: e10
+  difficulty: easy
+  question: Which station is closest to O'Connell Bridge?
+  gold_sql: SELECT station_name FROM marts.dim_station ORDER BY distance_to_centre_km LIMIT 1
+
+- id: e11
+  difficulty: easy
+  question: How many stations have a capacity reported by JCDecaux, and how many have an estimated capacity?
+  gold_sql: SELECT capacity_source, count(*) FROM marts.dim_station GROUP BY capacity_source
+
+- id: e12
+  difficulty: easy
+  question: How many Irish public holidays are there in 2026?
+  gold_sql: SELECT count(DISTINCT date_day) FROM marts.dim_time WHERE is_public_holiday AND year = 2026
+
+- id: e13
+  difficulty: easy
+  question: Which weather condition groups count as precipitation?
+  gold_sql: SELECT DISTINCT condition_group FROM marts.dim_weather WHERE is_precipitation
+
+- id: e14
+  difficulty: easy
+  question: How many rentals have been made through the website?
+  gold_sql: SELECT count(*) FROM marts.fct_rental
+
+- id: e15
+  difficulty: easy
+  question: How many station availability snapshots are in the data?
+  gold_sql: SELECT count(*) FROM marts.fct_station_snapshot
+
+- id: m01
+  difficulty: medium
+  question: How many stations are there in each zone?
+  gold_sql: SELECT zone, count(*) FROM marts.dim_station GROUP BY zone
+
+- id: m02
+  difficulty: medium
+  question: What is the total dock capacity of each zone?
+  gold_sql: SELECT zone, sum(capacity) FROM marts.dim_station GROUP BY zone
+
+- id: m03
+  difficulty: medium
+  question: Which station has spent the most minutes empty?
+  gold_sql: SELECT station_name FROM marts.mart_station_kpis ORDER BY empty_minutes DESC LIMIT 1
+
+- id: m04
+  difficulty: medium
+  question: What are the top 5 stations by minutes spent full?
+  order_matters: true
+  gold_sql: SELECT station_name FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 5
+
+- id: m05
+  difficulty: medium
+  question: Which 3 stations have the highest peak-hour shortage rate?
+  order_matters: true
+  gold_sql: >
+    SELECT station_name FROM marts.mart_station_kpis
+    WHERE peak_shortage_rate IS NOT NULL ORDER BY peak_shortage_rate DESC LIMIT 3
+
+- id: m06
+  difficulty: medium
+  question: How many station-hours were observed on weekends and how many on weekdays?
+  gold_sql: SELECT is_weekend, count(*) FROM marts.agg_station_hourly GROUP BY is_weekend
+
+- id: m07
+  difficulty: medium
+  question: How many minutes in total have stations been empty?
+  gold_sql: SELECT sum(empty_minutes) FROM marts.mart_station_kpis
+
+- id: m08
+  difficulty: medium
+  question: How many minutes in total have city-centre stations been full?
+  gold_sql: SELECT sum(full_minutes) FROM marts.mart_station_kpis WHERE zone = 'city_centre'
+
+- id: m09
+  difficulty: medium
+  question: Which zone has the most empty minutes in total?
+  gold_sql: SELECT zone FROM marts.mart_station_kpis GROUP BY zone ORDER BY sum(empty_minutes) DESC LIMIT 1
+
+- id: m10
+  difficulty: medium
+  question: How many stations have never been empty?
+  gold_sql: SELECT count(*) FROM marts.mart_station_kpis WHERE empty_minutes = 0
+
+- id: m11
+  difficulty: medium
+  question: How many stations have never been full?
+  gold_sql: SELECT count(*) FROM marts.mart_station_kpis WHERE full_minutes = 0
+
+- id: m12
+  difficulty: medium
+  question: What is the average temperature across all station snapshots that have weather data?
+  gold_sql: SELECT avg(temperature_c) FROM marts.fct_station_snapshot WHERE temperature_c IS NOT NULL
+
+- id: m13
+  difficulty: medium
+  question: How many snapshots were taken while it was raining, drizzling, snowing or stormy?
+  gold_sql: SELECT count(*) FROM marts.fct_station_snapshot WHERE is_precipitation
+
+- id: m14
+  difficulty: medium
+  question: How many snapshots were recorded on each day (Dublin time)?
+  order_matters: true
+  gold_sql: >
+    SELECT snapshot_at_local::date AS day, count(*) FROM marts.fct_station_snapshot
+    GROUP BY 1 ORDER BY 1
+
+- id: m15
+  difficulty: medium
+  question: Overall, what share of observed time were stations empty?
+  gold_sql: SELECT sum(empty_minutes) / sum(observed_minutes) FROM marts.mart_station_kpis
+
+- id: m16
+  difficulty: medium
+  question: Which stations use an estimated capacity rather than one reported by JCDecaux?
+  gold_sql: SELECT station_name FROM marts.dim_station WHERE capacity_source = 'max_observed'
+
+- id: m17
+  difficulty: medium
+  question: What is the most bikes ever seen at SMITHFIELD NORTH?
+  gold_sql: >
+    SELECT max(f.available_bikes) FROM marts.fct_station_snapshot f
+    JOIN marts.dim_station s USING (station_id) WHERE s.station_name = 'SMITHFIELD NORTH'
+
+- id: m18
+  difficulty: medium
+  question: How many different stations reported a snapshot in the last hour of the data?
+  gold_sql: >
+    SELECT count(DISTINCT station_id) FROM marts.fct_station_snapshot
+    WHERE snapshot_at_utc > (SELECT max(snapshot_at_utc) FROM marts.fct_station_snapshot) - interval '1 hour'
+
+- id: m19
+  difficulty: medium
+  question: Which hour of the day (local time) has the most empty minutes across all stations?
+  gold_sql: >
+    SELECT hour_of_day FROM marts.agg_station_hourly
+    GROUP BY hour_of_day ORDER BY sum(empty_minutes) DESC LIMIT 1
+
+- id: m20
+  difficulty: medium
+  question: For each zone, what are the total empty minutes and total observed minutes?
+  gold_sql: >
+    SELECT zone, sum(empty_minutes), sum(observed_minutes)
+    FROM marts.mart_station_kpis GROUP BY zone
+
+- id: h01
+  difficulty: hard
+  question: Among city-centre stations, which has the highest peak-hour shortage rate?
+  gold_sql: >
+    SELECT station_name FROM marts.mart_station_kpis
+    WHERE zone = 'city_centre' AND peak_shortage_rate IS NOT NULL
+    ORDER BY peak_shortage_rate DESC LIMIT 1
+
+- id: h02
+  difficulty: hard
+  question: During peak hours, which station spent the most minutes empty?
+  gold_sql: >
+    SELECT s.station_name FROM marts.agg_station_hourly h
+    JOIN marts.dim_station s USING (station_id)
+    WHERE h.is_peak_hour GROUP BY s.station_name ORDER BY sum(h.empty_minutes) DESC LIMIT 1
+
+- id: h03
+  difficulty: hard
+  question: How many minutes in total were stations empty during peak hours?
+  gold_sql: SELECT sum(empty_minutes) FROM marts.agg_station_hourly WHERE is_peak_hour
+
+- id: h04
+  difficulty: hard
+  question: Compare the average number of available bikes in hours with precipitation versus dry hours.
+  gold_sql: >
+    SELECT had_precipitation, avg(avg_available_bikes) FROM marts.agg_station_hourly
+    WHERE had_precipitation IS NOT NULL GROUP BY had_precipitation
+
+- id: h05
+  difficulty: hard
+  question: Which stations were empty for more than a quarter of their observed time?
+  gold_sql: SELECT station_name FROM marts.mart_station_kpis WHERE empty_share > 0.25
+
+- id: h06
+  difficulty: hard
+  question: On 2026-10-08, which station had the most empty minutes?
+  gold_sql: >
+    SELECT s.station_name FROM marts.agg_station_hourly h
+    JOIN marts.dim_station s USING (station_id)
+    WHERE h.date_day = DATE '2026-10-08'
+    GROUP BY s.station_name ORDER BY sum(h.empty_minutes) DESC LIMIT 1
+
+- id: h07
+  difficulty: hard
+  question: For each zone, which station has spent the most minutes empty?
+  gold_sql: >
+    SELECT zone, station_name FROM (
+      SELECT zone, station_name,
+             row_number() OVER (PARTITION BY zone ORDER BY empty_minutes DESC) AS rn
+      FROM marts.mart_station_kpis) t
+    WHERE rn = 1
+
+- id: h08
+  difficulty: hard
+  question: How many stations have been both empty and full at some point?
+  gold_sql: SELECT count(*) FROM marts.mart_station_kpis WHERE empty_minutes > 0 AND full_minutes > 0
+
+- id: h09
+  difficulty: hard
+  question: Which station gains the most bikes on average when it rains, compared with dry hours?
+  gold_sql: >
+    SELECT station_name FROM marts.mart_station_kpis
+    WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 1
+
+- id: h10
+  difficulty: hard
+  question: For city-centre stations, what is the average number of available bikes during peak hours versus outside peak hours?
+  gold_sql: >
+    SELECT h.is_peak_hour, avg(h.avg_available_bikes) FROM marts.agg_station_hourly h
+    JOIN marts.dim_station s USING (station_id)
+    WHERE s.zone = 'city_centre' GROUP BY h.is_peak_hour
+
+- id: h11
+  difficulty: hard
+  question: How many station-hours had a station empty for more than 30 minutes?
+  gold_sql: SELECT count(*) FROM marts.agg_station_hourly WHERE empty_minutes > 30
+
+- id: h12
+  difficulty: hard
+  question: How many different stations reported at least one snapshot on 2026-10-07 (Dublin time)?
+  gold_sql: >
+    SELECT count(DISTINCT station_id) FROM marts.fct_station_snapshot
+    WHERE snapshot_at_local::date = DATE '2026-10-07'
+
+- id: h13
+  difficulty: hard
+  question: What is the average temperature during peak hours compared with off-peak hours?
+  gold_sql: >
+    SELECT is_peak_hour, avg(avg_temperature_c) FROM marts.agg_station_hourly
+    WHERE avg_temperature_c IS NOT NULL GROUP BY is_peak_hour
+
+- id: h14
+  difficulty: hard
+  question: How many minutes in total have outer-zone stations been full?
+  gold_sql: SELECT sum(full_minutes) FROM marts.mart_station_kpis WHERE zone = 'outer'
+
+- id: h15
+  difficulty: hard
+  question: What percentage of all docks are in the inner zone?
+  gold_sql: >
+    SELECT 100.0 * sum(capacity) FILTER (WHERE zone = 'inner') / sum(capacity)
+    FROM marts.dim_station

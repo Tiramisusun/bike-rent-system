@@ -5,11 +5,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from src.db import User
+from src.extensions import limiter
 
 auth_bp = Blueprint('auth', __name__)
 
 
 @auth_bp.route("/api/auth/register", methods=["POST"])
+@limiter.limit("5 per hour")        # slow down bulk sign-ups
 def register():
     """
     Register a new user.
@@ -59,6 +61,7 @@ def register():
 
 
 @auth_bp.route("/api/auth/login", methods=["POST"])
+@limiter.limit("10 per minute;50 per hour")   # slow down password guessing
 def login():
     """
     Login with email and password.

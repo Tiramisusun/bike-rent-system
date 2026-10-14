@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def load_engine() -> Engine:
-    """Load and return a SQLAlchemy engine from DB_URL in .env."""
+    """Load and return a SQLAlchemy engine from DB_URL (env var or .env)."""
     try:
-        assert load_dotenv(), "Could not load .env variables."
+        load_dotenv()  # optional: in Docker/Airflow DB_URL comes from the environment
         db_url = os.getenv("DB_URL")
         assert db_url, "Could not find required DB_URL."
-        return create_engine(db_url)
+        return create_engine(db_url, pool_pre_ping=True)
     except Exception as e:
         logger.error(f"Failed to load SQL engine: {e}")
         raise

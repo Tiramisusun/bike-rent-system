@@ -1,392 +1,203 @@
-# Dublin Bikes Application
+# Dublin Bikes — Data Platform & Web App
 
-## Description
+[![CI](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml/badge.svg?branch=data-platform)](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml)
 
-Dublin Bikes Application developed as a requirement of the Software Engineering Module (2026).  
-The system fetches real-time bike and weather data from external APIs, stores it in a MySQL database, and serves a React frontend through a Flask backend. It includes route planning with weather alerts, bike rental and billing, user authentication, availability prediction using a machine learning model, and a How To guide for new users.
+Real-time availability, route planning and rentals for Dublin's 115 bike-share stations, backed by a data
+platform that ingests the JCDecaux and OpenWeather APIs every 5 minutes, models the data in a dbt star
+schema, and alerts when data goes stale or breaks a business rule.
 
-## Features
+*Python · Airflow · dbt · PostgreSQL · MySQL · Flask · React · Docker · GitHub Actions*
 
-1. **Weather Forecast** — Provides a 5-day forecast updated every 3 hours, including temperature, humidity, and rain conditions. A weather alert is shown in the route planner if rain is expected around the departure time.
-2. **Route Planning** — Users enter a start and destination; the system recommends pickup stations within 1500m with more than 2 available bikes. It then estimates travel time and uses machine learning to recommend dropoff stations within 1500m of the destination with more than 2 free stands.
-3. **Bike Rental & Billing** — Users can rent and return bikes after logging in. Rental history and costs are displayed on the account page. The first 30 minutes are free; each additional 30-minute block costs €0.50.
-4. **Availability Prediction** — Users select a station and a future time; the ML model combines historical data and current weather conditions to predict the number of available bikes and free stands at that station.
-5. **How To Guide** — A dedicated page introducing the three main features (route planning, availability prediction, and bike rental) to help new users get started quickly.
+## Highlights
 
-## Project Structure
+Numbers are measured, not estimated — see the linked docs and commit messages for how.
+
+- **Found and fixed a data bug feeding user-facing features.** Forecasts were stored alongside observations, so
+  "current weather" — used by the availability predictor and the rain-aware route planner — was a forecast
+  ~5 days ahead. Observations and forecasts are now separate; weather lag is ≤ 15 minutes.
+- **Idempotent ingestion.** 61.5% of historical station snapshots were duplicates (1,840 → 708 rows). Every
+  table is now keyed on the source's own timestamp; in live running about half of each poll is unchanged data
+  that is skipped instead of stored.
+- **12× faster station map.** `/api/bikes` served from the latest pipeline snapshot instead of calling JCDecaux
+  per page load: p50 227 ms → 18 ms, p95 460 ms → 21 ms — and the map stays up if either source is down.
+- **Analytics warehouse.** MySQL → Postgres incremental sync (safe against late-committing transactions), dbt
+  staging → marts with shared KPIs (empty/full-station minutes, peak-hour shortage rate) in Dublin local time
+  with Irish public holidays.
+- **Data quality with alerts.** 48 dbt data tests incl. capacity reconciliation, a 15-minute ingestion freshness
+  SLA and e-mail alerts that name the failed check. Already caught a station with 20 of 40 docks unusable, and an
+  8-hour collection gap.
+- **CI** on every push: unit tests, Airflow DAG integrity, a full migrate → sync → `dbt build` run against fresh
+  databases, and the frontend build.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph sources[External APIs]
+        J[JCDecaux<br/>stations]
+        O[OpenWeather<br/>current + forecast]
+    end
+    subgraph airflow[Airflow]
+        I[dublinbikes_ingest<br/>every 5 min]
+        F[dublinbikes_forecast<br/>hourly]
+        T[dublinbikes_transform<br/>hourly]
+        M[dublinbikes_monitor<br/>every 10 min]
+    end
+    RAW[(data/raw/<br/>JSON archive)]
+    MY[(MySQL<br/>bike_app)]
+    PG[(Postgres<br/>warehouse)]
+    APP[Flask API]
+    UI[React + Leaflet]
+    MAIL[E-mail alerts]
+
+    J --> I
+    O --> I
+    O --> F
+    I --> RAW --> MY
+    F --> RAW
+    MY --> T --> PG
+    PG -. "dbt: staging → marts + tests" .- T
+    MY --> M
+    M --> MAIL
+    T --> MAIL
+    MY --> APP --> UI
+```
+
+| Part | What it does | Docs |
+|---|---|---|
+| **Ingestion** (`pipelines/`, `src/ingest/`) | Extract → archive raw JSON → idempotent load into MySQL | [pipelines/README.md](pipelines/README.md) |
+| **Warehouse** (`warehouse/`, `src/warehouse/`) | Sync MySQL → Postgres, dbt star schema and metrics | [warehouse/README.md](warehouse/README.md) |
+| **Monitoring** (`src/monitoring/`) | Freshness checks and e-mail alerts | [pipelines/README.md](pipelines/README.md#data-quality-and-alerts) |
+| **Web app** (`app.py`, `src/routes/`, `frontend/`) | Map, route planning, prediction, rentals | below |
+
+## Web app features
+
+1. **Live station map** — Leaflet map coloured by availability, with per-station history charts.
+2. **Route planning** — recommends pickup stations within 1.5 km with more than 2 bikes and dropoff stations
+   near the destination with more than 2 predicted free docks; three-leg walk/cycle/walk route with a rain alert.
+3. **Availability prediction** — a Random Forest model predicts bikes at a station for a chosen time and weather.
+4. **Rentals & billing** — JWT-authenticated rent/return, history and cost; first 30 minutes free, then €0.50 per
+   started 30 minutes.
+5. **5-day forecast** and a **How To** page for new users.
+
+## Quick start
+
+**Data platform** (Docker; Airflow UI at http://127.0.0.1:8080, login `airflow` / `airflow`):
+
+```bash
+cd pipelines
+cp .env.example .env          # add JCDECAUX_API_KEY and OPENWEATHER_API_KEY
+docker compose up -d --build  # add --profile mail to catch alert e-mails at http://127.0.0.1:8025
+```
+
+This starts Airflow, MySQL (seeded from `dump.sql`, port 3307) and Postgres (port 5433); migrations and
+warehouse setup run automatically. Unpause the four `dublinbikes_*` DAGs in the UI.
+
+**Web app** (Python 3.11+, Node 20):
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+# .env: DB_URL=mysql+pymysql://root:bikes@localhost:3307/bike_app plus the API keys below
+python app.py                        # Flask on :5001 (5000 is taken by macOS AirPlay)
+
+cd frontend && npm install && npm run dev   # http://localhost:5173, /api proxied to :5001
+```
+
+## Project structure
 
 ```
 .
-├── app.py                          # Flask application entry point
-├── requirements.txt                # Python dependencies
-├── conftest.py                     # Shared pytest fixtures
-├── pytest.ini                      # Pytest configuration
-│
-├── data/                           # ML artefacts (not tracked in git)
-│   ├── best_bike_model.pkl         # Trained model exported from notebook
-│   ├── final_merged_data.csv       # Historical Dublin Bikes + weather data
-│   └── bike_availability_time_features_updated.ipynb  # Training notebook
-│
-├── frontend/                       # React + Vite frontend
-│   └── src/
-│       ├── App.jsx                 # Root component, page routing, auth state
-│       └── components/
-│           ├── BikeMap.jsx              # Leaflet map, station markers
-│           ├── RoutePlanner.jsx         # Route planning panel with weather alert
-│           ├── PredictionWidget.jsx     # Single-station prediction sidebar
-│           ├── PredictionPanel.jsx      # Prediction results panel
-│           ├── WeatherForecast.jsx      # Full weather forecast view
-│           ├── WeatherForecastWidget.jsx # 5-day weather forecast sidebar
-│           ├── StationHistoryChart.jsx  # Historical availability chart modal
-│           ├── AccountPage.jsx          # Login, register, rental history
-│           ├── HowToPage.jsx            # How To page — feature guide (3 cards)
-│           ├── StatusBar.jsx            # Bottom status bar with Refresh button
-│           ├── AppNavbar.jsx            # Top navigation bar (Map, How To, Account)
-│           └── Navbar.jsx               # Navigation bar component
-│
-├── src/                            # Python backend
-│   ├── db/                         # Database package (split by responsibility)
-│   │   ├── __init__.py             # Re-exports all public symbols (other files unchanged)
-│   │   ├── models.py               # SQLAlchemy ORM models (7 tables)
-│   │   ├── engine.py               # load_engine(), init_db()
-│   │   ├── writers.py              # db_from_request(), store_forecast_data()
-│   │   ├── readers.py              # get_latest_weather(), get_all_stations(), etc.
-│   │   └── cli.py                  # init-db CLI command
-│   ├── ml/
-│   │   ├── __init__.py
-│   │   └── occupancy_model.py      # Model loading, feature engineering, predict()
-│   ├── routes/
-│   │   ├── bikes_routes.py         # GET /api/bikes, /api/db/stations
-│   │   ├── weather_routes.py       # GET /api/weather, /api/weather/forecast
-│   │   ├── route_planner_routes.py # GET /api/plan, /api/plan/candidates, /api/plan/route
-│   │   ├── prediction_routes.py    # GET /api/predict, /api/predict/all
-│   │   ├── auth_routes.py          # POST /api/auth/register, /api/auth/login
-│   │   ├── rental_routes.py        # POST /api/rental/start|end, GET /api/rental/active|history
-│   │   └── geocode_routes.py       # GET /api/geocode/eircode
-│   ├── services/
-│   │   ├── bikes_service.py        # JCDecaux API fetch
-│   │   ├── weather_service.py      # OpenWeather API fetch
-│   │   └── routing_service.py      # OSRM routing
-│   └── tasks/                      # Background data-fetch tasks (local use)
-│       ├── bicycle/
-│       │   └── stations_fetch_current.py  # Fetches bike data every 5 min for 2 days → local DB
-│       └── openweather/
-│           └── fetch_current.py           # Fetches weather data every 5 min for 2 days → local DB
-│
-├── sql/                            # Database schema scripts
-│   ├── softwaredb.sql
-│   └── bike_app.sql
-├
-└── tests/
-    ├── test_bike_api.py            # JCDecaux service & bike endpoints
-    ├── test_weather_api.py         # OpenWeather service & weather endpoints
-    ├── test_auth.py                # Register, login, auth guards
-    ├── test_rental.py              # Full rental lifecycle & pricing
-    ├── test_route_planner.py       # Haversine, scoring, /api/plan
-    └── test_db.py                  # Shared DB fixtures
+├── app.py                     # Flask entry point; serves frontend/dist in production
+├── pipelines/                 # Airflow: docker-compose.yml, Dockerfile, dags/ (4 DAGs)
+├── warehouse/                 # dbt project: staging, intermediate, marts, tests, seeds
+├── src/
+│   ├── db/                    # ORM models, readers, idempotent writers, migrations CLI
+│   ├── ingest/                # extract/load jobs and the raw JSON archive
+│   ├── warehouse/             # warehouse setup and MySQL → Postgres sync
+│   ├── monitoring/            # ingestion health checks and e-mail alerts
+│   ├── routes/                # Flask blueprints (bikes, weather, plan, predict, auth, rental, geocode)
+│   ├── services/              # JCDecaux, OpenWeather, routing, route planner
+│   ├── ml/                    # model loading and predict()
+│   └── tasks/                 # legacy sleep-loop collectors, superseded by the Airflow DAGs
+├── frontend/                  # React + Vite (BikeMap, RoutePlanner, PredictionWidget, AccountPage, ...)
+├── sql/migrations/            # SQL equivalents of `python -m src.db.cli migrate`
+├── tests/                     # pytest suite (77 tests)
+├── .github/workflows/ci.yml   # CI
+└── dump.sql                   # seed data for the local MySQL
 ```
 
----
+## Machine learning
 
-## Machine Learning
+A Random Forest regressor predicts available bikes from 11 features: station and location (`station_id`,
+`lat`, `lon`), time (`hour`, `month`, `year`, `day_of_week`, `rush_hour` for 07–09 and 16–19) and weather
+(temperature and humidity). It is trained in a notebook on historical Dublin Bikes + weather data; the model
+file (`data/best_bike_model.pkl`, path overridable with `MODEL_PATH`) is not tracked in git, and `/api/predict`
+returns 503 without it. It is used by `GET /api/predict` and by the route planner to rank dropoff stations.
 
-The system includes a RandomForest regression model that predicts the number of available bikes at a station given the time, location, and weather.
+## API
 
-### Features used (11 total)
+Interactive docs (Swagger) at `/apidocs` when Flask is running.
 
-| Category | Features | Description |
-|---|---|---|
-| Station / location | `station_id`, `lat`, `lon` | Station identifier and coordinates |
-| Basic time | `hour`, `month`, `year`, `day_of_week` | Calendar fields |
-| Time flags | `rush_hour` | 1 during morning (7–9) and evening (16–19) peak hours |
-| Weather | `max_air_temperature_celsius`, `air_temperature_std_deviation`, `max_relative_humidity_percent` | Temperature and humidity (from OpenWeather at inference; std fixed to 0) |
+| Endpoint | Description |
+|---|---|
+| `GET /api/bikes` | Current availability for all stations, from the latest pipeline snapshot; calls JCDecaux only if the snapshot is > 15 min old. Response includes `source`, `as_of`, `stale`. |
+| `GET /api/db/stations` | Station metadata |
+| `GET /api/db/stations/<id>/history` | Latest continuous run of snapshots for one station |
+| `GET /api/weather`, `GET /api/weather/forecast` | Current weather and 5-day forecast |
+| `GET /api/predict?station_id=&datetime=` | Predicted available bikes |
+| `GET /api/plan/candidates`, `GET /api/plan/route` | Two-step route planning (candidate stations, then three-leg route) |
+| `GET /api/plan` | Legacy single-call route planner |
+| `GET /api/geocode/eircode?q=` | Eircode → coordinates (OpenCage if configured, else Nominatim) |
+| `POST /api/auth/register`, `POST /api/auth/login` | Register; log in for a JWT |
+| `POST /api/rental/start`, `POST /api/rental/end` | Rent / return a bike (JWT) |
+| `GET /api/rental/active`, `GET /api/rental/history` | Current rental and history (JWT) |
 
-### Training
+## Configuration
 
-Open `data/bike_availability_time_features_updated.ipynb` and run all cells. The notebook:
-1. Loads `data/final_merged_data.csv` (historical Dublin Bikes + weather data)
-2. Engineers time and weather features
-3. Compares multiple algorithms: Linear Regression, Decision Tree, RandomForest, Gradient Boosting, XGBoost
-4. Evaluates with MAE and R²
-5. Exports the best model to `data/best_bike_model.pkl`
-
-### Integration
-
-The trained model is used in three places:
-- **`GET /api/predict`** — predict available bikes for a single station at a given date/time
-- **`GET /api/plan`** — when planning a route, the dropoff station shows predicted available stands on arrival
-
----
-
-## Local Setup
-
-### 1. Start MySQL with Podman
-
-```bash
-podman run -d \
-  --name softwaredb \
-  -e MYSQL_ROOT_PASSWORD=root \
-  -p 3307:3306 \
-  mysql:8.0
-```
-
-> `-p 3307:3306` maps port 3307 on your machine to port 3306 inside the container.
-
-Grant remote access (required for Podman's network routing):
-
-```bash
-podman exec softwaredb mysql -u root -proot -e \
-  "CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'root'; GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-```
-
-Update `.env`:
-```env
-DB_URL=mysql+pymysql://root:root@localhost:3307/softwaredb
-```
-
-Initialise the database tables (first time only):
-```bash
-python3 -m src.db.cli init-db
-```
-
-### 1a. Run background data collection tasks (optional)
-
-Once the local database is running, you can start the background tasks to collect bike and weather data every 5 minutes for 2 days:
-
-```bash
-# In separate terminals:
-python -m src.tasks.bicycle.stations_fetch_current
-python -m src.tasks.openweather.fetch_current
-```
-
-Each task fetches data from the external API and stores it directly into the local `softwaredb` database (576 runs × 5 minutes = 2 days).
-
-### 2. Create a Python virtual environment
-
-```bash
-python3 -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-```
-
-### 3. Install Python dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Start the Flask backend
-
-```bash
-python3 app.py
-```
-
-### 5. Start the React frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The app is available at `http://localhost:5173`. API calls are proxied to Flask on port 5000.
-
----
-
-## Environment Variables
+Web app (`.env` in the project root):
 
 | Variable | Required | Description |
 |---|---|---|
-| `DB_URL` | yes | SQLAlchemy DB URL, e.g. `mysql+pymysql://root:root@localhost:3307/softwaredb` |
-| `JWT_SECRET_KEY` | yes | Secret key for signing JWT tokens |
-| `JCDECAUX_API_KEY` | yes | JCDecaux API key for live Dublin Bikes data |
-| `JCDECAUX_CONTRACT_NAME` | yes | JCDecaux contract name (e.g. `dublin`) |
-| `OPENWEATHER_API_KEY` | yes | OpenWeather API key |
-| `CITY_NAME` | yes | City for weather lookup (use `Dublin,IE`) |
-| `OPENCAGE_API_KEY` | no | OpenCage key for Eircode geocoding (falls back to Nominatim) |
-| `FORCE_BIKE_IF_AVAILABLE` | no | `true` (default) — always recommend biking when stations are available |
-| `MODEL_PATH` | no | Override path to the `.pkl` model file (defaults to `data/best_bike_model.pkl`) |
+| `DB_URL` | yes | e.g. `mysql+pymysql://root:bikes@localhost:3307/bike_app` |
+| `JWT_SECRET_KEY` | yes | Secret for signing JWTs |
+| `JCDECAUX_API_KEY`, `JCDECAUX_CONTRACT_NAME` | yes | JCDecaux key and contract (`dublin`) |
+| `OPENWEATHER_API_KEY` | yes | OpenWeather key |
+| `CITY_NAME` | yes | `Dublin,IE` — plain `Dublin` resolves to Dublin, California |
+| `OPENCAGE_API_KEY` | no | Eircode geocoding (falls back to Nominatim) |
+| `FORCE_BIKE_IF_AVAILABLE` | no | Always recommend cycling when stations are available (default `true`) |
+| `MODEL_PATH` | no | Path to the model file |
+| `PORT` | no | Flask port (default 5001) |
 
----
-
-## API Endpoints
-
-### Prediction
-
-**`GET /api/predict`** — Predict available bikes at a station.
-
-| Parameter | Required | Description |
-|---|---|---|
-| `station_id` | yes | Dublin Bikes station ID |
-| `datetime` | no | ISO 8601 datetime (e.g. `2024-12-15T09:00`). Defaults to now. |
-
-Response:
-```json
-{
-  "station_id": 10,
-  "station_name": "DAME STREET",
-  "predicted_bikes": 8,
-  "datetime": "2024-12-15T09:00:00",
-  "weather": { "temp": 12.5, "humidity": 78 },
-  "weather_source": "db"
-}
-```
-
-Weather is read from the local database first, and falls back to the OpenWeather API if no recent data exists.
-
----
-
-### Route Planning
-
-**`GET /api/plan/candidates`** — Step 1: fetch ML-ranked pickup and dropoff candidate stations.
-
-| Parameter | Required | Default | Description |
-|---|---|---|---|
-| `start_lat`, `start_lng` | yes | — | Start coordinates |
-| `end_lat`, `end_lng` | yes | — | Destination coordinates |
-| `departure_time` | no | now | ISO 8601 departure datetime |
-
-Returns `pickup_candidates` and `dropoff_candidates`, each ranked by predicted availability. Only stations with more than 2 available bikes (pickup) or free stands (dropoff) are included.
-
----
-
-**`GET /api/plan/route`** — Step 2: compute the three-leg route for user-selected stations.
-
-| Parameter | Required | Default | Description |
-|---|---|---|---|
-| `pickup_id` | yes | — | Selected pickup station ID |
-| `dropoff_id` | yes | — | Selected dropoff station ID |
-| `start_lat`, `start_lng` | yes | — | Start coordinates |
-| `end_lat`, `end_lng` | yes | — | Destination coordinates |
-| `preference` | no | `recommended` | `recommended` / `fastest` / `shortest` |
-
-Returns a three-leg journey: walk to pickup → cycle → walk to destination, with times for each leg.
-
----
-
-**`GET /api/plan`** — Legacy single-call route planner (geocode + candidates + route in one request).
-
-| Parameter | Required | Default | Description |
-|---|---|---|---|
-| `start_lat`, `start_lng` | yes | — | Start coordinates |
-| `end_lat`, `end_lng` | yes | — | Destination coordinates |
-| `max_distance_m` | no | 1500 | Max walking distance to a station (metres) |
-| `candidates` | no | 4 | Candidate stations per side |
-
----
-
-### Geocoding
-
-**`GET /api/geocode/eircode`** — Resolve an Irish Eircode to lat/lng coordinates.
-
-| Parameter | Required | Description |
-|---|---|---|
-| `q` | yes | Eircode in canonical form, e.g. `A96 R8C4` |
-
-Uses OpenCage if `OPENCAGE_API_KEY` is set, otherwise falls back to Nominatim.
-
----
-
-### Authentication
-
-**`POST /api/auth/register`** — Register a new user.  
-**`POST /api/auth/login`** — Log in and receive a JWT.
-
-All protected endpoints require: `Authorization: Bearer <token>`
-
----
-
-### Bike Rental
-
-**`POST /api/rental/start`** *(JWT required)* — Start a rental. Body: `{ "station_id": 42 }`  
-**`POST /api/rental/end`** *(JWT required)* — Return a bike. Body: `{ "station_id": 15 }`  
-**`GET /api/rental/active`** *(JWT required)* — Get current active rental.  
-**`GET /api/rental/history`** *(JWT required)* — Get completed rental history.
-
-**Pricing:** first 30 minutes free, then €0.50 per 30-minute block (rounded up).
-
----
+Pipelines, warehouse and alert settings (`SMTP_*`, `ALERT_EMAIL_TO`, `WAREHOUSE_*`) are documented in
+[pipelines/.env.example](pipelines/.env.example).
 
 ## Testing
 
-Tests use pytest with an in-memory SQLite database — no MySQL connection required.
-
 ```bash
-# Run all tests
-python3 -m pytest
-
-# Run with coverage report (shows which lines in src/ are not covered)
-python3 -m pytest --cov=src --cov-report=term-missing
-
-# Run a single file with verbose output (lists each test as PASSED or FAILED)
-python3 -m pytest tests/test_auth.py -v
-python3 -m pytest tests/test_prediction.py -v
+python -m pytest            # 77 tests, in-memory SQLite — no database needed
 ```
 
-### Test types
-
-The test suite covers four levels:
-
-- **Unit tests** — test individual functions in isolation (no DB, no HTTP). Examples: pricing calculation, feature engineering in `predict()`, Haversine distance, route scoring penalties.
-- **Integration tests** — test a full request/response cycle through Flask, routing, and the in-memory SQLite DB. Examples: all API endpoints across auth, rental, bikes, weather, route planning, and prediction.
-- **Regression tests** — the full suite acts as a regression guard; run `pytest` after any change to confirm nothing is broken.
-- **Acceptance criteria** — each test maps to a user-facing requirement (e.g. first 30 minutes free, JWT required for rental, 404 for unknown station).
-
-### Test files
-
-| File | Type | Coverage |
+| File | Tests | Covers |
 |---|---|---|
-| `test_auth.py` | Integration | Register, login, duplicate email, wrong password |
-| `test_rental.py` | Integration | Full rental lifecycle, auth guard, duplicate prevention |
-| `test_bike_api.py` | Integration | JCDecaux service, `/api/bikes`, `/api/db/stations` |
-| `test_weather_api.py` | Integration | OpenWeather service, `/api/weather`, `/api/weather/forecast` |
-| `test_route_planner.py` | Unit + Integration | Haversine, scoring penalties, `/api/plan` with/without waypoints |
-| `test_prediction.py` | Unit + Integration | Feature engineering, `/api/predict` |
-| `test_db.py` | Shared fixtures | Reused across test files |
+| `test_ingest.py` | 15 | Idempotent writes, raw archive, extract/load jobs, weather vs forecast split |
+| `test_monitoring.py` | 12 | Freshness checks, e-mail alerts, dbt failure reporting |
+| `test_bike_api.py` | 10 | `/api/bikes` from snapshot, live fallback, stale data, no writes on read |
+| `test_route_planner.py` | 9 | Haversine, scoring penalties, `/api/plan` |
+| `test_auth.py`, `test_db.py`, `test_prediction.py`, `test_warehouse_sync.py` | 6 each | Auth, readers, prediction, incremental sync incl. late commits |
+| `test_rental.py` | 4 | Rental lifecycle and pricing |
+| `test_weather_api.py` | 3 | Weather service and endpoints |
 
----
+dbt data tests run with `dbt build` (see [warehouse/README.md](warehouse/README.md#tests)); CI runs everything
+on each push.
 
-## Deployment on AWS EC2
+## Deployment
 
+Planned: the full Docker Compose stack on a VPS, with the Airflow UI reachable only through an SSH tunnel and
+databases bound to localhost. The earlier EC2 setup relied on cron calling `/api/bikes`; that endpoint no longer
+writes to the database, so data collection now requires the Airflow DAGs.
 
-### Manual SSH
+## About
 
-```bash
-# SSH in (aws-flask.pem is not tracked in git — keep it secure)
-ssh -i aws-flask.pem ubuntu@<EC2_PUBLIC_IP>
-
-# Install dependencies
-sudo apt-get install -y python3 python3-pip nodejs npm
-
-# Clone and set up
-git clone https://github.com/Tiramisusun/bike-rent-system.git bike-rent-system
-cd bike-rent-system
-pip3 install -r requirements.txt
-python3 src/db/cli.py init-db
-
-# Build frontend
-cd frontend && npm ci && npm run build && cd ..
-
-# Copy files not tracked in git (run from your local machine)
-scp -i aws-flask.pem data/best_bike_model.pkl ubuntu@<EC2_PUBLIC_IP>:~/bike-rent-system/data/
-scp -i aws-flask.pem .env.RDS ubuntu@<EC2_PUBLIC_IP>:~/bike-rent-system/.env
-
-# Run
-python3 app.py
-```
-
-Cron jobs are configured on the EC2 instance to keep data fresh (every 5 minutes for bikes and weather, every 60 minutes for forecast). To view or edit them, SSH into the EC2 instance and run `crontab -e`:
-
-```
-*/5  * * * * curl -s http://localhost:5000/api/bikes > /dev/null
-*/5  * * * * curl -s http://localhost:5000/api/weather > /dev/null
-*/60 * * * * curl -s http://localhost:5000/api/weather/forecast > /dev/null
-```
-
-Each cron job calls the Flask API, which fetches data from the external API and stores it in the RDS database.
-
----
-
-## Contributor
-
-- Xiya Sun
-
+Started as a UCD Software Engineering module group project (2026) and completed individually by
+**Xiya Sun** after teammates withdrew; the data platform was added afterwards.

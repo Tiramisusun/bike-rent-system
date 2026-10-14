@@ -1,0 +1,15 @@
+# Public entry point. No domain yet, so plain HTTP on the server's IP;
+# with a domain, replace ":80" by "example.com" and Caddy obtains HTTPS automatically.
+:80 {
+	encode gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Caddy sets X-Forwarded-For; the app trusts exactly this one hop (TRUST_PROXY=1).
+	reverse_proxy web:8000
+}

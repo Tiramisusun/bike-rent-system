@@ -8,7 +8,7 @@ OPENWEATHER_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
 def fetch_openweather_forecast() -> dict:
     api_key = os.getenv("OPENWEATHER_API_KEY")
-    city_name = os.getenv("CITY_NAME", "Dublin")
+    city_name = os.getenv("CITY_NAME", "Dublin,IE")
 
     if not api_key:
         raise ValueError("Missing OPENWEATHER_API_KEY in .env")
@@ -21,7 +21,7 @@ def fetch_openweather_forecast() -> dict:
 
 def fetch_openweather_current() -> dict:
     api_key = os.getenv("OPENWEATHER_API_KEY")
-    city_name = os.getenv("CITY_NAME", "Dublin")
+    city_name = os.getenv("CITY_NAME", "Dublin,IE")
 
     if not api_key:
         raise ValueError("Missing OPENWEATHER_API_KEY in .env")
