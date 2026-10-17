@@ -1,0 +1,415 @@
+{
+  "model": "mimo-v2.6-pro",
+  "summary": {
+    "pairs": 12,
+    "turn1_accuracy": 75.0,
+    "followup_accuracy_with_history": 91.7,
+    "followup_accuracy_without_history": 16.7,
+    "followup_accuracy_with_history_when_turn1_correct": 88.9,
+    "grounded_rate_followups_with_history": 100.0,
+    "median_latency_s_followup_with_history": 17.49,
+    "avg_prompt_tokens_followup_with_vs_without": [
+      4281,
+      3518
+    ],
+    "provider_errors": 0
+  },
+  "details": [
+    {
+      "id": "f01",
+      "turn1": {
+        "question": "Which station has spent the most minutes empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) has spent the most time empty, with about 407 minutes (roughly 6.8 hours) with no bikes available.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis ORDER BY empty_minutes DESC LIMIT 1",
+        "error": null,
+        "latency_s": 25.61,
+        "prompt_tokens": 3735
+      },
+      "turn2_with_history": {
+        "question": "How many docks does it have?",
+        "correct": false,
+        "grounded": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) has 40 docks. (For reference, its neighbours GRANGEGORMAN LOWER (SOUTH) has 40 and GRANGEGORMAN LOWER (NORTH) has 36.)",
+        "sql": "SELECT station_name, capacity FROM marts.dim_station WHERE station_name ILIKE 'GRANGEGORMAN LOWER%' LIMIT 200",
+        "error": null,
+        "latency_s": 18.15,
+        "prompt_tokens": 4070
+      },
+      "turn2_without_history": {
+        "question": "How many docks does it have?",
+        "correct": false,
+        "grounded": false,
+        "answer": "I don't have any earlier context telling me which station \"it\" refers to. Could you name the station (or its ID) you mean? Then I'll look up its dock count.",
+        "sql": null,
+        "error": null,
+        "latency_s": 17.45,
+        "prompt_tokens": 1811
+      }
+    },
+    {
+      "id": "f02",
+      "turn1": {
+        "question": "Which zone has the most stations?",
+        "correct": false,
+        "grounded": true,
+        "answer": "The inner zone (within 2.5 km of O'Connell Bridge) has the most stations with 72, ahead of city_centre with 34 and outer with 9.",
+        "sql": "SELECT zone, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY station_count DESC LIMIT 200",
+        "error": null,
+        "latency_s": 42.19,
+        "prompt_tokens": 3722
+      },
+      "turn2_with_history": {
+        "question": "What is the total dock capacity of that zone?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The inner zone's 72 stations have a combined dock capacity of 2,460.",
+        "sql": "SELECT zone, SUM(capacity) AS total_capacity FROM marts.dim_station WHERE zone = 'inner' GROUP BY zone LIMIT 200",
+        "error": null,
+        "latency_s": 11.82,
+        "prompt_tokens": 4051
+      },
+      "turn2_without_history": {
+        "question": "What is the total dock capacity of that zone?",
+        "correct": false,
+        "grounded": true,
+        "answer": "I don't have a previously mentioned zone to refer to, so here are the totals for all three zones: city_centre has 900 docks across 34 stations, inner has 2,460 docks across 72 stations, and outer has 317 docks across 9 stations. Let me know which zone you meant and I can narrow it down.",
+        "sql": "SELECT zone, SUM(capacity) AS total_docks, COUNT(*) AS stations FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "latency_s": 20.76,
+        "prompt_tokens": 4003
+      }
+    },
+    {
+      "id": "f03",
+      "turn1": {
+        "question": "Which station is closest to O'Connell Bridge?",
+        "correct": true,
+        "grounded": true,
+        "answer": "PRINCES STREET / O'CONNELL STREET is the closest station to O'Connell Bridge, at about 0.22 km away.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+        "error": null,
+        "latency_s": 25.46,
+        "prompt_tokens": 3743
+      },
+      "turn2_with_history": {
+        "question": "How far away is it in kilometres?",
+        "correct": true,
+        "grounded": true,
+        "answer": "PRINCES STREET / O'CONNELL STREET sits 0.215 km (about 215 metres) from O'Connell Bridge, making it the nearest station.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+        "error": null,
+        "latency_s": 31.6,
+        "prompt_tokens": 6348
+      },
+      "turn2_without_history": {
+        "question": "How far away is it in kilometres?",
+        "correct": false,
+        "grounded": false,
+        "answer": "I don't have a station in view to refer to \u2014 which station do you mean? Once you name it, I can look up its distance (the data stores each station's distance to O'Connell Bridge in kilometres).",
+        "sql": null,
+        "error": null,
+        "latency_s": 19.43,
+        "prompt_tokens": 1812
+      }
+    },
+    {
+      "id": "f04",
+      "turn1": {
+        "question": "How many stations are in the outer zone?",
+        "correct": true,
+        "grounded": true,
+        "answer": "There are 9 stations in the outer zone.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'outer' LIMIT 200",
+        "error": null,
+        "latency_s": 7.94,
+        "prompt_tokens": 3705
+      },
+      "turn2_with_history": {
+        "question": "And in the city centre?",
+        "correct": true,
+        "grounded": true,
+        "answer": "There are 34 stations in the city centre zone.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "latency_s": 147.26,
+        "prompt_tokens": 3921
+      },
+      "turn2_without_history": {
+        "question": "And in the city centre?",
+        "correct": true,
+        "grounded": true,
+        "answer": "In the city centre, 14 of the 34 stations have been empty at least once. Golden Lane is the worst, with about 348 empty minutes (roughly 53% of its observed time), followed by Molesworth Street (about 332 minutes, 50%) and Clarendon Row (about 207 minutes, 32%); the rest range down to City Quay at around 21 minutes.",
+        "sql": "SELECT COUNT(*) AS city_centre_stations, COUNT(*) FILTER(WHERE empty_minutes > 0) AS went_empty_at_least_once FROM marts.mart_station_kpis WHERE zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "latency_s": 33.15,
+        "prompt_tokens": 4456
+      }
+    },
+    {
+      "id": "f05",
+      "turn1": {
+        "question": "Which station has the highest peak-hour shortage rate?",
+        "correct": false,
+        "grounded": true,
+        "answer": "Phibsborough Road has the highest peak-hour shortage rate at 1.00, meaning it was empty for every observed peak-minute (about 70 minutes of peak observation). Golden Lane follows at 0.71, then Portobello Road at 0.60. Note that peak observation windows are fairly short across stations, so these rates rest on limited data.",
+        "sql": "SELECT station_name, peak_shortage_rate, peak_observed_minutes FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 5",
+        "error": null,
+        "latency_s": 109.92,
+        "prompt_tokens": 3844
+      },
+      "turn2_with_history": {
+        "question": "Which zone is it in?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Phibsborough Road is in the inner zone, about 1.4 km from O'Connell Bridge.",
+        "sql": "SELECT station_name, zone, distance_to_centre_km FROM marts.dim_station WHERE station_name = 'PHIBSBOROUGH ROAD' LIMIT 200",
+        "error": null,
+        "latency_s": 31.91,
+        "prompt_tokens": 4350
+      },
+      "turn2_without_history": {
+        "question": "Which zone is it in?",
+        "correct": false,
+        "grounded": false,
+        "answer": "I don't have any earlier context telling me which station \"it\" refers to \u2014 could you give me the station name (or say which station from a previous question you mean)? Once I know the station, I can look up its zone.",
+        "sql": null,
+        "error": null,
+        "latency_s": 28.29,
+        "prompt_tokens": 1810
+      }
+    },
+    {
+      "id": "f06",
+      "turn1": {
+        "question": "What is the most bikes ever seen at SMITHFIELD NORTH?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The most bikes ever seen at SMITHFIELD NORTH is 30, the highest number of available bikes recorded at the station in any observed hour.",
+        "sql": "SELECT s.station_name, MAX(h.max_available_bikes) AS max_bikes_ever FROM marts.agg_station_hourly AS h JOIN marts.dim_station AS s ON s.station_id = h.station_id WHERE s.station_name = 'SMITHFIELD NORTH' GROUP BY s.station_name LIMIT 200",
+        "error": null,
+        "latency_s": 6.75,
+        "prompt_tokens": 3791
+      },
+      "turn2_with_history": {
+        "question": "And the fewest?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The fewest bikes ever seen at SMITHFIELD NORTH is 23, the lowest number of available bikes recorded at the station in any observed hour.",
+        "sql": "SELECT s.station_name, MIN(h.min_available_bikes) AS min_bikes_ever FROM marts.agg_station_hourly AS h JOIN marts.dim_station AS s ON s.station_id = h.station_id WHERE s.station_name = 'SMITHFIELD NORTH' GROUP BY s.station_name LIMIT 200",
+        "error": null,
+        "latency_s": 15.57,
+        "prompt_tokens": 4136
+      },
+      "turn2_without_history": {
+        "question": "And the fewest?",
+        "correct": false,
+        "grounded": true,
+        "answer": "I can't tell which measure \"the fewest\" refers to without the earlier question, and note the rentals table (marts.fct_rental) contains no rows at all, so if you meant fewest rentals there is no data to answer. If you meant the fewest docks (capacity), empty minutes, or full minutes, tell me which one and I'll pull the lowest stations.",
+        "sql": "SELECT COUNT(*) AS rental_rows, COUNT(pickup_station_id) AS with_pickup, MIN(started_at_local) AS first_start, MAX(started_at_local) AS last_start FROM marts.fct_rental LIMIT 200",
+        "error": null,
+        "latency_s": 64.73,
+        "prompt_tokens": 10396
+      }
+    },
+    {
+      "id": "f07",
+      "turn1": {
+        "question": "Which 3 stations have spent the most minutes full?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The three stations spending the most time completely full are Smithfield North at 332.58 minutes with no free docks, Killarney Street at 273.87 minutes, and Merrion Square East at 227.79 minutes.",
+        "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 3",
+        "error": null,
+        "latency_s": 20.42,
+        "prompt_tokens": 3764
+      },
+      "turn2_with_history": {
+        "question": "What are their capacities?",
+        "correct": true,
+        "grounded": true,
+        "answer": "All three have 30 docks each: Merrion Square East, Smithfield North, and Killarney Street each hold 30 bikes, and those capacities are the official figures reported by JCDecaux.",
+        "sql": "SELECT station_name, capacity, capacity_source FROM marts.dim_station WHERE station_name IN ('SMITHFIELD NORTH', 'KILLARNEY STREET', 'MERRION SQUARE EAST') ORDER BY capacity DESC LIMIT 200",
+        "error": null,
+        "latency_s": 17.61,
+        "prompt_tokens": 4169
+      },
+      "turn2_without_history": {
+        "question": "What are their capacities?",
+        "correct": false,
+        "grounded": false,
+        "answer": "I don't have the earlier part of our conversation in view, so I'm not sure which stations \"their\" refers to. Could you name the stations (or describe the group) whose capacities you'd like?",
+        "sql": null,
+        "error": null,
+        "latency_s": 16.31,
+        "prompt_tokens": 1809
+      }
+    },
+    {
+      "id": "f08",
+      "turn1": {
+        "question": "How many snapshots were recorded on 2026-10-08 (Dublin time)?",
+        "correct": true,
+        "grounded": true,
+        "answer": "There were 5,453 station snapshots recorded on 8 October 2026 (Dublin local time). Note that data for that day ends around 14:09, so this covers only a partial day.",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = '2026-10-08' LIMIT 200",
+        "error": null,
+        "latency_s": 15.76,
+        "prompt_tokens": 3765
+      },
+      "turn2_with_history": {
+        "question": "And on the day before?",
+        "correct": true,
+        "grounded": true,
+        "answer": "There were 1,305 station snapshots recorded on 7 October 2026 (Dublin local time) \u2014 noticeably fewer than the partial day on 8 October.",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = '2026-10-07' LIMIT 200",
+        "error": null,
+        "latency_s": 10.64,
+        "prompt_tokens": 4087
+      },
+      "turn2_without_history": {
+        "question": "And on the day before?",
+        "correct": false,
+        "grounded": false,
+        "answer": "I don't have the earlier question in this conversation to know what \"the day before\" refers to. Could you tell me which date and metric (e.g. rentals, available bikes, empty minutes at a particular station) you mean?",
+        "sql": null,
+        "error": null,
+        "latency_s": 14.39,
+        "prompt_tokens": 1810
+      }
+    },
+    {
+      "id": "f09",
+      "turn1": {
+        "question": "Which station has spent the most minutes full?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Smithfield North has spent the most minutes full, with about 333 minutes (roughly 5.5 hours) with no free docks to return a bike.",
+        "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 1",
+        "error": null,
+        "latency_s": 6.19,
+        "prompt_tokens": 3726
+      },
+      "turn2_with_history": {
+        "question": "How many minutes has it been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Smithfield North has been empty for 0 minutes \u2014 it has never been observed with zero bikes available, even though it topped the list for being full.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis WHERE station_name = 'SMITHFIELD NORTH' LIMIT 200",
+        "error": null,
+        "latency_s": 14.56,
+        "prompt_tokens": 4020
+      },
+      "turn2_without_history": {
+        "question": "How many minutes has it been empty?",
+        "correct": false,
+        "grounded": true,
+        "answer": "Across the whole network, stations have been empty for a total of 10,397.63 minutes. Your question said \"it\" though, so if you meant one particular station, tell me which one and I'll pull that station's empty minutes.",
+        "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis LIMIT 200",
+        "error": null,
+        "latency_s": 38.57,
+        "prompt_tokens": 3909
+      }
+    },
+    {
+      "id": "f10",
+      "turn1": {
+        "question": "How many minutes in total have inner-zone stations been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Inner-zone stations have been empty for about 8,274 minutes in total (roughly 138 hours) across the observation period.",
+        "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis WHERE zone = 'inner' LIMIT 200",
+        "error": null,
+        "latency_s": 9.31,
+        "prompt_tokens": 3728
+      },
+      "turn2_with_history": {
+        "question": "What about the outer zone?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Outer-zone stations have been empty for a total of about 285 minutes (under 5 hours) \u2014 far less than the roughly 8,274 minutes seen at inner-zone stations.",
+        "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis WHERE zone = 'outer' LIMIT 200",
+        "error": null,
+        "latency_s": 17.37,
+        "prompt_tokens": 4000
+      },
+      "turn2_without_history": {
+        "question": "What about the outer zone?",
+        "correct": false,
+        "grounded": true,
+        "answer": "In the outer zone, the 9 stations average a 4.9% empty share, a 2.8% full share, and a 6.4% peak-hour shortage rate. That average is heavily skewed by one station, Heuston Station (Central), which was empty 44% of observed time and short of bikes 57% of peak minutes. The other outer stations are far more stable \u2014 Brookfield Road had no empty or full time at all, and Heuston Station (Car Park) only filled up about 10% of the time.",
+        "sql": "SELECT station_name, capacity, ROUND(empty_share, 4) AS empty_share, ROUND(full_share, 4) AS full_share, ROUND(peak_shortage_rate, 4) AS peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'outer' ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 3",
+        "error": null,
+        "latency_s": 42.35,
+        "prompt_tokens": 4743
+      }
+    },
+    {
+      "id": "f11",
+      "turn1": {
+        "question": "Which station gains the most bikes on average when it rains, compared with dry hours?",
+        "correct": false,
+        "grounded": true,
+        "answer": "Hanover Quay East gains the most, averaging about 26.3 more bikes available during hours with precipitation than in dry hours. Herbert Street is next at 25.2, followed by Grand Canal Dock at 23.9 and Wilton Terrace (Park) at 23.7.",
+        "sql": "SELECT station_name, rain_bike_delta FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 5",
+        "error": null,
+        "latency_s": 20.26,
+        "prompt_tokens": 3853
+      },
+      "turn2_with_history": {
+        "question": "What is its peak-hour shortage rate?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Hanover Quay East has a peak-hour shortage rate of 0.0, meaning it was never observed empty during peak hours (working days, 07-09 and 16-19 local).",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis WHERE station_name = 'HANOVER QUAY EAST' LIMIT 200",
+        "error": null,
+        "latency_s": 20.78,
+        "prompt_tokens": 4255
+      },
+      "turn2_without_history": {
+        "question": "What is its peak-hour shortage rate?",
+        "correct": false,
+        "grounded": false,
+        "answer": "I don't have a station in mind from our conversation so far \u2014 which station do you mean? Give me the station name and I'll look up its peak-hour shortage rate.",
+        "sql": null,
+        "error": null,
+        "latency_s": 20.53,
+        "prompt_tokens": 1812
+      }
+    },
+    {
+      "id": "f12",
+      "turn1": {
+        "question": "How many stations have never been full?",
+        "correct": true,
+        "grounded": true,
+        "answer": "80 stations have never been full \u2014 they had zero minutes with all docks occupied during the observed period.",
+        "sql": "SELECT COUNT(*) AS never_full_stations FROM marts.mart_station_kpis WHERE full_minutes = 0 LIMIT 200",
+        "error": null,
+        "latency_s": 9.61,
+        "prompt_tokens": 3748
+      },
+      "turn2_with_history": {
+        "question": "And how many have never been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "45 stations have never been empty \u2014 they never had a minute with zero bikes available to rent. That's fewer than the 80 stations that have never been full, so running out of bikes is more common than running out of docks overall.",
+        "sql": "SELECT COUNT(*) AS never_empty_stations FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+        "error": null,
+        "latency_s": 5.65,
+        "prompt_tokens": 3970
+      },
+      "turn2_without_history": {
+        "question": "And how many have never been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "45 of the 115 stations have never been empty \u2014 they had zero minutes with no bikes available to rent throughout the observation period. That leaves 70 stations that ran out of bikes at least once.",
+        "sql": "SELECT COUNT(*) AS total_stations, COUNT(*) FILTER(WHERE empty_minutes = 0) AS never_empty_stations FROM marts.mart_station_kpis LIMIT 200",
+        "error": null,
+        "latency_s": 7.97,
+        "prompt_tokens": 3840
+      }
+    }
+  ]
+}

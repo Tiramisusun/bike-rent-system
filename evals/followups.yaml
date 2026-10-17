@@ -1,0 +1,99 @@
+# Multi-turn benchmark: each item is a first question and a follow-up that can only be
+# answered with the conversation context ("it", "that zone", "and the outer zone?").
+# Follow-up gold SQL refers to the first answer through a subquery, so it stays correct
+# as data accumulates. Written after the multi-turn feature was built and never used to
+# tune it — a held-out set.
+
+- id: f01
+  turn1:
+    question: Which station has spent the most minutes empty?
+    gold_sql: SELECT station_name FROM marts.mart_station_kpis ORDER BY empty_minutes DESC LIMIT 1
+  turn2:
+    question: How many docks does it have?
+    gold_sql: SELECT capacity FROM marts.dim_station WHERE station_name = (SELECT station_name FROM marts.mart_station_kpis
+      ORDER BY empty_minutes DESC LIMIT 1)
+- id: f02
+  turn1:
+    question: Which zone has the most stations?
+    gold_sql: SELECT zone FROM marts.dim_station GROUP BY zone ORDER BY count(*) DESC LIMIT 1
+  turn2:
+    question: What is the total dock capacity of that zone?
+    gold_sql: SELECT sum(capacity) FROM marts.dim_station WHERE zone = (SELECT zone FROM marts.dim_station GROUP
+      BY zone ORDER BY count(*) DESC LIMIT 1)
+- id: f03
+  turn1:
+    question: Which station is closest to O'Connell Bridge?
+    gold_sql: SELECT station_name FROM marts.dim_station ORDER BY distance_to_centre_km LIMIT 1
+  turn2:
+    question: How far away is it in kilometres?
+    gold_sql: SELECT min(distance_to_centre_km) FROM marts.dim_station
+- id: f04
+  turn1:
+    question: How many stations are in the outer zone?
+    gold_sql: SELECT count(*) FROM marts.dim_station WHERE zone = 'outer'
+  turn2:
+    question: And in the city centre?
+    gold_sql: SELECT count(*) FROM marts.dim_station WHERE zone = 'city_centre'
+- id: f05
+  turn1:
+    question: Which station has the highest peak-hour shortage rate?
+    gold_sql: SELECT station_name FROM marts.mart_station_kpis WHERE peak_shortage_rate IS NOT NULL ORDER BY peak_shortage_rate
+      DESC LIMIT 1
+  turn2:
+    question: Which zone is it in?
+    gold_sql: SELECT zone FROM marts.mart_station_kpis WHERE peak_shortage_rate IS NOT NULL ORDER BY peak_shortage_rate
+      DESC LIMIT 1
+- id: f06
+  turn1:
+    question: What is the most bikes ever seen at SMITHFIELD NORTH?
+    gold_sql: SELECT max(f.available_bikes) FROM marts.fct_station_snapshot f JOIN marts.dim_station s USING (station_id)
+      WHERE s.station_name = 'SMITHFIELD NORTH'
+  turn2:
+    question: And the fewest?
+    gold_sql: SELECT min(f.available_bikes) FROM marts.fct_station_snapshot f JOIN marts.dim_station s USING (station_id)
+      WHERE s.station_name = 'SMITHFIELD NORTH'
+- id: f07
+  turn1:
+    question: Which 3 stations have spent the most minutes full?
+    gold_sql: SELECT station_name FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 3
+    order_matters: true
+  turn2:
+    question: What are their capacities?
+    gold_sql: SELECT station_name, capacity FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 3
+- id: f08
+  turn1:
+    question: How many snapshots were recorded on 2026-10-08 (Dublin time)?
+    gold_sql: SELECT count(*) FROM marts.fct_station_snapshot WHERE snapshot_at_local::date = DATE '2026-10-08'
+  turn2:
+    question: And on the day before?
+    gold_sql: SELECT count(*) FROM marts.fct_station_snapshot WHERE snapshot_at_local::date = DATE '2026-10-07'
+- id: f09
+  turn1:
+    question: Which station has spent the most minutes full?
+    gold_sql: SELECT station_name FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 1
+  turn2:
+    question: How many minutes has it been empty?
+    gold_sql: SELECT empty_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 1
+- id: f10
+  turn1:
+    question: How many minutes in total have inner-zone stations been empty?
+    gold_sql: SELECT sum(empty_minutes) FROM marts.mart_station_kpis WHERE zone = 'inner'
+  turn2:
+    question: What about the outer zone?
+    gold_sql: SELECT sum(empty_minutes) FROM marts.mart_station_kpis WHERE zone = 'outer'
+- id: f11
+  turn1:
+    question: Which station gains the most bikes on average when it rains, compared with dry hours?
+    gold_sql: SELECT station_name FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta
+      DESC LIMIT 1
+  turn2:
+    question: What is its peak-hour shortage rate?
+    gold_sql: SELECT peak_shortage_rate FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY
+      rain_bike_delta DESC LIMIT 1
+- id: f12
+  turn1:
+    question: How many stations have never been full?
+    gold_sql: SELECT count(*) FROM marts.mart_station_kpis WHERE full_minutes = 0
+  turn2:
+    question: And how many have never been empty?
+    gold_sql: SELECT count(*) FROM marts.mart_station_kpis WHERE empty_minutes = 0
