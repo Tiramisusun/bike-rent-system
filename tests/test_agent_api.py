@@ -77,3 +77,46 @@ def test_daily_budget_is_shared_across_clients(client, fake_ask, limits_on, monk
     statuses = [client.post("/api/agent/ask", json={"question": "q"},
                             environ_base={"REMOTE_ADDR": f"10.0.0.{i}"}).status_code for i in range(3)]
     assert statuses == [200, 200, 429]
+
+
+# ── Conversation history ──────────────────────────────────────────────────────
+
+@pytest.fixture
+def capture_ask(monkeypatch):
+    seen = {}
+
+    def _ask(question, engine, **kw):
+        seen["history"] = kw.get("history")
+        return AgentResult(question=question, answer="ok")
+
+    monkeypatch.setattr("src.agent.agent.ask", _ask)
+    return seen
+
+
+def test_history_is_passed_to_the_agent(client, capture_ask):
+    history = [{"question": "Which station was empty longest?", "answer": "GOLDEN LANE.",
+                "sql": "SELECT 1", "columns": ["station_name"], "rows": [["GOLDEN LANE"]]}]
+    res = client.post("/api/agent/ask", json={"question": "And at peak hours?", "history": history})
+    assert res.status_code == 200
+    turn = capture_ask["history"][0]
+    assert turn.question == "Which station was empty longest?" and turn.rows == [["GOLDEN LANE"]]
+
+
+def test_only_last_six_turns_accepted(client, capture_ask):
+    history = [{"question": f"q{i}", "answer": f"a{i}"} for i in range(9)]
+    client.post("/api/agent/ask", json={"question": "q", "history": history})
+    assert [t.question for t in capture_ask["history"]] == [f"q{i}" for i in range(3, 9)]
+
+
+@pytest.mark.parametrize("history", [
+    "not a list",
+    ["not an object"],
+    [{"question": "q"}],                                   # no answer
+    [{"question": "q", "answer": "a", "sql": 42}],
+    [{"question": "q", "answer": "a", "columns": "x"}],
+    [{"question": "q", "answer": "a", "rows": ["not a row"]}],
+])
+def test_malformed_history_is_rejected_without_calling_the_llm(client, capture_ask, history):
+    res = client.post("/api/agent/ask", json={"question": "q", "history": history})
+    assert res.status_code == 400 and "history" in res.get_json()["error"]
+    assert "history" not in capture_ask

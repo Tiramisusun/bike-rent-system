@@ -137,3 +137,47 @@ def test_ablation_flag_reaches_the_semantic_layer(monkeypatch):
     monkeypatch.setattr(agent_mod, "build_schema_context", fake_context)
     ask("q", engine=None, client=FakeLLM(_completion(content="ok")), include_docs=False)
     assert seen == [False]
+
+
+# ── Conversation history (multi-turn) ─────────────────────────────────────────
+
+from src.agent.agent import MAX_HISTORY_TURNS, Turn, history_messages
+
+
+def test_history_comes_before_the_new_question(fake_warehouse):
+    llm = FakeLLM(_completion(content="ok"))
+    earlier = Turn(question="Which station was empty longest?", answer="GOLDEN LANE.",
+                   sql="SELECT station_name FROM marts.mart_station_kpis LIMIT 1",
+                   columns=["station_name"], rows=[["GOLDEN LANE"]])
+    ask("And at peak hours?", engine=None, client=llm, history=[earlier])
+    sent = llm.requests[0]
+    assert [m["role"] for m in sent] == ["system", "user", "assistant", "user"]
+    assert sent[1]["content"] == "Which station was empty longest?"
+    assert "GOLDEN LANE." in sent[2]["content"]
+    assert "[SQL used: SELECT station_name" in sent[2]["content"]
+    assert '"GOLDEN LANE"' in sent[2]["content"]          # result rows let "it" be resolved
+    assert sent[3]["content"] == "And at peak hours?"
+
+
+def test_only_the_last_turns_are_kept():
+    turns = [Turn(question=f"q{i}", answer=f"a{i}") for i in range(10)]
+    msgs = history_messages(turns)
+    assert len(msgs) == 2 * MAX_HISTORY_TURNS
+    assert msgs[0]["content"] == f"q{10 - MAX_HISTORY_TURNS}" and msgs[-1]["content"].startswith("a9")
+
+
+def test_long_history_fields_are_truncated():
+    msgs = history_messages([Turn(question="q" * 5000, answer="a" * 5000, sql="S" * 9000,
+                                  columns=["c"], rows=[[i] for i in range(100)])])
+    answer = msgs[1]["content"]
+    sql = answer.split("[SQL used: ", 1)[1].split("]", 1)[0]
+    assert len(msgs[0]["content"]) == 300
+    assert answer.count("a") == 1000
+    assert len(sql) == 2000
+    assert '"rows": [[0], [1], [2], [3], [4]]' in answer     # only the first 5 rows
+
+
+def test_no_history_means_single_turn(fake_warehouse):
+    llm = FakeLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm, history=None)
+    assert [m["role"] for m in llm.requests[0]] == ["system", "user"]
