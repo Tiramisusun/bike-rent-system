@@ -20,6 +20,39 @@ def daily_budget() -> str:
     return os.getenv("AGENT_DAILY_BUDGET", "500 per day")
 
 
+class BadHistory(ValueError):
+    pass
+
+
+def parse_history(raw) -> list:
+    """Validate the conversation the browser sends back (untrusted input).
+
+    Shape: [{"question": str, "answer": str, "sql": str|null, "columns": [str], "rows": [[...]]}, ...]
+    Wrong types are rejected; anything long is trimmed by the agent (MAX_HISTORY_TURNS, ...).
+    """
+    from src.agent.agent import MAX_HISTORY_TURNS, Turn
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise BadHistory("history must be a list")
+    turns = []
+    for item in raw[-MAX_HISTORY_TURNS:]:
+        if not isinstance(item, dict):
+            raise BadHistory("each history item must be an object")
+        question, answer, sql = item.get("question"), item.get("answer"), item.get("sql")
+        columns, rows = item.get("columns") or [], item.get("rows") or []
+        if not isinstance(question, str) or not isinstance(answer, str):
+            raise BadHistory("history items need a question and an answer")
+        if sql is not None and not isinstance(sql, str):
+            raise BadHistory("history sql must be a string")
+        if not isinstance(columns, list) or not all(isinstance(c, str) for c in columns):
+            raise BadHistory("history columns must be a list of strings")
+        if not isinstance(rows, list) or not all(isinstance(r, list) for r in rows):
+            raise BadHistory("history rows must be a list of lists")
+        turns.append(Turn(question=question, answer=answer, sql=sql, columns=columns, rows=rows))
+    return turns
+
+
 def _agent_engine():
     engine = current_app.extensions.get("agent_engine")
     if engine is None:
@@ -46,6 +79,14 @@ def ask_agent():
             question:
               type: string
               example: Which station has spent the most minutes empty?
+            history:
+              type: array
+              description: >
+                Earlier turns of this conversation, oldest first (the server keeps no state).
+                Each item - question, answer, sql, columns, rows - as returned by this endpoint.
+                Only the last 6 are used.
+              items:
+                type: object
     responses:
       200:
         description: Answer, the SQL that produced it, and up to 50 result rows
@@ -59,14 +100,20 @@ def ask_agent():
     if not os.getenv("LLM_API_KEY"):
         return jsonify({"error": "The assistant is not configured on this server"}), 503
 
-    question = ((request.get_json(silent=True) or {}).get("question") or "").strip()
+    body = request.get_json(silent=True) or {}
+    question = (body.get("question") or "").strip()
     if not question:
         return jsonify({"error": "Please enter a question"}), 400
     if len(question) > MAX_QUESTION_CHARS:
         return jsonify({"error": f"Questions are limited to {MAX_QUESTION_CHARS} characters"}), 400
 
+    try:
+        history = parse_history(body.get("history"))
+    except BadHistory as e:
+        return jsonify({"error": f"Invalid conversation history: {e}"}), 400
+
     from src.agent.agent import ask
-    result = ask(question, _agent_engine())
+    result = ask(question, _agent_engine(), history=history)
     if result.error:
         current_app.logger.error(f"[/api/agent/ask] agent failed: {result.error}")
         return jsonify({"error": "The assistant is unavailable right now"}), 502
@@ -79,5 +126,6 @@ def ask_agent():
         "rows": result.rows[:ROWS_RETURNED],
         "row_count": len(result.rows),
         "queries_tried": len(result.attempts),
+        "grounded": result.grounded,
         "latency_s": result.latency_s,
     })

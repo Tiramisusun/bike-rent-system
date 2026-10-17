@@ -1,6 +1,6 @@
 # Dublin Bikes — Data Platform & Web App
 
-[![CI](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml/badge.svg?branch=data-platform)](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml)
+[![CI](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml)
 
 Real-time availability, route planning and rentals for Dublin's 115 bike-share stations, backed by a data
 platform that ingests the JCDecaux and OpenWeather APIs every 5 minutes, models the data in a dbt star
