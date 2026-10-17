@@ -13,6 +13,7 @@ Configured by LLM_BASE_URL, LLM_API_KEY, LLM_MODEL (defaults: Xiaomi MiMo).
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -32,6 +33,14 @@ ROWS_SHOWN_TO_MODEL = 50
 MAX_HISTORY_TURNS = 6
 HISTORY_ROWS = 5            # result rows kept per earlier turn, enough to resolve "it"
 MAX_TEXT_CHARS = {"question": 300, "answer": 1000, "sql": 2000}
+
+UNGROUNDED_NUDGE = (
+    "You have not run a query for this question in this turn, but your answer contains numbers. "
+    "Call run_sql to get the data now, or say that the data cannot answer the question."
+)
+_DIGIT = re.compile(r"\d")
+# Lines in the style of the reference note; never part of a real answer.
+_COPIED_NOTE = re.compile(r"^\s*\[?(SQL used|first rows|Turn \d+ ran)\b.*$", re.IGNORECASE | re.MULTILINE)
 
 RUN_SQL_TOOL = {
     "type": "function",
@@ -83,20 +92,42 @@ class Turn:
     rows: list[list] = field(default_factory=list)
 
 
+def _trim(turn: Turn) -> Turn:
+    return Turn(question=turn.question[:MAX_TEXT_CHARS["question"]],
+                answer=turn.answer[:MAX_TEXT_CHARS["answer"]],
+                sql=(turn.sql or "")[:MAX_TEXT_CHARS["sql"]] or None,
+                columns=list(turn.columns or [])[:10],
+                rows=[r[:10] for r in (turn.rows or [])[:HISTORY_ROWS]])
+
+
 def history_messages(history: list[Turn] | None) -> list[dict]:
-    """Earlier turns as chat messages: the question, then the answer plus the SQL
-    and the first result rows, so a follow-up can refer to what was found."""
+    """Earlier turns as chat messages.
+
+    The question/answer pairs are replayed as user/assistant messages so the model
+    can resolve "it" or "that station". The SQL and result rows go in ONE separate
+    reference note, never inside the assistant's own words: when they were part of
+    earlier answers, the model copied the format and wrote a fake "SQL used" plus
+    invented numbers instead of querying.
+    """
+    turns = [_trim(t) for t in (history or [])[-MAX_HISTORY_TURNS:]]
+    if not turns:
+        return []
+    notes = []
+    for i, t in enumerate(turns, 1):
+        if t.sql:
+            note = f"Turn {i} ran: {t.sql}"
+            if t.columns and t.rows:
+                note += f"\n  first rows: {json.dumps({'columns': t.columns, 'rows': t.rows}, default=str)}"
+            notes.append(note)
     messages = []
-    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
-        answer = turn.answer[:MAX_TEXT_CHARS["answer"]]
-        if turn.sql:
-            answer += f"\n\n[SQL used: {turn.sql[:MAX_TEXT_CHARS['sql']]}]"
-        if turn.columns and turn.rows:
-            preview = json.dumps({"columns": turn.columns[:10],
-                                  "rows": [r[:10] for r in turn.rows[:HISTORY_ROWS]]}, default=str)
-            answer += f"\n[First rows: {preview}]"
-        messages += [{"role": "user", "content": turn.question[:MAX_TEXT_CHARS["question"]]},
-                     {"role": "assistant", "content": answer}]
+    if notes:
+        messages.append({"role": "system", "content": (
+            "Reference from earlier turns of this conversation (for resolving follow-ups only; "
+            "these numbers may be out of date — run a new query for anything you report):\n"
+            + "\n".join(notes))})
+    for t in turns:
+        messages += [{"role": "user", "content": t.question},
+                     {"role": "assistant", "content": t.answer}]
     return messages
 
 
@@ -116,6 +147,7 @@ class AgentResult:
     columns: list[str] = field(default_factory=list)
     rows: list[list] = field(default_factory=list)
     attempts: list[Attempt] = field(default_factory=list)
+    grounded: bool = False                 # answer backed by a query that ran in this turn
     latency_s: float = 0.0
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -155,8 +187,9 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
         {"role": "user", "content": question},
     ]
 
+    nudged = False
     try:
-        for _ in range(MAX_TOOL_CALLS + 1):
+        for _ in range(MAX_TOOL_CALLS + 2):
             response = client.chat.completions.create(
                 model=model, messages=messages, tools=[RUN_SQL_TOOL],
                 temperature=0, max_completion_tokens=2048,
@@ -170,7 +203,13 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
             messages.append(message.model_dump(exclude_none=True))
 
             if not message.tool_calls:
-                result.answer = (message.content or "").strip()
+                answer = (message.content or "").strip()
+                queried = any(a.ok for a in result.attempts)
+                if not queried and not nudged and _DIGIT.search(answer):
+                    nudged = True
+                    messages.append({"role": "user", "content": UNGROUNDED_NUDGE})
+                    continue
+                result.answer = _COPIED_NOTE.sub("", answer).strip()
                 break
             if len(result.attempts) >= MAX_TOOL_CALLS:
                 result.answer = "Sorry, I couldn't find a working query for that question."
@@ -185,6 +224,7 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
         result.error = f"{type(e).__name__}: {e}"
         result.answer = "The assistant is unavailable right now."
 
+    result.grounded = any(a.ok for a in result.attempts)
     result.latency_s = round(time.monotonic() - started, 2)
     return result
 

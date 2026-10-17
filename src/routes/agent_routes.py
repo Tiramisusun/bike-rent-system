@@ -126,5 +126,6 @@ def ask_agent():
         "rows": result.rows[:ROWS_RETURNED],
         "row_count": len(result.rows),
         "queries_tried": len(result.attempts),
+        "grounded": result.grounded,
         "latency_s": result.latency_s,
     })
