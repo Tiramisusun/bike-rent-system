@@ -94,8 +94,12 @@ def ask_agent():
         description: Missing or too long question
       429:
         description: Rate limit or daily budget reached
+      502:
+        description: The language-model provider failed
       503:
         description: Assistant not configured on this server
+      504:
+        description: No answer within the time budget (AGENT_TIME_BUDGET_S, default 60 s)
     """
     if not os.getenv("LLM_API_KEY"):
         return jsonify({"error": "The assistant is not configured on this server"}), 503
@@ -114,6 +118,9 @@ def ask_agent():
 
     from src.agent.agent import ask
     result = ask(question, _agent_engine(), history=history)
+    if result.timed_out:
+        current_app.logger.warning(f"[/api/agent/ask] timed out after {result.latency_s}s: {result.error}")
+        return jsonify({"error": "That took too long — please try again or ask a simpler question"}), 504
     if result.error:
         current_app.logger.error(f"[/api/agent/ask] agent failed: {result.error}")
         return jsonify({"error": "The assistant is unavailable right now"}), 502

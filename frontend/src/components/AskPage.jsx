@@ -11,6 +11,9 @@ const EXAMPLES = [
 const HISTORY_TURNS = 6
 const HISTORY_ROWS = 5
 
+// The server gives up after 60 s (AGENT_TIME_BUDGET_S); this also covers a lost connection.
+const REQUEST_TIMEOUT_MS = 90_000
+
 export default function AskPage() {
   const [turns, setTurns] = useState([])          // [{ question, answer, sql, columns, rows, ... }]
   const [question, setQuestion] = useState('')
@@ -35,20 +38,26 @@ export default function AskPage() {
       columns: t.columns,
       rows: (t.rows ?? []).slice(0, HISTORY_ROWS),
     }))
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
     try {
       const res = await fetch('/api/agent/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: text, history }),
+        signal: controller.signal,
       })
       const body = await res.json().catch(() => ({}))
       if (res.status === 429) throw new Error('Too many questions — please wait a moment and try again.')
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
       setTurns(prev => [...prev, body])
     } catch (err) {
-      setError(err.message)
+      setError(err.name === 'AbortError'
+        ? 'No answer after 90 seconds — please try again or ask a simpler question.'
+        : err.message)
       setQuestion(text)                            // let the user retry without retyping
     } finally {
+      clearTimeout(timer)
       setLoading(false)
     }
   }
@@ -90,7 +99,7 @@ export default function AskPage() {
             </div>
           ))}
 
-          {loading && <div style={s.thinking}>Thinking…</div>}
+          {loading && <Thinking />}
           {error && <div style={s.error}>{error}</div>}
           <div ref={bottomRef} />
         </div>
@@ -107,6 +116,21 @@ export default function AskPage() {
           <button style={s.askBtn} type="submit" disabled={loading || !question.trim()}>Ask</button>
         </form>
       </div>
+    </div>
+  )
+}
+
+// Mounted only while a question is pending, so the counter restarts at 0 each time.
+function Thinking() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSeconds(n => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div style={s.thinking}>
+      Thinking… {seconds}s
+      {seconds >= 15 && ' — writing and checking SQL can take up to a minute'}
     </div>
   )
 }

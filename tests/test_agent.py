@@ -219,3 +219,64 @@ def test_copied_reference_lines_are_removed_from_answers(fake_warehouse):
     )
     assert ask("q", engine=None, client=llm).answer == "It has 40 docks."
 
+
+
+# ── Time budget: a slow provider can't hold a request for minutes ────────────
+
+import openai
+
+from src.agent.agent import RETRYABLE
+
+
+class SlowLLM(FakeLLM):
+    """Each call takes `seconds` on a fake clock; records the timeout it was given."""
+
+    def __init__(self, clock, seconds, *completions):
+        super().__init__(*completions)
+        self.clock, self.seconds, self.timeouts = clock, seconds, []
+
+    def _create(self, **kwargs):
+        self.timeouts.append(kwargs["timeout"])
+        self.clock[0] += self.seconds
+        return super()._create(**kwargs)
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(agent_mod, "_clock", lambda: now[0])
+    return now
+
+
+def test_each_call_gets_only_the_time_left_and_stops_at_the_budget(fake_warehouse, clock):
+    llm = SlowLLM(clock, 40,
+                  _completion(sql="SELECT station_name FROM marts.dim_station", call_id="c1"),
+                  _completion(sql="SELECT station_name FROM marts.dim_station", call_id="c2"),
+                  _completion(content="never reached"))
+    r = ask("q", engine=None, client=llm, time_budget_s=60)
+    assert llm.timeouts == [60, 20]                     # third call: 60 - 80 < 0, not started
+    assert r.timed_out and r.error.startswith("AgentTimeout")
+    assert "too long" in r.answer and r.latency_s == 80
+
+
+def test_provider_timeout_uses_up_the_budget_and_is_not_retried(fake_warehouse, clock):
+    # The call was given all the time left, so when it times out nothing is left to retry with.
+    llm = SlowLLM(clock, 60, openai.APITimeoutError(request=None))
+    r = ask("q", engine=None, client=llm, time_budget_s=60)
+    assert r.timed_out and llm.timeouts == [60]
+
+
+def test_provider_hiccup_is_retried_once(fake_warehouse):
+    hiccup = openai.APIConnectionError(request=None)
+    assert isinstance(hiccup, RETRYABLE)
+    llm = FakeLLM(hiccup, _completion(content="I can only answer questions about Dublin Bikes data."))
+    r = ask("q", engine=None, client=llm)
+    assert r.error is None and len(llm.requests) == 2
+
+
+def test_second_hiccup_is_reported(fake_warehouse):
+    def hiccup():
+        return openai.APIConnectionError(request=None)
+    llm = FakeLLM(hiccup(), hiccup(), _completion(content="never reached"))
+    r = ask("q", engine=None, client=llm)
+    assert r.error.startswith("APIConnectionError") and not r.timed_out and len(llm.requests) == 2
