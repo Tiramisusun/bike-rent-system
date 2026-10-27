@@ -164,7 +164,9 @@ class AgentResult:
     grounded: bool = False                 # answer backed by a query that ran in this turn
     latency_s: float = 0.0
     prompt_tokens: int = 0
-    completion_tokens: int = 0
+    completion_tokens: int = 0             # includes reasoning tokens
+    cached_prompt_tokens: int = 0          # part of prompt_tokens served from the provider's cache
+    reasoning_tokens: int = 0              # part of completion_tokens spent thinking
     error: str | None = None               # set when the agent itself failed
     timed_out: bool = False                # gave up because the time budget ran out
 
@@ -200,9 +202,29 @@ def _complete(client, deadline: float, **kwargs):
                 raise
 
 
+def _add_usage(result: "AgentResult", usage) -> None:
+    """Accumulate token counts; providers report cache hits under different names."""
+    if not usage:
+        return
+    result.prompt_tokens += usage.prompt_tokens or 0
+    result.completion_tokens += usage.completion_tokens or 0
+    prompt_details = getattr(usage, "prompt_tokens_details", None)
+    cached = getattr(prompt_details, "cached_tokens", None)
+    if cached is None:                          # DeepSeek: prompt_cache_hit_tokens
+        cached = (usage.model_extra or {}).get("prompt_cache_hit_tokens")
+    result.cached_prompt_tokens += cached or 0
+    completion_details = getattr(usage, "completion_tokens_details", None)
+    result.reasoning_tokens += getattr(completion_details, "reasoning_tokens", None) or 0
+
+
+# Sent with every model call; a model config can override them (some reasoning
+# models reject temperature, or need more room for their thinking).
+DEFAULT_REQUEST_OPTIONS = {"temperature": 0, "max_completion_tokens": 2048}
+
+
 def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
         model: str | None = None, history: list[Turn] | None = None,
-        time_budget_s: float | None = None) -> AgentResult:
+        time_budget_s: float | None = None, request_options: dict | None = None) -> AgentResult:
     started = _clock()
     deadline = started + (TIME_BUDGET_S if time_budget_s is None else time_budget_s)
     result = AgentResult(question=question, answer="")
@@ -217,16 +239,14 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
         {"role": "user", "content": question},
     ]
 
+    options = {**DEFAULT_REQUEST_OPTIONS, **(request_options or {})}
+    options = {k: v for k, v in options.items() if v is not None}   # None = don't send it
     nudged = False
     try:
         for _ in range(MAX_TOOL_CALLS + 2):
-            response = _complete(
-                client, deadline, model=model, messages=messages, tools=[RUN_SQL_TOOL],
-                temperature=0, max_completion_tokens=2048,
-            )
-            if response.usage:
-                result.prompt_tokens += response.usage.prompt_tokens or 0
-                result.completion_tokens += response.usage.completion_tokens or 0
+            response = _complete(client, deadline, model=model, messages=messages,
+                                 tools=[RUN_SQL_TOOL], **options)
+            _add_usage(result, response.usage)
             message = response.choices[0].message
             # Keep the full message, including provider extras such as MiMo's
             # reasoning_content, which must be sent back on the next turn.

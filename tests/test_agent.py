@@ -280,3 +280,45 @@ def test_second_hiccup_is_reported(fake_warehouse):
     llm = FakeLLM(hiccup(), hiccup(), _completion(content="never reached"))
     r = ask("q", engine=None, client=llm)
     assert r.error.startswith("APIConnectionError") and not r.timed_out and len(llm.requests) == 2
+
+
+# ── Token accounting and per-model request options ───────────────────────────
+
+def _completion_with_usage(usage, content="I can only answer questions about Dublin Bikes data."):
+    c = _completion(content=content).model_dump()
+    c["usage"] = usage
+    return ChatCompletion.model_validate(c)
+
+
+def test_cached_and_reasoning_tokens_are_counted_openai_style(fake_warehouse):
+    llm = FakeLLM(_completion_with_usage({
+        "prompt_tokens": 4000, "completion_tokens": 300, "total_tokens": 4300,
+        "prompt_tokens_details": {"cached_tokens": 3500},
+        "completion_tokens_details": {"reasoning_tokens": 250}}))
+    r = ask("q", engine=None, client=llm)
+    assert (r.prompt_tokens, r.cached_prompt_tokens, r.completion_tokens, r.reasoning_tokens) == (4000, 3500, 300, 250)
+
+
+def test_cached_tokens_are_counted_deepseek_style(fake_warehouse):
+    llm = FakeLLM(_completion_with_usage({
+        "prompt_tokens": 4000, "completion_tokens": 50, "total_tokens": 4050,
+        "prompt_cache_hit_tokens": 3800, "prompt_cache_miss_tokens": 200}))
+    assert ask("q", engine=None, client=llm).cached_prompt_tokens == 3800
+
+
+class RecordingLLM(FakeLLM):
+    def _create(self, **kwargs):
+        self.kwargs = kwargs
+        return super()._create(**kwargs)
+
+
+def test_request_options_override_defaults_and_none_removes_one(fake_warehouse):
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm, request_options={"temperature": None, "max_completion_tokens": 8000})
+    assert "temperature" not in llm.kwargs and llm.kwargs["max_completion_tokens"] == 8000
+
+
+def test_default_request_options(fake_warehouse):
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm)
+    assert llm.kwargs["temperature"] == 0 and llm.kwargs["max_completion_tokens"] == 2048

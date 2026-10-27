@@ -1,0 +1,173 @@
+{
+  "meta": {
+    "run_at": "2026-10-27 13:55 UTC",
+    "model": "gpt-6.1-terra",
+    "model_name": "gpt-terra",
+    "lang": "en",
+    "run": 1,
+    "price_per_1m_usd": {
+      "input": 1.0,
+      "cached_input": 0.05,
+      "output": 5.0
+    },
+    "n_questions": 5,
+    "data_range": "Station snapshots cover 2026-04-11 00:30 to 2026-10-08 14:09 (Dublin local time)."
+  },
+  "summaries": {
+    "docs": {
+      "n": 5,
+      "accuracy": 60.0,
+      "by_difficulty": {
+        "easy": 50.0,
+        "medium": 100.0,
+        "hard": 0.0
+      },
+      "questions_with_failed_attempt": 0,
+      "recovered_after_failure": 0,
+      "recovery_rate": null,
+      "median_latency_s": 3.88,
+      "p90_latency_s": 5.64,
+      "avg_prompt_tokens": 3861,
+      "avg_completion_tokens": 108,
+      "avg_reasoning_tokens": 0,
+      "cache_hit_share": 0.838,
+      "provider_errors": 0,
+      "timeouts": 0,
+      "total_cost_usd": 0.0066,
+      "cost_per_question_usd": 0.00133,
+      "cost_per_1000_questions_usd": 1.33,
+      "cost_per_correct_answer_usd": 0.00221
+    }
+  },
+  "details": {
+    "docs": [
+      {
+        "id": "e01",
+        "difficulty": "easy",
+        "question": "How many bike stations are there?",
+        "correct": true,
+        "answer": "There are 115 bike stations.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.87,
+        "timed_out": false,
+        "prompt_tokens": 3665,
+        "completion_tokens": 36,
+        "cached_prompt_tokens": 3591,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00043355
+      },
+      {
+        "id": "e10",
+        "difficulty": "easy",
+        "question": "Which station is closest to O'Connell Bridge?",
+        "correct": false,
+        "answer": "Princes Street / O\u2019Connell Street is closest, at 0.215 km from O\u2019Connell Bridge.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station WHERE distance_to_centre_km IS NOT NULL ORDER BY distance_to_centre_km ASC LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station WHERE distance_to_centre_km IS NOT NULL ORDER BY distance_to_centre_km ASC LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 115
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.02,
+        "timed_out": false,
+        "prompt_tokens": 4298,
+        "completion_tokens": 84,
+        "cached_prompt_tokens": 1804,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.0030042
+      },
+      {
+        "id": "m03",
+        "difficulty": "medium",
+        "question": "Which station has spent the most minutes empty?",
+        "correct": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) spent the most time empty, at 406.97 minutes.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis WHERE empty_minutes IS NOT NULL ORDER BY empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis WHERE empty_minutes IS NOT NULL ORDER BY empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.88,
+        "timed_out": false,
+        "prompt_tokens": 3703,
+        "completion_tokens": 69,
+        "cached_prompt_tokens": 3593,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00063465
+      },
+      {
+        "id": "m05",
+        "difficulty": "medium",
+        "question": "Which 3 stations have the highest peak-hour shortage rate?",
+        "correct": true,
+        "answer": "The highest peak-hour shortage rates were at Phibsborough Road (100%), Golden Lane (70.65%), and Portobello Road (59.88%). These rates are based on 70.38, 64.3, and 74.78 observed peak-hour minutes, respectively.",
+        "sql": "SELECT station_name, peak_shortage_rate, peak_observed_minutes FROM marts.mart_station_kpis WHERE peak_shortage_rate IS NOT NULL AND peak_observed_minutes > 0 ORDER BY peak_shortage_rate DESC, station_name LIMIT 3",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, peak_shortage_rate, peak_observed_minutes FROM marts.mart_station_kpis WHERE peak_shortage_rate IS NOT NULL AND peak_observed_minutes > 0 ORDER BY peak_shortage_rate DESC, station_name LIMIT 3",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.6,
+        "timed_out": false,
+        "prompt_tokens": 3777,
+        "completion_tokens": 127,
+        "cached_prompt_tokens": 3596,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.0009958
+      },
+      {
+        "id": "h04",
+        "difficulty": "hard",
+        "question": "Compare the average number of available bikes in hours with precipitation versus dry hours.",
+        "correct": false,
+        "answer": "Across station-hours, an average of 11.65 bikes were available during hours with precipitation, compared with 11.84 during dry hours\u2014a difference of 0.19 bikes. The comparison covers 457 station-hours with precipitation and 876 dry station-hours.",
+        "sql": "SELECT COUNT(*) FILTER(WHERE had_precipitation IS TRUE AND avg_available_bikes IS NOT NULL) AS wet_station_hours, ROUND(CAST(AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS TRUE) AS DECIMAL), 2) AS wet_avg_bikes, COUNT(*) FILTER(WHERE had_precipitation IS FALSE AND avg_available_bikes IS NOT NULL) AS dry_station_hours, ROUND(CAST(AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS FALSE) AS DECIMAL), 2) AS dry_avg_bikes, ROUND(CAST(AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS TRUE) - AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS FALSE) AS DECIMAL), 2) AS difference FROM marts.agg_station_hourly LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) FILTER(WHERE had_precipitation IS TRUE AND avg_available_bikes IS NOT NULL) AS wet_station_hours, ROUND(CAST(AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS TRUE) AS DECIMAL), 2) AS wet_avg_bikes, COUNT(*) FILTER(WHERE had_precipitation IS FALSE AND avg_available_bikes IS NOT NULL) AS dry_station_hours, ROUND(CAST(AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS FALSE) AS DECIMAL), 2) AS dry_avg_bikes, ROUND(CAST(AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS TRUE) - AVG(avg_available_bikes) FILTER(WHERE had_precipitation IS FALSE) AS DECIMAL), 2) AS difference FROM marts.agg_station_hourly LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 5.64,
+        "timed_out": false,
+        "prompt_tokens": 3862,
+        "completion_tokens": 224,
+        "cached_prompt_tokens": 3599,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00156295
+      }
+    ]
+  },
+  "adversarial": null,
+  "changed_tables": []
+}
