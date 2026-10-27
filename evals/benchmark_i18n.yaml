@@ -1,0 +1,157 @@
+# German and Chinese versions of benchmark.yaml, keyed by question id.
+#
+# Same meaning, same gold SQL: only the question text changes. Station names, dates,
+# "O'Connell Bridge" and "JCDecaux" stay as in the data, as a real user would type them.
+# Machine-assisted translation. zh reviewed by a native speaker (2026-10-27); de is not
+# reviewed by a native speaker (say so when citing de results).
+
+e01:
+  de: Wie viele Fahrradstationen gibt es?
+  zh: 一共有多少个自行车站点？
+e02:
+  de: Wie viele Stationen liegen in der Zone Stadtzentrum?
+  zh: 市中心区域有多少个站点？
+e03:
+  de: Wie viele Stellplätze gibt es insgesamt an allen Stationen?
+  zh: 所有站点一共有多少个车桩？
+e04:
+  de: Wie viele Stellplätze hat die Station BENSON STREET?
+  zh: BENSON STREET 站有多少个车桩？
+e05:
+  de: In welcher Zone liegt SMITHFIELD NORTH?
+  zh: SMITHFIELD NORTH 在哪个区域？
+e06:
+  de: Liste die Stationen in der äußeren Zone auf.
+  zh: 列出外圈区域的所有站点。
+e07:
+  de: Wie viele Stationen haben genau 40 Stellplätze?
+  zh: 有多少个站点正好有 40 个车桩？
+e08:
+  de: Wie viele Stellplätze hat eine Station im Durchschnitt?
+  zh: 平均每个站点有多少个车桩？
+e09:
+  de: Wie viele Stationen sind mehr als 2 km von der O'Connell Bridge entfernt?
+  zh: 有多少个站点距离 O'Connell Bridge 超过 2 公里？
+e10:
+  de: Welche Station liegt der O'Connell Bridge am nächsten?
+  zh: 哪个站点离 O'Connell Bridge 最近？
+e11:
+  de: Wie viele Stationen haben eine von JCDecaux gemeldete Kapazität und wie viele eine geschätzte?
+  zh: 有多少个站点的容量是 JCDecaux 上报的，又有多少个是估算的？
+e12:
+  de: Wie viele irische Feiertage gibt es im Jahr 2026?
+  zh: 2026 年有多少个爱尔兰公共假日？
+e13:
+  de: Welche Wettergruppen zählen als Niederschlag?
+  zh: 哪些天气类别算作降水？
+e14:
+  de: Wie viele Ausleihen wurden über die Website getätigt?
+  zh: 通过网站一共租了多少次车？
+e15:
+  de: Wie viele Verfügbarkeits-Snapshots von Stationen sind in den Daten enthalten?
+  zh: 数据里一共有多少条站点车辆状态快照？
+m01:
+  de: Wie viele Stationen gibt es in jeder Zone?
+  zh: 每个区域各有多少个站点？
+m02:
+  de: Wie groß ist die gesamte Stellplatzkapazität jeder Zone?
+  zh: 每个区域的车桩总容量是多少？
+m03:
+  de: Welche Station war die meisten Minuten leer?
+  zh: 哪个站点空站的分钟数最多？
+m04:
+  de: Welches sind die 5 Stationen mit den meisten Minuten im vollen Zustand?
+  zh: 满站分钟数最多的前 5 个站点是哪些？
+m05:
+  de: Welche 3 Stationen haben die höchste Engpassquote zur Stoßzeit?
+  zh: 高峰时段缺车率最高的 3 个站点是哪些？
+m06:
+  de: Wie viele Stationsstunden wurden am Wochenende und wie viele an Wochentagen beobachtet?
+  zh: 周末和工作日分别观测到了多少个"站点·小时"？
+m07:
+  de: Wie viele Minuten waren Stationen insgesamt leer?
+  zh: 所有站点空站的总分钟数是多少？
+m08:
+  de: Wie viele Minuten waren Stationen im Stadtzentrum insgesamt voll?
+  zh: 市中心站点满站的总分钟数是多少？
+m09:
+  de: Welche Zone hat insgesamt die meisten Leerminuten?
+  zh: 哪个区域的空站总分钟数最多？
+m10:
+  de: Wie viele Stationen waren noch nie leer?
+  zh: 有多少个站点从来没有空过？
+m11:
+  de: Wie viele Stationen waren noch nie voll?
+  zh: 有多少个站点从来没有满过？
+m12:
+  de: Wie hoch ist die Durchschnittstemperatur über alle Stations-Snapshots mit Wetterdaten?
+  zh: 在所有带天气数据的站点快照中，平均气温是多少？
+m13:
+  de: Wie viele Snapshots wurden aufgenommen, während es regnete, nieselte, schneite oder stürmte?
+  zh: 有多少条快照是在下雨、下毛毛雨、下雪或有雷暴时记录的？
+m14:
+  de: Wie viele Snapshots wurden an jedem Tag (Dubliner Zeit) aufgezeichnet?
+  zh: 每天（都柏林时间）各记录了多少条快照？
+m15:
+  de: Welchen Anteil der beobachteten Zeit waren Stationen insgesamt leer?
+  zh: 总体来看，站点空站的时间占观测时间的比例是多少？
+m16:
+  de: Welche Stationen verwenden eine geschätzte Kapazität statt einer von JCDecaux gemeldeten?
+  zh: 哪些站点使用的是估算容量，而不是 JCDecaux 上报的容量？
+m17:
+  de: Was ist die höchste Anzahl an Fahrrädern, die je an SMITHFIELD NORTH gesehen wurde?
+  zh: SMITHFIELD NORTH 站有过的最多车辆数是多少？
+m18:
+  de: Wie viele verschiedene Stationen haben in der letzten Stunde der Daten einen Snapshot gemeldet?
+  zh: 在数据的最后一个小时里，有多少个不同的站点上报过快照？
+m19:
+  de: Zu welcher Tagesstunde (Ortszeit) gibt es über alle Stationen die meisten Leerminuten?
+  zh: 一天中哪个小时（本地时间）所有站点的空站分钟数最多？
+m20:
+  de: Wie hoch sind für jede Zone die gesamten Leerminuten und die gesamten beobachteten Minuten?
+  zh: 每个区域的空站总分钟数和总观测分钟数分别是多少？
+h01:
+  de: Welche Station im Stadtzentrum hat die höchste Engpassquote zur Stoßzeit?
+  zh: 在市中心的站点里，哪个站点高峰时段缺车率最高？
+h02:
+  de: Welche Station war während der Stoßzeiten die meisten Minuten leer?
+  zh: 在高峰时段，哪个站点空站的分钟数最多？
+h03:
+  de: Wie viele Minuten waren Stationen während der Stoßzeiten insgesamt leer?
+  zh: 高峰时段所有站点空站的总分钟数是多少？
+h04:
+  de: Vergleiche die durchschnittliche Anzahl verfügbarer Fahrräder in Stunden mit Niederschlag und in trockenen Stunden.
+  zh: 比较有降水的小时和无降水的小时里，平均可用车辆数各是多少。
+h05:
+  de: Welche Stationen waren mehr als ein Viertel ihrer beobachteten Zeit leer?
+  zh: 哪些站点空站的时间超过了其观测时间的四分之一？
+h06:
+  de: Welche Station hatte am 2026-10-08 die meisten Leerminuten?
+  zh: 2026-10-08 这一天，哪个站点空站的分钟数最多？
+h07:
+  de: Welche Station war in jeder Zone die meisten Minuten leer?
+  zh: 每个区域里，空站分钟数最多的站点分别是哪个？
+h08:
+  de: Wie viele Stationen waren irgendwann sowohl leer als auch voll?
+  zh: 有多少个站点既空过也满过？
+h09:
+  de: Welche Station gewinnt bei Regen im Vergleich zu trockenen Stunden im Durchschnitt die meisten Fahrräder hinzu?
+  zh: 和不下雨的时候相比，下雨时平均车辆数增加最多的是哪个站点？
+h10:
+  de: Wie hoch ist bei Stationen im Stadtzentrum die durchschnittliche Anzahl verfügbarer Fahrräder während der Stoßzeiten im Vergleich zu außerhalb der Stoßzeiten?
+  zh: 对于市中心的站点，高峰时段和非高峰时段的平均可用车辆数分别是多少？
+h11:
+  de: In wie vielen Stationsstunden war eine Station mehr als 30 Minuten leer?
+  zh: 有多少个"站点·小时"里，站点空站超过了 30 分钟？
+h12:
+  de: Wie viele verschiedene Stationen haben am 2026-10-07 (Dubliner Zeit) mindestens einen Snapshot gemeldet?
+  zh: 2026-10-07（都柏林时间）这一天，有多少个不同的站点至少上报过一条快照？
+h13:
+  de: Wie hoch ist die Durchschnittstemperatur während der Stoßzeiten im Vergleich zu außerhalb der Stoßzeiten?
+  zh: 高峰时段和非高峰时段的平均气温分别是多少？
+h14:
+  de: Wie viele Minuten waren Stationen in der äußeren Zone insgesamt voll?
+  zh: 外圈区域的站点满站的总分钟数是多少？
+h15:
+  de: Wie viel Prozent aller Stellplätze befinden sich in der inneren Zone?
+  zh: 内圈区域的车桩占全部车桩的百分之多少？

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import openai
 from sqlalchemy.engine import Engine
 
 from src.agent.executor import run_query
@@ -27,6 +28,19 @@ from src.agent.semantic_layer import build_schema_context
 
 MAX_TOOL_CALLS = 4          # first try + up to 3 corrections
 ROWS_SHOWN_TO_MODEL = 50
+
+# Wall-clock budget for one question, all model calls included. Each call gets only
+# the time left, so a slow or hung provider can't keep a request (and a server
+# thread) busy for minutes. Typical questions take 8-17 s (evals/RESULTS.md).
+TIME_BUDGET_S = float(os.getenv("AGENT_TIME_BUDGET_S", "60"))
+MIN_CALL_S = 3              # not worth starting a model call with less time than this
+# Provider hiccups worth one more try, if the budget allows.
+RETRYABLE = (openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError)
+_clock = time.monotonic     # patched in tests
+
+
+class AgentTimeout(Exception):
+    pass
 
 # Conversation memory. History arrives from the browser (the server keeps no
 # state), so it is untrusted: it is capped and only ever used as context.
@@ -150,8 +164,11 @@ class AgentResult:
     grounded: bool = False                 # answer backed by a query that ran in this turn
     latency_s: float = 0.0
     prompt_tokens: int = 0
-    completion_tokens: int = 0
+    completion_tokens: int = 0             # includes reasoning tokens
+    cached_prompt_tokens: int = 0          # part of prompt_tokens served from the provider's cache
+    reasoning_tokens: int = 0              # part of completion_tokens spent thinking
     error: str | None = None               # set when the agent itself failed
+    timed_out: bool = False                # gave up because the time budget ran out
 
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -168,13 +185,60 @@ def make_client():
         api_key=api_key,
         base_url=os.getenv("LLM_BASE_URL", "https://token-plan-ams.xiaomimimo.com/v1"),
         timeout=60,
-        max_retries=1,
+        max_retries=0,          # retried in _complete(), within the time budget
     )
 
 
+def _complete(client, deadline: float, **kwargs):
+    """One chat completion using only the time left; one retry on a provider hiccup."""
+    for attempt in (1, 2):
+        remaining = deadline - _clock()
+        if remaining < MIN_CALL_S:
+            raise AgentTimeout(f"time budget of {TIME_BUDGET_S:.0f} s used up")
+        try:
+            return client.chat.completions.create(timeout=remaining, **kwargs)
+        except RETRYABLE:
+            if attempt == 2:
+                raise
+
+
+def _add_usage(result: "AgentResult", usage) -> None:
+    """Accumulate token counts; providers report cache hits under different names."""
+    if not usage:
+        return
+    result.prompt_tokens += usage.prompt_tokens or 0
+    result.completion_tokens += usage.completion_tokens or 0
+    prompt_details = getattr(usage, "prompt_tokens_details", None)
+    cached = getattr(prompt_details, "cached_tokens", None)
+    if cached is None:                          # DeepSeek: prompt_cache_hit_tokens
+        cached = (usage.model_extra or {}).get("prompt_cache_hit_tokens")
+    result.cached_prompt_tokens += cached or 0
+    completion_details = getattr(usage, "completion_tokens_details", None)
+    result.reasoning_tokens += getattr(completion_details, "reasoning_tokens", None) or 0
+
+
+# Sent with every model call; a model config can override them (some reasoning
+# models reject temperature, or need more room for their thinking). In production
+# the override comes from LLM_REQUEST_OPTIONS, a JSON object, e.g.
+# {"reasoning_effort": "none"} for OpenAI models that reject tools while reasoning.
+DEFAULT_REQUEST_OPTIONS = {"temperature": 0, "max_completion_tokens": 2048}
+
+
+def env_request_options() -> dict:
+    raw = os.getenv("LLM_REQUEST_OPTIONS", "").strip()
+    if not raw:
+        return {}
+    options = json.loads(raw)
+    if not isinstance(options, dict):
+        raise ValueError("LLM_REQUEST_OPTIONS must be a JSON object")
+    return options
+
+
 def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
-        model: str | None = None, history: list[Turn] | None = None) -> AgentResult:
-    started = time.monotonic()
+        model: str | None = None, history: list[Turn] | None = None,
+        time_budget_s: float | None = None, request_options: dict | None = None) -> AgentResult:
+    started = _clock()
+    deadline = started + (TIME_BUDGET_S if time_budget_s is None else time_budget_s)
     result = AgentResult(question=question, answer="")
     client = client or make_client()
     model = model or os.getenv("LLM_MODEL", "mimo-v2.6-pro")
@@ -187,16 +251,16 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
         {"role": "user", "content": question},
     ]
 
+    if request_options is None:
+        request_options = env_request_options()
+    options = {**DEFAULT_REQUEST_OPTIONS, **request_options}
+    options = {k: v for k, v in options.items() if v is not None}   # None = don't send it
     nudged = False
     try:
         for _ in range(MAX_TOOL_CALLS + 2):
-            response = client.chat.completions.create(
-                model=model, messages=messages, tools=[RUN_SQL_TOOL],
-                temperature=0, max_completion_tokens=2048,
-            )
-            if response.usage:
-                result.prompt_tokens += response.usage.prompt_tokens or 0
-                result.completion_tokens += response.usage.completion_tokens or 0
+            response = _complete(client, deadline, model=model, messages=messages,
+                                 tools=[RUN_SQL_TOOL], **options)
+            _add_usage(result, response.usage)
             message = response.choices[0].message
             # Keep the full message, including provider extras such as MiMo's
             # reasoning_content, which must be sent back on the next turn.
@@ -220,12 +284,16 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
                                  "content": _run_tool_call(call, engine, allowed_tables, result)})
         else:
             result.answer = result.answer or "Sorry, I couldn't answer that."
+    except (AgentTimeout, openai.APITimeoutError) as e:
+        result.error = f"{type(e).__name__}: {e}"
+        result.timed_out = True
+        result.answer = "Sorry, that took too long. Please try again or ask a simpler question."
     except Exception as e:                      # network, auth, provider errors
         result.error = f"{type(e).__name__}: {e}"
         result.answer = "The assistant is unavailable right now."
 
     result.grounded = any(a.ok for a in result.attempts)
-    result.latency_s = round(time.monotonic() - started, 2)
+    result.latency_s = round(_clock() - started, 2)
     return result
 
 

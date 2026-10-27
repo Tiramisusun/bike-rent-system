@@ -219,3 +219,120 @@ def test_copied_reference_lines_are_removed_from_answers(fake_warehouse):
     )
     assert ask("q", engine=None, client=llm).answer == "It has 40 docks."
 
+
+
+# ── Time budget: a slow provider can't hold a request for minutes ────────────
+
+import openai
+
+from src.agent.agent import RETRYABLE
+
+
+class SlowLLM(FakeLLM):
+    """Each call takes `seconds` on a fake clock; records the timeout it was given."""
+
+    def __init__(self, clock, seconds, *completions):
+        super().__init__(*completions)
+        self.clock, self.seconds, self.timeouts = clock, seconds, []
+
+    def _create(self, **kwargs):
+        self.timeouts.append(kwargs["timeout"])
+        self.clock[0] += self.seconds
+        return super()._create(**kwargs)
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(agent_mod, "_clock", lambda: now[0])
+    return now
+
+
+def test_each_call_gets_only_the_time_left_and_stops_at_the_budget(fake_warehouse, clock):
+    llm = SlowLLM(clock, 40,
+                  _completion(sql="SELECT station_name FROM marts.dim_station", call_id="c1"),
+                  _completion(sql="SELECT station_name FROM marts.dim_station", call_id="c2"),
+                  _completion(content="never reached"))
+    r = ask("q", engine=None, client=llm, time_budget_s=60)
+    assert llm.timeouts == [60, 20]                     # third call: 60 - 80 < 0, not started
+    assert r.timed_out and r.error.startswith("AgentTimeout")
+    assert "too long" in r.answer and r.latency_s == 80
+
+
+def test_provider_timeout_uses_up_the_budget_and_is_not_retried(fake_warehouse, clock):
+    # The call was given all the time left, so when it times out nothing is left to retry with.
+    llm = SlowLLM(clock, 60, openai.APITimeoutError(request=None))
+    r = ask("q", engine=None, client=llm, time_budget_s=60)
+    assert r.timed_out and llm.timeouts == [60]
+
+
+def test_provider_hiccup_is_retried_once(fake_warehouse):
+    hiccup = openai.APIConnectionError(request=None)
+    assert isinstance(hiccup, RETRYABLE)
+    llm = FakeLLM(hiccup, _completion(content="I can only answer questions about Dublin Bikes data."))
+    r = ask("q", engine=None, client=llm)
+    assert r.error is None and len(llm.requests) == 2
+
+
+def test_second_hiccup_is_reported(fake_warehouse):
+    def hiccup():
+        return openai.APIConnectionError(request=None)
+    llm = FakeLLM(hiccup(), hiccup(), _completion(content="never reached"))
+    r = ask("q", engine=None, client=llm)
+    assert r.error.startswith("APIConnectionError") and not r.timed_out and len(llm.requests) == 2
+
+
+# ── Token accounting and per-model request options ───────────────────────────
+
+def _completion_with_usage(usage, content="I can only answer questions about Dublin Bikes data."):
+    c = _completion(content=content).model_dump()
+    c["usage"] = usage
+    return ChatCompletion.model_validate(c)
+
+
+def test_cached_and_reasoning_tokens_are_counted_openai_style(fake_warehouse):
+    llm = FakeLLM(_completion_with_usage({
+        "prompt_tokens": 4000, "completion_tokens": 300, "total_tokens": 4300,
+        "prompt_tokens_details": {"cached_tokens": 3500},
+        "completion_tokens_details": {"reasoning_tokens": 250}}))
+    r = ask("q", engine=None, client=llm)
+    assert (r.prompt_tokens, r.cached_prompt_tokens, r.completion_tokens, r.reasoning_tokens) == (4000, 3500, 300, 250)
+
+
+def test_cached_tokens_are_counted_deepseek_style(fake_warehouse):
+    llm = FakeLLM(_completion_with_usage({
+        "prompt_tokens": 4000, "completion_tokens": 50, "total_tokens": 4050,
+        "prompt_cache_hit_tokens": 3800, "prompt_cache_miss_tokens": 200}))
+    assert ask("q", engine=None, client=llm).cached_prompt_tokens == 3800
+
+
+class RecordingLLM(FakeLLM):
+    def _create(self, **kwargs):
+        self.kwargs = kwargs
+        return super()._create(**kwargs)
+
+
+def test_request_options_override_defaults_and_none_removes_one(fake_warehouse):
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm, request_options={"temperature": None, "max_completion_tokens": 8000})
+    assert "temperature" not in llm.kwargs and llm.kwargs["max_completion_tokens"] == 8000
+
+
+def test_default_request_options(fake_warehouse):
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm)
+    assert llm.kwargs["temperature"] == 0 and llm.kwargs["max_completion_tokens"] == 2048
+
+
+def test_production_request_options_come_from_the_environment(fake_warehouse, monkeypatch):
+    monkeypatch.setenv("LLM_REQUEST_OPTIONS", '{"reasoning_effort": "none"}')
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm)
+    assert llm.kwargs["reasoning_effort"] == "none" and llm.kwargs["temperature"] == 0
+
+
+def test_explicit_request_options_ignore_the_environment(fake_warehouse, monkeypatch):
+    monkeypatch.setenv("LLM_REQUEST_OPTIONS", '{"reasoning_effort": "none"}')
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm, request_options={})
+    assert "reasoning_effort" not in llm.kwargs

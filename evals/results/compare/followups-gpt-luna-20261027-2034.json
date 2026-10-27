@@ -1,0 +1,415 @@
+{
+  "model": "gpt-6-luna",
+  "summary": {
+    "pairs": 12,
+    "turn1_accuracy": 100.0,
+    "followup_accuracy_with_history": 100.0,
+    "followup_accuracy_without_history": 25.0,
+    "followup_accuracy_with_history_when_turn1_correct": 100.0,
+    "grounded_rate_followups_with_history": 100.0,
+    "median_latency_s_followup_with_history": 3.04,
+    "avg_prompt_tokens_followup_with_vs_without": [
+      3984,
+      4332
+    ],
+    "provider_errors": 0
+  },
+  "details": [
+    {
+      "id": "f01",
+      "turn1": {
+        "question": "Which station has spent the most minutes empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) has spent the most time empty, at 406.97 minutes.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis ORDER BY empty_minutes DESC LIMIT 1",
+        "error": null,
+        "latency_s": 3.8,
+        "prompt_tokens": 3697
+      },
+      "turn2_with_history": {
+        "question": "How many docks does it have?",
+        "correct": true,
+        "grounded": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) has 40 docks.",
+        "sql": "SELECT s.station_name, s.capacity FROM marts.dim_station AS s WHERE s.station_name = 'GRANGEGORMAN LOWER (CENTRAL)' LIMIT 200",
+        "error": null,
+        "latency_s": 3.04,
+        "prompt_tokens": 3978
+      },
+      "turn2_without_history": {
+        "question": "How many docks does it have?",
+        "correct": false,
+        "grounded": true,
+        "answer": "Which station do you mean? Please tell me its name, and I can check its dock capacity.",
+        "sql": "SELECT station_name, capacity FROM marts.dim_station WHERE station_name ILIKE '%it%' ORDER BY station_name LIMIT 20",
+        "error": null,
+        "latency_s": 3.26,
+        "prompt_tokens": 3771
+      }
+    },
+    {
+      "id": "f02",
+      "turn1": {
+        "question": "Which zone has the most stations?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The inner zone has the most stations, with 72.",
+        "sql": "SELECT zone, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY station_count DESC LIMIT 1",
+        "error": null,
+        "latency_s": 3.96,
+        "prompt_tokens": 3684
+      },
+      "turn2_with_history": {
+        "question": "What is the total dock capacity of that zone?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The inner zone has a total dock capacity of 2,460.",
+        "sql": "SELECT s.zone, SUM(s.capacity) AS total_dock_capacity FROM marts.dim_station AS s WHERE s.zone = 'inner' GROUP BY s.zone LIMIT 200",
+        "error": null,
+        "latency_s": 4.26,
+        "prompt_tokens": 3934
+      },
+      "turn2_without_history": {
+        "question": "What is the total dock capacity of that zone?",
+        "correct": false,
+        "grounded": true,
+        "answer": "Which zone do you mean: city centre, inner, or outer? The total dock capacities are 900, 2,460, and 317, respectively.",
+        "sql": "SELECT zone, SUM(capacity) AS total_dock_capacity FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "latency_s": 3.77,
+        "prompt_tokens": 3706
+      }
+    },
+    {
+      "id": "f03",
+      "turn1": {
+        "question": "Which station is closest to O'Connell Bridge?",
+        "correct": true,
+        "grounded": true,
+        "answer": "PRINCES STREET / O'CONNELL STREET is closest to O'Connell Bridge, at 0.215 km.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+        "error": null,
+        "latency_s": 2.38,
+        "prompt_tokens": 3710
+      },
+      "turn2_with_history": {
+        "question": "How far away is it in kilometres?",
+        "correct": true,
+        "grounded": true,
+        "answer": "PRINCES STREET / O'CONNELL STREET is 0.215 kilometres from O'Connell Bridge.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+        "error": null,
+        "latency_s": 3.53,
+        "prompt_tokens": 4014
+      },
+      "turn2_without_history": {
+        "question": "How far away is it in kilometres?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Which station do you mean? The closest station to O\u2019Connell Bridge is Princes Street / O\u2019Connell Street, 0.215 km away.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km LIMIT 1",
+        "error": null,
+        "latency_s": 3.16,
+        "prompt_tokens": 3705
+      }
+    },
+    {
+      "id": "f04",
+      "turn1": {
+        "question": "How many stations are in the outer zone?",
+        "correct": true,
+        "grounded": true,
+        "answer": "There are 9 stations in the outer zone.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'outer' LIMIT 200",
+        "error": null,
+        "latency_s": 3.09,
+        "prompt_tokens": 3675
+      },
+      "turn2_with_history": {
+        "question": "And in the city centre?",
+        "correct": true,
+        "grounded": true,
+        "answer": "There are 34 stations in the city centre.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "latency_s": 3.29,
+        "prompt_tokens": 3885
+      },
+      "turn2_without_history": {
+        "question": "And in the city centre?",
+        "correct": false,
+        "grounded": true,
+        "answer": "In the city centre, Golden Lane had the highest empty share at 52.62%, followed by Molesworth Street at 49.58%. Golden Lane was empty during 70.65% of observed peak-hour minutes.",
+        "sql": "SELECT station_name, empty_share, full_share, peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'city_centre' ORDER BY empty_share DESC LIMIT 10",
+        "error": null,
+        "latency_s": 3.05,
+        "prompt_tokens": 3937
+      }
+    },
+    {
+      "id": "f05",
+      "turn1": {
+        "question": "Which station has the highest peak-hour shortage rate?",
+        "correct": true,
+        "grounded": true,
+        "answer": "PHIBSBOROUGH ROAD has the highest peak-hour shortage rate, at 1.0 (100%).",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "latency_s": 2.44,
+        "prompt_tokens": 3705
+      },
+      "turn2_with_history": {
+        "question": "Which zone is it in?",
+        "correct": true,
+        "grounded": true,
+        "answer": "PHIBSBOROUGH ROAD is in the inner zone.",
+        "sql": "SELECT station_name, zone FROM marts.dim_station WHERE station_name = 'PHIBSBOROUGH ROAD' LIMIT 200",
+        "error": null,
+        "latency_s": 3.11,
+        "prompt_tokens": 3976
+      },
+      "turn2_without_history": {
+        "question": "Which zone is it in?",
+        "correct": false,
+        "grounded": true,
+        "answer": "Which station do you mean? Please give me its name.",
+        "sql": "SELECT station_name, zone FROM marts.dim_station WHERE station_name ILIKE '%' LIMIT 0",
+        "error": null,
+        "latency_s": 2.87,
+        "prompt_tokens": 3672
+      }
+    },
+    {
+      "id": "f06",
+      "turn1": {
+        "question": "What is the most bikes ever seen at SMITHFIELD NORTH?",
+        "correct": true,
+        "grounded": true,
+        "answer": "SMITHFIELD NORTH has had as many as 30 bikes available.",
+        "sql": "SELECT s.station_name, MAX(h.max_available_bikes) AS most_bikes_seen FROM marts.agg_station_hourly AS h JOIN marts.dim_station AS s ON s.station_id = h.station_id WHERE s.station_name ILIKE 'SMITHFIELD NORTH' GROUP BY s.station_name LIMIT 200",
+        "error": null,
+        "latency_s": 2.7,
+        "prompt_tokens": 3734
+      },
+      "turn2_with_history": {
+        "question": "And the fewest?",
+        "correct": true,
+        "grounded": true,
+        "answer": "The fewest bikes seen at SMITHFIELD NORTH was 23.",
+        "sql": "SELECT s.station_name, MIN(h.min_available_bikes) AS fewest_bikes_seen FROM marts.agg_station_hourly AS h JOIN marts.dim_station AS s ON s.station_id = h.station_id WHERE s.station_name ILIKE 'SMITHFIELD NORTH' GROUP BY s.station_name LIMIT 200",
+        "error": null,
+        "latency_s": 2.64,
+        "prompt_tokens": 4061
+      },
+      "turn2_without_history": {
+        "question": "And the fewest?",
+        "correct": false,
+        "grounded": true,
+        "answer": "YORK STREET WEST had the fewest peak-hour shortages, with a peak shortage rate of 0.0.",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate ASC LIMIT 1",
+        "error": null,
+        "latency_s": 2.41,
+        "prompt_tokens": 3693
+      }
+    },
+    {
+      "id": "f07",
+      "turn1": {
+        "question": "Which 3 stations have spent the most minutes full?",
+        "correct": true,
+        "grounded": true,
+        "answer": "SMITHFIELD NORTH has spent the most time full, at 332.58 minutes, followed by KILLARNEY STREET at 273.87 minutes and MERRION SQUARE EAST at 227.79 minutes.",
+        "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC NULLS LAST LIMIT 3",
+        "error": null,
+        "latency_s": 3.07,
+        "prompt_tokens": 3724
+      },
+      "turn2_with_history": {
+        "question": "What are their capacities?",
+        "correct": true,
+        "grounded": true,
+        "answer": "SMITHFIELD NORTH, KILLARNEY STREET, and MERRION SQUARE EAST each have a capacity of 30 docks.",
+        "sql": "SELECT station_name, capacity FROM marts.mart_station_kpis WHERE station_name IN ('SMITHFIELD NORTH', 'KILLARNEY STREET', 'MERRION SQUARE EAST') ORDER BY CASE station_name WHEN 'SMITHFIELD NORTH' THEN 1 WHEN 'KILLARNEY STREET' THEN 2 WHEN 'MERRION SQUARE EAST' THEN 3 END LIMIT 200",
+        "error": null,
+        "latency_s": 3.0,
+        "prompt_tokens": 4129
+      },
+      "turn2_without_history": {
+        "question": "What are their capacities?",
+        "correct": false,
+        "grounded": true,
+        "answer": "I don\u2019t know which stations you mean by \u201ctheir.\u201d The 20 stations returned include AVONDALE ROAD (35 docks), BARROW STREET (21), and BENSON STREET (40). Which stations would you like capacities for?",
+        "sql": "SELECT station_name, capacity FROM marts.dim_station ORDER BY station_name LIMIT 20",
+        "error": null,
+        "latency_s": 2.47,
+        "prompt_tokens": 3858
+      }
+    },
+    {
+      "id": "f08",
+      "turn1": {
+        "question": "How many snapshots were recorded on 2026-10-08 (Dublin time)?",
+        "correct": true,
+        "grounded": true,
+        "answer": "5,453 snapshots were recorded on 2026-10-08 in Dublin time.",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = CAST('2026-10-08' AS DATE) LIMIT 200",
+        "error": null,
+        "latency_s": 2.07,
+        "prompt_tokens": 3706
+      },
+      "turn2_with_history": {
+        "question": "And on the day before?",
+        "correct": true,
+        "grounded": true,
+        "answer": "1,305 snapshots were recorded on 2026-10-07 in Dublin time.",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = CAST('2026-10-07' AS DATE) LIMIT 200",
+        "error": null,
+        "latency_s": 2.7,
+        "prompt_tokens": 3974
+      },
+      "turn2_without_history": {
+        "question": "And on the day before?",
+        "correct": false,
+        "grounded": true,
+        "answer": "There were no recorded rentals on October 26, 2026.",
+        "sql": "SELECT CAST(started_at_local AS DATE) AS rental_date, COUNT(*) AS rental_count FROM marts.fct_rental WHERE CAST(started_at_local AS DATE) = CAST('2026-10-26' AS DATE) GROUP BY CAST(started_at_local AS DATE) LIMIT 200",
+        "error": null,
+        "latency_s": 4.8,
+        "prompt_tokens": 5645
+      }
+    },
+    {
+      "id": "f09",
+      "turn1": {
+        "question": "Which station has spent the most minutes full?",
+        "correct": true,
+        "grounded": true,
+        "answer": "SMITHFIELD NORTH has spent the most time full, at 332.58 minutes.",
+        "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "latency_s": 2.81,
+        "prompt_tokens": 3695
+      },
+      "turn2_with_history": {
+        "question": "How many minutes has it been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "SMITHFIELD NORTH has been empty for 0 minutes.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis WHERE station_name = 'SMITHFIELD NORTH' LIMIT 200",
+        "error": null,
+        "latency_s": 2.78,
+        "prompt_tokens": 3956
+      },
+      "turn2_without_history": {
+        "question": "How many minutes has it been empty?",
+        "correct": false,
+        "grounded": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) has been empty for 406.97 minutes.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis WHERE station_name = 'GRANGEGORMAN LOWER (CENTRAL)' LIMIT 200",
+        "error": null,
+        "latency_s": 4.22,
+        "prompt_tokens": 6892
+      }
+    },
+    {
+      "id": "f10",
+      "turn1": {
+        "question": "How many minutes in total have inner-zone stations been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Inner-zone stations have been empty for a total of 8,274.43 minutes.",
+        "sql": "SELECT SUM(k.empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'inner' LIMIT 200",
+        "error": null,
+        "latency_s": 2.51,
+        "prompt_tokens": 3709
+      },
+      "turn2_with_history": {
+        "question": "What about the outer zone?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Outer-zone stations have been empty for a total of 285.38 minutes.",
+        "sql": "SELECT SUM(k.empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'outer' LIMIT 200",
+        "error": null,
+        "latency_s": 2.41,
+        "prompt_tokens": 3988
+      },
+      "turn2_without_history": {
+        "question": "What about the outer zone?",
+        "correct": false,
+        "grounded": true,
+        "answer": "The outer zone has 9 stations. On average, stations were empty for 4.9% of observed time and full for 2.83%; the average peak-hour shortage rate was 6.35%.",
+        "sql": "SELECT COUNT(*) AS station_count, ROUND(CAST(AVG(empty_share) AS DECIMAL), 4) AS avg_empty_share, ROUND(CAST(AVG(full_share) AS DECIMAL), 4) AS avg_full_share, ROUND(CAST(AVG(peak_shortage_rate) AS DECIMAL), 4) AS avg_peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'outer' LIMIT 200",
+        "error": null,
+        "latency_s": 3.62,
+        "prompt_tokens": 3759
+      }
+    },
+    {
+      "id": "f11",
+      "turn1": {
+        "question": "Which station gains the most bikes on average when it rains, compared with dry hours?",
+        "correct": true,
+        "grounded": true,
+        "answer": "HANOVER QUAY EAST gains the most on average when it rains: 26.33 more available bikes than during dry hours.",
+        "sql": "SELECT station_name, rain_bike_delta FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 1",
+        "error": null,
+        "latency_s": 3.02,
+        "prompt_tokens": 3723
+      },
+      "turn2_with_history": {
+        "question": "What is its peak-hour shortage rate?",
+        "correct": true,
+        "grounded": true,
+        "answer": "HANOVER QUAY EAST\u2019s peak-hour shortage rate is 0.0.",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis WHERE station_name = 'HANOVER QUAY EAST' LIMIT 200",
+        "error": null,
+        "latency_s": 3.05,
+        "prompt_tokens": 4018
+      },
+      "turn2_without_history": {
+        "question": "What is its peak-hour shortage rate?",
+        "correct": true,
+        "grounded": true,
+        "answer": "Which station do you mean? I need its name to look up the peak-hour shortage rate.",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "latency_s": 4.96,
+        "prompt_tokens": 5663
+      }
+    },
+    {
+      "id": "f12",
+      "turn1": {
+        "question": "How many stations have never been full?",
+        "correct": true,
+        "grounded": true,
+        "answer": "80 stations have never been full.",
+        "sql": "SELECT COUNT(*) AS stations_never_full FROM marts.mart_station_kpis WHERE full_minutes = 0 LIMIT 200",
+        "error": null,
+        "latency_s": 2.62,
+        "prompt_tokens": 3680
+      },
+      "turn2_with_history": {
+        "question": "And how many have never been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "45 stations have never been empty.",
+        "sql": "SELECT COUNT(*) AS stations_never_empty FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+        "error": null,
+        "latency_s": 4.02,
+        "prompt_tokens": 3900
+      },
+      "turn2_without_history": {
+        "question": "And how many have never been empty?",
+        "correct": true,
+        "grounded": true,
+        "answer": "45 stations have never been empty.",
+        "sql": "SELECT COUNT(*) AS stations_never_empty FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+        "error": null,
+        "latency_s": 4.43,
+        "prompt_tokens": 3680
+      }
+    }
+  ]
+}

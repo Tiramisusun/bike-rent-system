@@ -1,0 +1,1298 @@
+{
+  "meta": {
+    "run_at": "2026-10-27 20:07 UTC",
+    "model": "gpt-6-luna",
+    "model_name": "gpt-luna",
+    "lang": "de",
+    "run": 2,
+    "price_per_1m_usd": {
+      "input": 0.1,
+      "cached_input": 0.01,
+      "output": 0.5
+    },
+    "n_questions": 50,
+    "data_range": "Station snapshots cover 2026-04-11 00:30 to 2026-10-08 14:09 (Dublin local time)."
+  },
+  "summaries": {
+    "docs": {
+      "n": 50,
+      "accuracy": 96.0,
+      "by_difficulty": {
+        "easy": 100.0,
+        "medium": 100.0,
+        "hard": 86.7
+      },
+      "questions_with_failed_attempt": 0,
+      "recovered_after_failure": 0,
+      "recovery_rate": null,
+      "median_latency_s": 2.46,
+      "p90_latency_s": 3.24,
+      "avg_prompt_tokens": 3725,
+      "avg_completion_tokens": 78,
+      "avg_reasoning_tokens": 0,
+      "cache_hit_share": 0.955,
+      "provider_errors": 0,
+      "timeouts": 0,
+      "total_cost_usd": 0.0046,
+      "cost_per_question_usd": 9e-05,
+      "cost_per_1000_questions_usd": 0.09,
+      "cost_per_correct_answer_usd": 9e-05
+    }
+  },
+  "details": {
+    "docs": [
+      {
+        "id": "e01",
+        "difficulty": "easy",
+        "question": "Wie viele Fahrradstationen gibt es?",
+        "correct": true,
+        "answer": "Es gibt 115 Fahrradstationen.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.23,
+        "timed_out": false,
+        "prompt_tokens": 3668,
+        "completion_tokens": 38,
+        "cached_prompt_tokens": 3586,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.306e-05
+      },
+      {
+        "id": "e02",
+        "difficulty": "easy",
+        "question": "Wie viele Stationen liegen in der Zone Stadtzentrum?",
+        "correct": true,
+        "answer": "In der Zone Stadtzentrum liegen 34 Stationen.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'city_centre' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 1.9,
+        "timed_out": false,
+        "prompt_tokens": 3681,
+        "completion_tokens": 48,
+        "cached_prompt_tokens": 3589,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.909e-05
+      },
+      {
+        "id": "e03",
+        "difficulty": "easy",
+        "question": "Wie viele Stellpl\u00e4tze gibt es insgesamt an allen Stationen?",
+        "correct": true,
+        "answer": "An allen Stationen gibt es insgesamt 3.677 Stellpl\u00e4tze.",
+        "sql": "SELECT SUM(capacity) AS total_docks FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(capacity) AS total_docks FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.35,
+        "timed_out": false,
+        "prompt_tokens": 3680,
+        "completion_tokens": 46,
+        "cached_prompt_tokens": 3590,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.790000000000001e-05
+      },
+      {
+        "id": "e04",
+        "difficulty": "easy",
+        "question": "Wie viele Stellpl\u00e4tze hat die Station BENSON STREET?",
+        "correct": true,
+        "answer": "Die Station BENSON STREET hat 40 Stellpl\u00e4tze.",
+        "sql": "SELECT station_name, capacity FROM marts.dim_station WHERE station_name = 'BENSON STREET' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, capacity FROM marts.dim_station WHERE station_name = 'BENSON STREET' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.04,
+        "timed_out": false,
+        "prompt_tokens": 3689,
+        "completion_tokens": 48,
+        "cached_prompt_tokens": 3589,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.989e-05
+      },
+      {
+        "id": "e05",
+        "difficulty": "easy",
+        "question": "In welcher Zone liegt SMITHFIELD NORTH?",
+        "correct": true,
+        "answer": "SMITHFIELD NORTH liegt in der Zone inner.",
+        "sql": "SELECT station_name, zone FROM marts.dim_station WHERE station_name = 'SMITHFIELD NORTH' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, zone FROM marts.dim_station WHERE station_name = 'SMITHFIELD NORTH' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 1.83,
+        "timed_out": false,
+        "prompt_tokens": 3688,
+        "completion_tokens": 48,
+        "cached_prompt_tokens": 3587,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.997e-05
+      },
+      {
+        "id": "e06",
+        "difficulty": "easy",
+        "question": "Liste die Stationen in der \u00e4u\u00dferen Zone auf.",
+        "correct": true,
+        "answer": "Die Stationen in der \u00e4u\u00dferen Zone sind BROOKFIELD ROAD, EMMET ROAD, HEUSTON STATION (CAR PARK), HEUSTON STATION (CENTRAL), KILMAINHAM GAOL, KILMAINHAM LANE, MOUNT BROWN, ROTHE ABBEY und ROYAL HOSPITAL.",
+        "sql": "SELECT station_name FROM marts.dim_station WHERE zone = 'outer' ORDER BY station_name LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name FROM marts.dim_station WHERE zone = 'outer' ORDER BY station_name LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 9
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.36,
+        "timed_out": false,
+        "prompt_tokens": 3746,
+        "completion_tokens": 104,
+        "cached_prompt_tokens": 3589,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00010359
+      },
+      {
+        "id": "e07",
+        "difficulty": "easy",
+        "question": "Wie viele Stationen haben genau 40 Stellpl\u00e4tze?",
+        "correct": true,
+        "answer": "42 Stationen haben genau 40 Stellpl\u00e4tze.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE capacity = 40 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE capacity = 40 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.42,
+        "timed_out": false,
+        "prompt_tokens": 3678,
+        "completion_tokens": 44,
+        "cached_prompt_tokens": 3589,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.678999999999999e-05
+      },
+      {
+        "id": "e08",
+        "difficulty": "easy",
+        "question": "Wie viele Stellpl\u00e4tze hat eine Station im Durchschnitt?",
+        "correct": true,
+        "answer": "Eine Station hat im Durchschnitt etwa 32 Stellpl\u00e4tze.",
+        "sql": "SELECT AVG(capacity) AS average_station_capacity FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT AVG(capacity) AS average_station_capacity FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.02,
+        "timed_out": false,
+        "prompt_tokens": 3681,
+        "completion_tokens": 43,
+        "cached_prompt_tokens": 3588,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.668e-05
+      },
+      {
+        "id": "e09",
+        "difficulty": "easy",
+        "question": "Wie viele Stationen sind mehr als 2 km von der O'Connell Bridge entfernt?",
+        "correct": true,
+        "answer": "14 Stationen sind mehr als 2 km von der O\u2019Connell Bridge entfernt.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE distance_to_centre_km > 2 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE distance_to_centre_km > 2 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.7,
+        "timed_out": false,
+        "prompt_tokens": 3697,
+        "completion_tokens": 56,
+        "cached_prompt_tokens": 3596,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.406e-05
+      },
+      {
+        "id": "e10",
+        "difficulty": "easy",
+        "question": "Welche Station liegt der O'Connell Bridge am n\u00e4chsten?",
+        "correct": true,
+        "answer": "Die Station PRINCES STREET / O'CONNELL STREET liegt mit 0,215 km am n\u00e4chsten an der O'Connell Bridge.",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.03,
+        "timed_out": false,
+        "prompt_tokens": 3712,
+        "completion_tokens": 74,
+        "cached_prompt_tokens": 3589,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.519e-05
+      },
+      {
+        "id": "e11",
+        "difficulty": "easy",
+        "question": "Wie viele Stationen haben eine von JCDecaux gemeldete Kapazit\u00e4t und wie viele eine gesch\u00e4tzte?",
+        "correct": true,
+        "answer": "113 Stationen haben eine von JCDecaux gemeldete Kapazit\u00e4t; bei 2 Stationen wurde die Kapazit\u00e4t gesch\u00e4tzt.",
+        "sql": "SELECT capacity_source, COUNT(*) AS station_count FROM marts.dim_station GROUP BY capacity_source ORDER BY capacity_source LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT capacity_source, COUNT(*) AS station_count FROM marts.dim_station GROUP BY capacity_source ORDER BY capacity_source LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.16,
+        "timed_out": false,
+        "prompt_tokens": 3725,
+        "completion_tokens": 69,
+        "cached_prompt_tokens": 3602,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.282000000000001e-05
+      },
+      {
+        "id": "e12",
+        "difficulty": "easy",
+        "question": "Wie viele irische Feiertage gibt es im Jahr 2026?",
+        "correct": true,
+        "answer": "Im Jahr 2026 gibt es 10 irische Feiertage.",
+        "sql": "SELECT COUNT(DISTINCT date_day) AS holiday_count FROM marts.dim_time WHERE year = 2026 AND is_public_holiday = TRUE LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(DISTINCT date_day) AS holiday_count FROM marts.dim_time WHERE year = 2026 AND is_public_holiday = TRUE LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.8,
+        "timed_out": false,
+        "prompt_tokens": 3697,
+        "completion_tokens": 61,
+        "cached_prompt_tokens": 3592,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.692e-05
+      },
+      {
+        "id": "e13",
+        "difficulty": "easy",
+        "question": "Welche Wettergruppen z\u00e4hlen als Niederschlag?",
+        "correct": true,
+        "answer": "Als Niederschlag z\u00e4hlen die Wettergruppen Rain und Snow.",
+        "sql": "SELECT DISTINCT condition_group FROM marts.dim_weather WHERE is_precipitation = TRUE ORDER BY condition_group LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT DISTINCT condition_group FROM marts.dim_weather WHERE is_precipitation = TRUE ORDER BY condition_group LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.34,
+        "timed_out": false,
+        "prompt_tokens": 3682,
+        "completion_tokens": 50,
+        "cached_prompt_tokens": 3587,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.037e-05
+      },
+      {
+        "id": "e14",
+        "difficulty": "easy",
+        "question": "Wie viele Ausleihen wurden \u00fcber die Website get\u00e4tigt?",
+        "correct": true,
+        "answer": "\u00dcber die Website wurden 0 Ausleihen erfasst.",
+        "sql": "SELECT COUNT(*) AS ausleihen FROM marts.fct_rental LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS ausleihen FROM marts.fct_rental LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.92,
+        "timed_out": false,
+        "prompt_tokens": 3681,
+        "completion_tokens": 44,
+        "cached_prompt_tokens": 3591,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.691e-05
+      },
+      {
+        "id": "e15",
+        "difficulty": "easy",
+        "question": "Wie viele Verf\u00fcgbarkeits-Snapshots von Stationen sind in den Daten enthalten?",
+        "correct": true,
+        "answer": "Die Daten enthalten 7.466 Verf\u00fcgbarkeits-Snapshots.",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.0,
+        "timed_out": false,
+        "prompt_tokens": 3690,
+        "completion_tokens": 46,
+        "cached_prompt_tokens": 3596,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.836e-05
+      },
+      {
+        "id": "m01",
+        "difficulty": "medium",
+        "question": "Wie viele Stationen gibt es in jeder Zone?",
+        "correct": true,
+        "answer": "In der Zone city_centre gibt es 34 Stationen, in inner 72 und in outer 9.",
+        "sql": "SELECT zone, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.32,
+        "timed_out": false,
+        "prompt_tokens": 3699,
+        "completion_tokens": 60,
+        "cached_prompt_tokens": 3588,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.698e-05
+      },
+      {
+        "id": "m02",
+        "difficulty": "medium",
+        "question": "Wie gro\u00df ist die gesamte Stellplatzkapazit\u00e4t jeder Zone?",
+        "correct": true,
+        "answer": "Die gesamte Stellplatzkapazit\u00e4t betr\u00e4gt 900 in der Innenstadtzone (city_centre), 2.460 in der inneren Zone (inner) und 317 in der \u00e4u\u00dferen Zone (outer).",
+        "sql": "SELECT zone, SUM(capacity) AS total_capacity FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, SUM(capacity) AS total_capacity FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.36,
+        "timed_out": false,
+        "prompt_tokens": 3708,
+        "completion_tokens": 81,
+        "cached_prompt_tokens": 3591,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.811000000000001e-05
+      },
+      {
+        "id": "m03",
+        "difficulty": "medium",
+        "question": "Welche Station war die meisten Minuten leer?",
+        "correct": true,
+        "answer": "GRANGEGORMAN LOWER (CENTRAL) war mit 406,97 Minuten am l\u00e4ngsten leer.",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis ORDER BY empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis ORDER BY empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.75,
+        "timed_out": false,
+        "prompt_tokens": 3695,
+        "completion_tokens": 62,
+        "cached_prompt_tokens": 3586,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.775999999999999e-05
+      },
+      {
+        "id": "m04",
+        "difficulty": "medium",
+        "question": "Welches sind die 5 Stationen mit den meisten Minuten im vollen Zustand?",
+        "correct": true,
+        "answer": "Die f\u00fcnf Stationen mit den meisten Minuten im vollen Zustand sind: SMITHFIELD NORTH (332,58 Minuten), KILLARNEY STREET (273,87), MERRION SQUARE EAST (227,79), HEUSTON BRIDGE (SOUTH) (202,2) und COLLINS BARRACKS MUSEUM (199,16).",
+        "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 5",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC LIMIT 5",
+            "ok": true,
+            "error": null,
+            "row_count": 5
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.96,
+        "timed_out": false,
+        "prompt_tokens": 3765,
+        "completion_tokens": 114,
+        "cached_prompt_tokens": 3595,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00010995
+      },
+      {
+        "id": "m05",
+        "difficulty": "medium",
+        "question": "Welche 3 Stationen haben die h\u00f6chste Engpassquote zur Sto\u00dfzeit?",
+        "correct": true,
+        "answer": "Die h\u00f6chste Engpassquote zur Sto\u00dfzeit hat PHIBSBOROUGH ROAD mit 100 %. Es folgen GOLDEN LANE mit 70,65 % und PORTOBELLO ROAD mit 59,88 %.",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 3",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 3",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.74,
+        "timed_out": false,
+        "prompt_tokens": 3743,
+        "completion_tokens": 91,
+        "cached_prompt_tokens": 3594,
+        "reasoning_tokens": 0,
+        "cost_usd": 9.634e-05
+      },
+      {
+        "id": "m06",
+        "difficulty": "medium",
+        "question": "Wie viele Stationsstunden wurden am Wochenende und wie viele an Wochentagen beobachtet?",
+        "correct": true,
+        "answer": "Es wurden 115 Stationsstunden am Wochenende und 1.469 an Wochentagen beobachtet.",
+        "sql": "SELECT is_weekend, COUNT(*) AS station_hours_observed FROM marts.agg_station_hourly GROUP BY is_weekend ORDER BY is_weekend LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT is_weekend, COUNT(*) AS station_hours_observed FROM marts.agg_station_hourly GROUP BY is_weekend ORDER BY is_weekend LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.67,
+        "timed_out": false,
+        "prompt_tokens": 3723,
+        "completion_tokens": 69,
+        "cached_prompt_tokens": 3596,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.316e-05
+      },
+      {
+        "id": "m07",
+        "difficulty": "medium",
+        "question": "Wie viele Minuten waren Stationen insgesamt leer?",
+        "correct": true,
+        "answer": "Die Stationen waren insgesamt 10.397,63 Minuten leer.",
+        "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.43,
+        "timed_out": false,
+        "prompt_tokens": 3679,
+        "completion_tokens": 49,
+        "cached_prompt_tokens": 3587,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.957e-05
+      },
+      {
+        "id": "m08",
+        "difficulty": "medium",
+        "question": "Wie viele Minuten waren Stationen im Stadtzentrum insgesamt voll?",
+        "correct": true,
+        "answer": "Stationen im Stadtzentrum waren insgesamt 814,15 Minuten voll.",
+        "sql": "SELECT SUM(k.full_minutes) AS total_full_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(k.full_minutes) AS total_full_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'city_centre' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.31,
+        "timed_out": false,
+        "prompt_tokens": 3710,
+        "completion_tokens": 75,
+        "cached_prompt_tokens": 3590,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.54e-05
+      },
+      {
+        "id": "m09",
+        "difficulty": "medium",
+        "question": "Welche Zone hat insgesamt die meisten Leerminuten?",
+        "correct": true,
+        "answer": "Die Zone inner hat insgesamt die meisten Leerminuten: 8.274,43 Minuten.",
+        "sql": "SELECT s.zone, SUM(k.empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id GROUP BY s.zone ORDER BY total_empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.zone, SUM(k.empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id GROUP BY s.zone ORDER BY total_empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.62,
+        "timed_out": false,
+        "prompt_tokens": 3718,
+        "completion_tokens": 85,
+        "cached_prompt_tokens": 3588,
+        "reasoning_tokens": 0,
+        "cost_usd": 9.138e-05
+      },
+      {
+        "id": "m10",
+        "difficulty": "medium",
+        "question": "Wie viele Stationen waren noch nie leer?",
+        "correct": true,
+        "answer": "45 Stationen waren im erfassten Zeitraum nie leer.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.39,
+        "timed_out": false,
+        "prompt_tokens": 3678,
+        "completion_tokens": 50,
+        "cached_prompt_tokens": 3587,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.997e-05
+      },
+      {
+        "id": "m11",
+        "difficulty": "medium",
+        "question": "Wie viele Stationen waren noch nie voll?",
+        "correct": true,
+        "answer": "80 Stationen waren im erfassten Zeitraum nie voll.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE full_minutes = 0 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE full_minutes = 0 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.43,
+        "timed_out": false,
+        "prompt_tokens": 3678,
+        "completion_tokens": 50,
+        "cached_prompt_tokens": 3587,
+        "reasoning_tokens": 0,
+        "cost_usd": 6.997e-05
+      },
+      {
+        "id": "m12",
+        "difficulty": "medium",
+        "question": "Wie hoch ist die Durchschnittstemperatur \u00fcber alle Stations-Snapshots mit Wetterdaten?",
+        "correct": true,
+        "answer": "Die Durchschnittstemperatur \u00fcber alle Stations-Snapshots mit Wetterdaten betr\u00e4gt etwa 9,71 \u00b0C.",
+        "sql": "SELECT AVG(temperature_c) AS avg_temperature_c FROM marts.fct_station_snapshot WHERE temperature_c IS NOT NULL AND weather_code IS NOT NULL LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT AVG(temperature_c) AS avg_temperature_c FROM marts.fct_station_snapshot WHERE temperature_c IS NOT NULL AND weather_code IS NOT NULL LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.64,
+        "timed_out": false,
+        "prompt_tokens": 3712,
+        "completion_tokens": 70,
+        "cached_prompt_tokens": 3596,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.256e-05
+      },
+      {
+        "id": "m13",
+        "difficulty": "medium",
+        "question": "Wie viele Snapshots wurden aufgenommen, w\u00e4hrend es regnete, nieselte, schneite oder st\u00fcrmte?",
+        "correct": true,
+        "answer": "Es wurden 2.105 Snapshots bei Regen, Nieselregen, Schnee oder Gewitter aufgenommen.",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE is_precipitation = TRUE LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE is_precipitation = TRUE LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.2,
+        "timed_out": false,
+        "prompt_tokens": 3709,
+        "completion_tokens": 59,
+        "cached_prompt_tokens": 3602,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.622e-05
+      },
+      {
+        "id": "m14",
+        "difficulty": "medium",
+        "question": "Wie viele Snapshots wurden an jedem Tag (Dubliner Zeit) aufgezeichnet?",
+        "correct": true,
+        "answer": "Am 11. April 2026 wurden 115 Snapshots aufgezeichnet, am 13. April 593, am 7. Oktober 1.305 und am 8. Oktober 5.453. F\u00fcr die \u00fcbrigen Tage liegen in den abgefragten Daten keine Snapshots vor.",
+        "sql": "SELECT date_day, SUM(snapshot_count) AS snapshot_count FROM marts.agg_station_hourly GROUP BY date_day ORDER BY date_day LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT date_day, SUM(snapshot_count) AS snapshot_count FROM marts.agg_station_hourly GROUP BY date_day ORDER BY date_day LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 4
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.89,
+        "timed_out": false,
+        "prompt_tokens": 3756,
+        "completion_tokens": 106,
+        "cached_prompt_tokens": 3595,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00010505
+      },
+      {
+        "id": "m15",
+        "difficulty": "medium",
+        "question": "Welchen Anteil der beobachteten Zeit waren Stationen insgesamt leer?",
+        "correct": true,
+        "answer": "Insgesamt waren die Stationen w\u00e4hrend 13,94 % der beobachteten Zeit leer.",
+        "sql": "SELECT SUM(empty_minutes) / NULLIF(SUM(observed_minutes), 0) AS empty_share FROM marts.mart_station_kpis LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(empty_minutes) / NULLIF(SUM(observed_minutes), 0) AS empty_share FROM marts.mart_station_kpis LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.5,
+        "timed_out": false,
+        "prompt_tokens": 3703,
+        "completion_tokens": 65,
+        "cached_prompt_tokens": 3592,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.952000000000001e-05
+      },
+      {
+        "id": "m16",
+        "difficulty": "medium",
+        "question": "Welche Stationen verwenden eine gesch\u00e4tzte Kapazit\u00e4t statt einer von JCDecaux gemeldeten?",
+        "correct": true,
+        "answer": "HEUSTON BRIDGE (NORTH) verwendet eine gesch\u00e4tzte Kapazit\u00e4t von 40 Pl\u00e4tzen, ebenso PARNELL SQUARE NORTH mit 20 Pl\u00e4tzen.",
+        "sql": "SELECT station_name, capacity FROM marts.dim_station WHERE capacity_source = 'max_observed' ORDER BY station_name LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, capacity FROM marts.dim_station WHERE capacity_source = 'max_observed' ORDER BY station_name LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.42,
+        "timed_out": false,
+        "prompt_tokens": 3729,
+        "completion_tokens": 77,
+        "cached_prompt_tokens": 3599,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.749e-05
+      },
+      {
+        "id": "m17",
+        "difficulty": "medium",
+        "question": "Was ist die h\u00f6chste Anzahl an Fahrr\u00e4dern, die je an SMITHFIELD NORTH gesehen wurde?",
+        "correct": true,
+        "answer": "An der Station SMITHFIELD NORTH wurden h\u00f6chstens 30 Fahrr\u00e4der gleichzeitig gesehen.",
+        "sql": "SELECT MAX(s.max_available_bikes) AS highest_bikes FROM marts.agg_station_hourly AS s JOIN marts.dim_station AS d ON s.station_id = d.station_id WHERE d.station_name = 'SMITHFIELD NORTH' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT MAX(s.max_available_bikes) AS highest_bikes FROM marts.agg_station_hourly AS s JOIN marts.dim_station AS d ON s.station_id = d.station_id WHERE d.station_name = 'SMITHFIELD NORTH' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.74,
+        "timed_out": false,
+        "prompt_tokens": 3726,
+        "completion_tokens": 80,
+        "cached_prompt_tokens": 3598,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.878e-05
+      },
+      {
+        "id": "m18",
+        "difficulty": "medium",
+        "question": "Wie viele verschiedene Stationen haben in der letzten Stunde der Daten einen Snapshot gemeldet?",
+        "correct": true,
+        "answer": "In der letzten Stunde der verf\u00fcgbaren Daten haben 113 verschiedene Stationen mindestens einen Snapshot gemeldet.",
+        "sql": "SELECT COUNT(DISTINCT station_id) AS station_count FROM marts.fct_station_snapshot WHERE snapshot_at_local >= (SELECT MAX(snapshot_at_local) - INTERVAL '1 HOUR' FROM marts.fct_station_snapshot) AND snapshot_at_local <= (SELECT MAX(snapshot_at_local) FROM marts.fct_station_snapshot) LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(DISTINCT station_id) AS station_count FROM marts.fct_station_snapshot WHERE snapshot_at_local >= (SELECT MAX(snapshot_at_local) - INTERVAL '1 HOUR' FROM marts.fct_station_snapshot) AND snapshot_at_local <= (SELECT MAX(snapshot_at_local) FROM marts.fct_station_snapshot) LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.2,
+        "timed_out": false,
+        "prompt_tokens": 3737,
+        "completion_tokens": 101,
+        "cached_prompt_tokens": 3595,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00010065000000000001
+      },
+      {
+        "id": "m19",
+        "difficulty": "medium",
+        "question": "Zu welcher Tagesstunde (Ortszeit) gibt es \u00fcber alle Stationen die meisten Leerminuten?",
+        "correct": true,
+        "answer": "\u00dcber alle Stationen gibt es um 00:00 Uhr Ortszeit die meisten Leerminuten: insgesamt 1.634,47 Minuten.",
+        "sql": "SELECT a.hour_of_day, SUM(a.empty_minutes) AS total_empty_minutes FROM marts.agg_station_hourly AS a GROUP BY a.hour_of_day ORDER BY total_empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT a.hour_of_day, SUM(a.empty_minutes) AS total_empty_minutes FROM marts.agg_station_hourly AS a GROUP BY a.hour_of_day ORDER BY total_empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.42,
+        "timed_out": false,
+        "prompt_tokens": 3736,
+        "completion_tokens": 87,
+        "cached_prompt_tokens": 3600,
+        "reasoning_tokens": 0,
+        "cost_usd": 9.31e-05
+      },
+      {
+        "id": "m20",
+        "difficulty": "medium",
+        "question": "Wie hoch sind f\u00fcr jede Zone die gesamten Leerminuten und die gesamten beobachteten Minuten?",
+        "correct": true,
+        "answer": "Im Stadtzentrum (city_centre) waren es insgesamt 1.837,82 Leerminuten bei 21.779,48 beobachteten Minuten. In der inneren Zone (inner) waren es 8.274,43 Leerminuten bei 46.866,96 beobachteten Minuten; in der \u00e4u\u00dferen Zone (outer) 285,38 Leerminuten bei 5.941,33 beobachteten Minuten.",
+        "sql": "SELECT s.zone, SUM(k.empty_minutes) AS total_empty_minutes, SUM(k.observed_minutes) AS total_observed_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id GROUP BY s.zone ORDER BY s.zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.zone, SUM(k.empty_minutes) AS total_empty_minutes, SUM(k.observed_minutes) AS total_observed_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id GROUP BY s.zone ORDER BY s.zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.7,
+        "timed_out": false,
+        "prompt_tokens": 3788,
+        "completion_tokens": 165,
+        "cached_prompt_tokens": 3597,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00013757
+      },
+      {
+        "id": "h01",
+        "difficulty": "hard",
+        "question": "Welche Station im Stadtzentrum hat die h\u00f6chste Engpassquote zur Sto\u00dfzeit?",
+        "correct": true,
+        "answer": "GOLDEN LANE hat im Stadtzentrum die h\u00f6chste Engpassquote zur Sto\u00dfzeit: 70,65 %.",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'city_centre' ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'city_centre' ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.75,
+        "timed_out": false,
+        "prompt_tokens": 3725,
+        "completion_tokens": 79,
+        "cached_prompt_tokens": 3594,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.853999999999999e-05
+      },
+      {
+        "id": "h02",
+        "difficulty": "hard",
+        "question": "Welche Station war w\u00e4hrend der Sto\u00dfzeiten die meisten Minuten leer?",
+        "correct": false,
+        "answer": "Die Station GRANGEGORMAN LOWER (CENTRAL) war mit 406,97 Minuten am l\u00e4ngsten leer. Die verf\u00fcgbaren KPI-Daten weisen daf\u00fcr jedoch keine Aufschl\u00fcsselung nach Sto\u00dfzeiten aus.",
+        "sql": "SELECT s.station_name, k.empty_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id ORDER BY k.empty_minutes DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.station_name, k.empty_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id ORDER BY k.empty_minutes DESC NULLS LAST LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.8,
+        "timed_out": false,
+        "prompt_tokens": 3727,
+        "completion_tokens": 106,
+        "cached_prompt_tokens": 3591,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00010251
+      },
+      {
+        "id": "h03",
+        "difficulty": "hard",
+        "question": "Wie viele Minuten waren Stationen w\u00e4hrend der Sto\u00dfzeiten insgesamt leer?",
+        "correct": true,
+        "answer": "W\u00e4hrend der Sto\u00dfzeiten waren die Stationen insgesamt 1.189,13 Minuten leer.",
+        "sql": "SELECT SUM(a.empty_minutes) AS empty_peak_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_time AS t ON a.hour_key = t.hour_key WHERE t.is_peak_hour = TRUE LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(a.empty_minutes) AS empty_peak_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_time AS t ON a.hour_key = t.hour_key WHERE t.is_peak_hour = TRUE LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.65,
+        "timed_out": false,
+        "prompt_tokens": 3713,
+        "completion_tokens": 78,
+        "cached_prompt_tokens": 1805,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00024785000000000003
+      },
+      {
+        "id": "h04",
+        "difficulty": "hard",
+        "question": "Vergleiche die durchschnittliche Anzahl verf\u00fcgbarer Fahrr\u00e4der in Stunden mit Niederschlag und in trockenen Stunden.",
+        "correct": false,
+        "answer": "In Stunden mit Niederschlag waren durchschnittlich 11,65 Fahrr\u00e4der verf\u00fcgbar, in trockenen Stunden 11,84. Damit lag der Durchschnitt bei Niederschlag um etwa 0,19 Fahrr\u00e4der niedriger.",
+        "sql": "SELECT CASE WHEN had_precipitation THEN 'Niederschlag' WHEN had_precipitation = FALSE THEN 'Trocken' ELSE 'Unbekannt' END AS bedingung, AVG(avg_available_bikes) AS durchschnitt_verfuegbare_fahrraeder FROM marts.agg_station_hourly WHERE had_precipitation IS NOT NULL GROUP BY CASE WHEN had_precipitation THEN 'Niederschlag' WHEN had_precipitation = FALSE THEN 'Trocken' ELSE 'Unbekannt' END ORDER BY bedingung LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT CASE WHEN had_precipitation THEN 'Niederschlag' WHEN had_precipitation = FALSE THEN 'Trocken' ELSE 'Unbekannt' END AS bedingung, AVG(avg_available_bikes) AS durchschnitt_verfuegbare_fahrraeder FROM marts.agg_station_hourly WHERE had_precipitation IS NOT NULL GROUP BY CASE WHEN had_precipitation THEN 'Niederschlag' WHEN had_precipitation = FALSE THEN 'Trocken' ELSE 'Unbekannt' END ORDER BY bedingung LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.03,
+        "timed_out": false,
+        "prompt_tokens": 3835,
+        "completion_tokens": 173,
+        "cached_prompt_tokens": 3601,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00014591
+      },
+      {
+        "id": "h05",
+        "difficulty": "hard",
+        "question": "Welche Stationen waren mehr als ein Viertel ihrer beobachteten Zeit leer?",
+        "correct": true,
+        "answer": "28 Stationen waren mehr als ein Viertel der beobachteten Zeit leer. Am h\u00e4ufigsten war GRANGEGORMAN LOWER (CENTRAL) leer (61,86 %), gefolgt von JAMES STREET EAST (52,64 %), GOLDEN LANE (52,62 %) und HERBERT STREET (52,57 %).",
+        "sql": "SELECT station_name, empty_share FROM marts.mart_station_kpis WHERE empty_share > 0.25 ORDER BY empty_share DESC LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, empty_share FROM marts.mart_station_kpis WHERE empty_share > 0.25 ORDER BY empty_share DESC LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 28
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.71,
+        "timed_out": false,
+        "prompt_tokens": 4074,
+        "completion_tokens": 116,
+        "cached_prompt_tokens": 3594,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00014193999999999999
+      },
+      {
+        "id": "h06",
+        "difficulty": "hard",
+        "question": "Welche Station hatte am 2026-10-08 die meisten Leerminuten?",
+        "correct": true,
+        "answer": "Die Station GRANGEGORMAN LOWER (CENTRAL) hatte am 8. Oktober 2026 mit 306,81 Leerminuten die meisten.",
+        "sql": "SELECT s.station_name, SUM(a.empty_minutes) AS empty_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE a.date_day = CAST('2026-10-08' AS DATE) GROUP BY s.station_name ORDER BY empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.station_name, SUM(a.empty_minutes) AS empty_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE a.date_day = CAST('2026-10-08' AS DATE) GROUP BY s.station_name ORDER BY empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.16,
+        "timed_out": false,
+        "prompt_tokens": 3755,
+        "completion_tokens": 114,
+        "cached_prompt_tokens": 3595,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00010895
+      },
+      {
+        "id": "h07",
+        "difficulty": "hard",
+        "question": "Welche Station war in jeder Zone die meisten Minuten leer?",
+        "correct": true,
+        "answer": "In der Zone city_centre war GOLDEN LANE mit 347,95 Minuten am l\u00e4ngsten leer. In inner war es GRANGEGORMAN LOWER (CENTRAL) mit 406,97 Minuten und in outer HEUSTON STATION (CENTRAL) mit 285,38 Minuten.",
+        "sql": "SELECT zone, station_name, empty_minutes FROM (SELECT s.zone, s.station_name, k.empty_minutes, ROW_NUMBER() OVER (PARTITION BY s.zone ORDER BY k.empty_minutes DESC) AS rn FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id) AS ranked WHERE rn = 1 ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, station_name, empty_minutes FROM (SELECT s.zone, s.station_name, k.empty_minutes, ROW_NUMBER() OVER (PARTITION BY s.zone ORDER BY k.empty_minutes DESC) AS rn FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id) AS ranked WHERE rn = 1 ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.24,
+        "timed_out": false,
+        "prompt_tokens": 3793,
+        "completion_tokens": 152,
+        "cached_prompt_tokens": 3589,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00013229000000000002
+      },
+      {
+        "id": "h08",
+        "difficulty": "hard",
+        "question": "Wie viele Stationen waren irgendwann sowohl leer als auch voll?",
+        "correct": true,
+        "answer": "18 Stationen waren irgendwann sowohl leer als auch voll.",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE empty_minutes > 0 AND full_minutes > 0 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE empty_minutes > 0 AND full_minutes > 0 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.29,
+        "timed_out": false,
+        "prompt_tokens": 3690,
+        "completion_tokens": 55,
+        "cached_prompt_tokens": 3590,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.340000000000001e-05
+      },
+      {
+        "id": "h09",
+        "difficulty": "hard",
+        "question": "Welche Station gewinnt bei Regen im Vergleich zu trockenen Stunden im Durchschnitt die meisten Fahrr\u00e4der hinzu?",
+        "correct": true,
+        "answer": "HANOVER QUAY EAST gewinnt bei Regen im Durchschnitt 26,33 verf\u00fcgbare Fahrr\u00e4der gegen\u00fcber trockenen Stunden hinzu \u2013 mehr als jede andere Station.",
+        "sql": "SELECT station_name, rain_bike_delta FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, rain_bike_delta FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.37,
+        "timed_out": false,
+        "prompt_tokens": 3727,
+        "completion_tokens": 83,
+        "cached_prompt_tokens": 3597,
+        "reasoning_tokens": 0,
+        "cost_usd": 9.046999999999999e-05
+      },
+      {
+        "id": "h10",
+        "difficulty": "hard",
+        "question": "Wie hoch ist bei Stationen im Stadtzentrum die durchschnittliche Anzahl verf\u00fcgbarer Fahrr\u00e4der w\u00e4hrend der Sto\u00dfzeiten im Vergleich zu au\u00dferhalb der Sto\u00dfzeiten?",
+        "correct": true,
+        "answer": "Im Stadtzentrum waren w\u00e4hrend der Sto\u00dfzeiten durchschnittlich 13,52 Fahrr\u00e4der verf\u00fcgbar, au\u00dferhalb der Sto\u00dfzeiten 12,03.",
+        "sql": "SELECT t.is_peak_hour, AVG(h.avg_available_bikes) AS average_available_bikes FROM marts.agg_station_hourly AS h JOIN marts.dim_station AS s ON s.station_id = h.station_id JOIN marts.dim_time AS t ON t.hour_key = h.hour_key WHERE s.zone = 'city_centre' GROUP BY t.is_peak_hour ORDER BY t.is_peak_hour LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT t.is_peak_hour, AVG(h.avg_available_bikes) AS average_available_bikes FROM marts.agg_station_hourly AS h JOIN marts.dim_station AS s ON s.station_id = h.station_id JOIN marts.dim_time AS t ON t.hour_key = h.hour_key WHERE s.zone = 'city_centre' GROUP BY t.is_peak_hour ORDER BY t.is_peak_hour LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.61,
+        "timed_out": false,
+        "prompt_tokens": 3807,
+        "completion_tokens": 124,
+        "cached_prompt_tokens": 3609,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.00011789
+      },
+      {
+        "id": "h11",
+        "difficulty": "hard",
+        "question": "In wie vielen Stationsstunden war eine Station mehr als 30 Minuten leer?",
+        "correct": true,
+        "answer": "In 161 Stationsstunden war eine Station mehr als 30 Minuten leer.",
+        "sql": "SELECT COUNT(*) AS station_hours FROM marts.agg_station_hourly WHERE empty_minutes > 30 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_hours FROM marts.agg_station_hourly WHERE empty_minutes > 30 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 1.75,
+        "timed_out": false,
+        "prompt_tokens": 3690,
+        "completion_tokens": 53,
+        "cached_prompt_tokens": 3593,
+        "reasoning_tokens": 0,
+        "cost_usd": 7.212999999999999e-05
+      },
+      {
+        "id": "h12",
+        "difficulty": "hard",
+        "question": "Wie viele verschiedene Stationen haben am 2026-10-07 (Dubliner Zeit) mindestens einen Snapshot gemeldet?",
+        "correct": true,
+        "answer": "Am 7. Oktober 2026 haben 113 verschiedene Stationen mindestens einen Snapshot gemeldet.",
+        "sql": "SELECT COUNT(DISTINCT station_id) AS station_count FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = CAST('2026-10-07' AS DATE) LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(DISTINCT station_id) AS station_count FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = CAST('2026-10-07' AS DATE) LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.65,
+        "timed_out": false,
+        "prompt_tokens": 3726,
+        "completion_tokens": 72,
+        "cached_prompt_tokens": 3604,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.424e-05
+      },
+      {
+        "id": "h13",
+        "difficulty": "hard",
+        "question": "Wie hoch ist die Durchschnittstemperatur w\u00e4hrend der Sto\u00dfzeiten im Vergleich zu au\u00dferhalb der Sto\u00dfzeiten?",
+        "correct": true,
+        "answer": "W\u00e4hrend der Sto\u00dfzeiten lag die Durchschnittstemperatur bei etwa 8,7 \u00b0C, au\u00dferhalb der Sto\u00dfzeiten bei etwa 9,6 \u00b0C.",
+        "sql": "SELECT t.is_peak_hour, AVG(a.avg_temperature_c) AS avg_temperature_c FROM marts.agg_station_hourly AS a JOIN marts.dim_time AS t ON a.hour_key = t.hour_key WHERE a.avg_temperature_c IS NOT NULL GROUP BY t.is_peak_hour ORDER BY t.is_peak_hour LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT t.is_peak_hour, AVG(a.avg_temperature_c) AS avg_temperature_c FROM marts.agg_station_hourly AS a JOIN marts.dim_time AS t ON a.hour_key = t.hour_key WHERE a.avg_temperature_c IS NOT NULL GROUP BY t.is_peak_hour ORDER BY t.is_peak_hour LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.61,
+        "timed_out": false,
+        "prompt_tokens": 3771,
+        "completion_tokens": 112,
+        "cached_prompt_tokens": 3600,
+        "reasoning_tokens": 0,
+        "cost_usd": 0.0001091
+      },
+      {
+        "id": "h14",
+        "difficulty": "hard",
+        "question": "Wie viele Minuten waren Stationen in der \u00e4u\u00dferen Zone insgesamt voll?",
+        "correct": true,
+        "answer": "Stationen in der \u00e4u\u00dferen Zone waren insgesamt 165,26 Minuten voll.",
+        "sql": "SELECT SUM(k.full_minutes) AS total_full_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'outer' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(k.full_minutes) AS total_full_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'outer' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.41,
+        "timed_out": false,
+        "prompt_tokens": 3712,
+        "completion_tokens": 75,
+        "cached_prompt_tokens": 3592,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.542e-05
+      },
+      {
+        "id": "h15",
+        "difficulty": "hard",
+        "question": "Wie viel Prozent aller Stellpl\u00e4tze befinden sich in der inneren Zone?",
+        "correct": true,
+        "answer": "66,9 % aller Stellpl\u00e4tze befinden sich in der inneren Zone.",
+        "sql": "SELECT ROUND(100.0 * SUM(capacity) FILTER(WHERE zone = 'inner') / NULLIF(SUM(capacity), 0), 2) AS inner_capacity_percent FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT ROUND(100.0 * SUM(capacity) FILTER(WHERE zone = 'inner') / NULLIF(SUM(capacity), 0), 2) AS inner_capacity_percent FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.1,
+        "timed_out": false,
+        "prompt_tokens": 3713,
+        "completion_tokens": 75,
+        "cached_prompt_tokens": 3592,
+        "reasoning_tokens": 0,
+        "cost_usd": 8.552000000000001e-05
+      }
+    ]
+  },
+  "adversarial": null,
+  "changed_tables": []
+}

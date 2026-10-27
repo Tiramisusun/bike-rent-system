@@ -1,0 +1,59 @@
+# Models compared by `python -m evals.run_eval --model <name>`.
+#
+# Every provider here speaks the OpenAI chat-completions protocol, so a model is just
+# a base URL, the .env variable holding its key, and the model id. Keys never go here.
+#
+# Prices: USD per 1M tokens, standard tier, checked 2026-10-27. cached_input is the
+# price of prompt tokens served from the provider's cache; null = not published, so
+# cached tokens are charged at the full input price (an upper bound).
+# request_options override src/agent/agent.py DEFAULT_REQUEST_OPTIONS; null removes one.
+
+xiaomi_sources: &xiaomi
+  base_url: https://token-plan-ams.xiaomimimo.com/v1
+  api_key_env: LLM_API_KEY
+  # Xiaomi lists CNY 3/6 (pro) and 1/2 (flash) per 1M; USD as reported by
+  # artificialanalysis.ai and routerplex.com. Cache-hit price not published.
+  price_source: https://mimo.mi.com/docs/zh-CN/news/latest/v2-6
+
+deepseek_sources: &deepseek
+  base_url: https://api.deepseek.com
+  api_key_env: DEEPSEEK_API_KEY
+  # Peak-hour prices (01-04 and 06-10 UTC on Chinese working days); off-peak is half.
+  price_source: https://api-docs.deepseek.com/quick_start/pricing
+
+openai_sources: &openai
+  base_url: https://api.openai.com/v1
+  api_key_env: OPENAI_API_KEY
+  price_source: https://developers.openai.com/api/docs/pricing
+  # On /v1/chat/completions these models reject function tools while reasoning is on
+  # ("use /v1/responses or set reasoning_effort to 'none'"), so they run without
+  # reasoning here, unlike the MiMo and DeepSeek models.
+  request_options: {reasoning_effort: none}
+
+models:
+  mimo-pro:
+    <<: *xiaomi
+    model: mimo-v2.6-pro
+    price: {input: 0.435, cached_input: null, output: 0.87}
+  mimo-flash:
+    <<: *xiaomi
+    model: mimo-v2.6-flash
+    price: {input: 0.14, cached_input: null, output: 0.28}
+
+  deepseek-pro:
+    <<: *deepseek
+    model: deepseek-v4-pro
+    price: {input: 1.32, cached_input: 0.044, output: 3.96}
+  deepseek-flash:
+    <<: *deepseek
+    model: deepseek-flash
+    price: {input: 0.30, cached_input: 0.006, output: 1.20}
+
+  gpt-terra:
+    <<: *openai
+    model: gpt-6.1-terra
+    price: {input: 1.00, cached_input: 0.05, output: 5.00}
+  gpt-luna:
+    <<: *openai
+    model: gpt-6-luna
+    price: {input: 0.10, cached_input: 0.01, output: 0.50}

@@ -1,4 +1,6 @@
-from src.agent.evaluation import results_match
+import pytest
+
+from src.agent.evaluation import cost_usd, results_match
 
 
 def test_identical_results_match():
@@ -52,3 +54,17 @@ def test_booleans_and_nulls():
 
 def test_empty_results_match():
     assert results_match([], [])
+
+
+# ── Cost per question ─────────────────────────────────────────────────────────
+
+
+def test_cost_charges_cached_tokens_at_the_cache_price():
+    price = {"input": 1.0, "cached_input": 0.1, "output": 5.0}
+    # 1,000 uncached + 3,000 cached prompt tokens, 200 output tokens
+    assert cost_usd(4000, 3000, 200, price) == pytest.approx((1000 * 1.0 + 3000 * 0.1 + 200 * 5.0) / 1e6)
+
+
+def test_unpublished_cache_price_falls_back_to_full_input_price():
+    price = {"input": 1.0, "cached_input": None, "output": 5.0}
+    assert cost_usd(4000, 3000, 0, price) == pytest.approx(4000 / 1e6)

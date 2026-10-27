@@ -120,3 +120,10 @@ def test_malformed_history_is_rejected_without_calling_the_llm(client, capture_a
     res = client.post("/api/agent/ask", json={"question": "q", "history": history})
     assert res.status_code == 400 and "history" in res.get_json()["error"]
     assert "history" not in capture_ask
+
+
+def test_timeout_returns_504_with_a_friendly_message(client, monkeypatch):
+    monkeypatch.setattr("src.agent.agent.ask", lambda q, e, **kw: AgentResult(
+        question=q, answer="x", error="AgentTimeout: time budget of 60 s used up", timed_out=True))
+    res = client.post("/api/agent/ask", json={"question": "q"})
+    assert res.status_code == 504 and "too long" in res.get_json()["error"]

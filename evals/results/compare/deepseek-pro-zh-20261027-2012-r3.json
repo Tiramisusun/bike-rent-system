@@ -1,0 +1,1310 @@
+{
+  "meta": {
+    "run_at": "2026-10-27 20:11 UTC",
+    "model": "deepseek-v4-pro",
+    "model_name": "deepseek-pro",
+    "lang": "zh",
+    "run": 3,
+    "price_per_1m_usd": {
+      "input": 1.32,
+      "cached_input": 0.044,
+      "output": 3.96
+    },
+    "n_questions": 50,
+    "data_range": "Station snapshots cover 2026-04-11 00:30 to 2026-10-08 14:09 (Dublin local time)."
+  },
+  "summaries": {
+    "docs": {
+      "n": 50,
+      "accuracy": 88.0,
+      "by_difficulty": {
+        "easy": 93.3,
+        "medium": 85.0,
+        "hard": 86.7
+      },
+      "questions_with_failed_attempt": 1,
+      "recovered_after_failure": 1,
+      "recovery_rate": 100.0,
+      "median_latency_s": 3.2,
+      "p90_latency_s": 4.34,
+      "avg_prompt_tokens": 4586,
+      "avg_completion_tokens": 228,
+      "avg_reasoning_tokens": 108,
+      "cache_hit_share": 0.922,
+      "provider_errors": 0,
+      "timeouts": 0,
+      "total_cost_usd": 0.0781,
+      "cost_per_question_usd": 0.00156,
+      "cost_per_1000_questions_usd": 1.56,
+      "cost_per_correct_answer_usd": 0.00177
+    }
+  },
+  "details": {
+    "docs": [
+      {
+        "id": "e01",
+        "difficulty": "easy",
+        "question": "\u4e00\u5171\u6709\u591a\u5c11\u4e2a\u81ea\u884c\u8f66\u7ad9\u70b9\uff1f",
+        "correct": true,
+        "answer": "\u4e00\u5171\u6709115\u4e2a\u81ea\u884c\u8f66\u7ad9\u70b9\u3002",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.66,
+        "timed_out": false,
+        "prompt_tokens": 4356,
+        "completion_tokens": 99,
+        "cached_prompt_tokens": 2432,
+        "reasoning_tokens": 35,
+        "cost_usd": 0.003038728
+      },
+      {
+        "id": "e02",
+        "difficulty": "easy",
+        "question": "\u5e02\u4e2d\u5fc3\u533a\u57df\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\uff1f",
+        "correct": true,
+        "answer": "\u5e02\u4e2d\u5fc3\u533a\u57df\u5171\u6709 34 \u4e2a\u7ad9\u70b9\u3002",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE zone = 'city_centre' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.87,
+        "timed_out": false,
+        "prompt_tokens": 4378,
+        "completion_tokens": 134,
+        "cached_prompt_tokens": 2432,
+        "reasoning_tokens": 59,
+        "cost_usd": 0.003206368
+      },
+      {
+        "id": "e03",
+        "difficulty": "easy",
+        "question": "\u6240\u6709\u7ad9\u70b9\u4e00\u5171\u6709\u591a\u5c11\u4e2a\u8f66\u6869\uff1f",
+        "correct": true,
+        "answer": "\u6240\u6709\u7ad9\u70b9\u4e00\u5171\u6709 3677 \u4e2a\u8f66\u6869\u3002",
+        "sql": "SELECT SUM(capacity) AS total_docks FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(capacity) AS total_docks FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.67,
+        "timed_out": false,
+        "prompt_tokens": 4351,
+        "completion_tokens": 93,
+        "cached_prompt_tokens": 2432,
+        "reasoning_tokens": 21,
+        "cost_usd": 0.0030083679999999995
+      },
+      {
+        "id": "e04",
+        "difficulty": "easy",
+        "question": "BENSON STREET \u7ad9\u6709\u591a\u5c11\u4e2a\u8f66\u6869\uff1f",
+        "correct": true,
+        "answer": "BENSON STREET \u7ad9\u6709 40 \u4e2a\u8f66\u6869\uff0c\u8fd9\u4e2a\u6570\u5b57\u6765\u81ea JCDecaux \u7684\u62a5\u544a\u3002",
+        "sql": "SELECT station_name, capacity, capacity_source FROM marts.dim_station WHERE station_name ILIKE '%BENSON%' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, capacity, capacity_source FROM marts.dim_station WHERE station_name ILIKE '%BENSON%'",
+            "ok": false,
+            "error": "connection to server at \"localhost\" (127.0.0.1), port 5433 failed: FATAL:  too many connections for role \"agent_ro\"",
+            "row_count": null
+          },
+          {
+            "sql": "SELECT station_name, capacity, capacity_source FROM marts.dim_station WHERE station_name ILIKE '%BENSON%' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 1,
+        "latency_s": 4.22,
+        "timed_out": false,
+        "prompt_tokens": 6839,
+        "completion_tokens": 225,
+        "cached_prompt_tokens": 6528,
+        "reasoning_tokens": 56,
+        "cost_usd": 0.001588752
+      },
+      {
+        "id": "e05",
+        "difficulty": "easy",
+        "question": "SMITHFIELD NORTH \u5728\u54ea\u4e2a\u533a\u57df\uff1f",
+        "correct": true,
+        "answer": "SMITHFIELD NORTH \u4f4d\u4e8e inner \u533a\u57df\uff0c\u8ddd\u5e02\u4e2d\u5fc3 O'Connell Bridge \u7ea6 1.288 \u516c\u91cc\u3002",
+        "sql": "SELECT station_name, zone, distance_to_centre_km FROM marts.dim_station WHERE UPPER(station_name) = 'SMITHFIELD NORTH' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, zone, distance_to_centre_km FROM marts.dim_station WHERE UPPER(station_name) = 'SMITHFIELD NORTH' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.0,
+        "timed_out": false,
+        "prompt_tokens": 4408,
+        "completion_tokens": 162,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 58,
+        "cost_usd": 0.001070256
+      },
+      {
+        "id": "e06",
+        "difficulty": "easy",
+        "question": "\u5217\u51fa\u5916\u5708\u533a\u57df\u7684\u6240\u6709\u7ad9\u70b9\u3002",
+        "correct": true,
+        "answer": "\u5916\u5708\u533a\u57df\u5171\u6709 9 \u4e2a\u7ad9\u70b9\uff1aBROOKFIELD ROAD\u3001EMMET ROAD\u3001HEUSTON STATION (CAR PARK)\u3001HEUSTON STATION (CENTRAL)\u3001KILMAINHAM GAOL\u3001KILMAINHAM LANE\u3001MOUNT BROWN\u3001ROTHE ABBEY \u548c ROYAL HOSPITAL\u3002",
+        "sql": "SELECT station_id, station_name FROM marts.dim_station WHERE zone = 'outer' ORDER BY station_name LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_id, station_name FROM marts.dim_station WHERE zone = 'outer' ORDER BY station_name LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 9
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.12,
+        "timed_out": false,
+        "prompt_tokens": 4472,
+        "completion_tokens": 191,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 47,
+        "cost_usd": 0.0012695760000000001
+      },
+      {
+        "id": "e07",
+        "difficulty": "easy",
+        "question": "\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\u6b63\u597d\u6709 40 \u4e2a\u8f66\u6869\uff1f",
+        "correct": true,
+        "answer": "\u6b63\u597d\u6709 40 \u4e2a\u8f66\u6869\u7684\u7ad9\u70b9\u6709 42 \u4e2a\u3002",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE capacity = 40 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE capacity = 40 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.61,
+        "timed_out": false,
+        "prompt_tokens": 4368,
+        "completion_tokens": 107,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 28,
+        "cost_usd": 0.0007996559999999999
+      },
+      {
+        "id": "e08",
+        "difficulty": "easy",
+        "question": "\u5e73\u5747\u6bcf\u4e2a\u7ad9\u70b9\u6709\u591a\u5c11\u4e2a\u8f66\u6869\uff1f",
+        "correct": true,
+        "answer": "\u5e73\u5747\u6bcf\u4e2a\u7ad9\u70b9\u7ea6\u6709 32 \u4e2a\u8f66\u6869\uff0831.97\uff09\uff0c\u6570\u636e\u8986\u76d6 115 \u4e2a\u7ad9\u70b9\u3002",
+        "sql": "SELECT AVG(capacity) AS avg_capacity, COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT AVG(capacity) AS avg_capacity, COUNT(*) AS station_count FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.18,
+        "timed_out": false,
+        "prompt_tokens": 4384,
+        "completion_tokens": 156,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 65,
+        "cost_usd": 0.001014816
+      },
+      {
+        "id": "e09",
+        "difficulty": "easy",
+        "question": "\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\u8ddd\u79bb O'Connell Bridge \u8d85\u8fc7 2 \u516c\u91cc\uff1f",
+        "correct": true,
+        "answer": "\u6709 14 \u4e2a\u7ad9\u70b9\u8ddd\u79bb O'Connell Bridge \u8d85\u8fc7 2 \u516c\u91cc\u3002",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE distance_to_centre_km > 2 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.dim_station WHERE distance_to_centre_km > 2 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.44,
+        "timed_out": false,
+        "prompt_tokens": 4385,
+        "completion_tokens": 120,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 34,
+        "cost_usd": 0.000873576
+      },
+      {
+        "id": "e10",
+        "difficulty": "easy",
+        "question": "\u54ea\u4e2a\u7ad9\u70b9\u79bb O'Connell Bridge \u6700\u8fd1\uff1f",
+        "correct": true,
+        "answer": "\u79bb O'Connell Bridge \u6700\u8fd1\u7684\u7ad9\u70b9\u662f PRINCES STREET / O'CONNELL STREET\uff0c\u8ddd\u79bb\u7ea6 0.215 \u516c\u91cc\u3002",
+        "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, distance_to_centre_km FROM marts.dim_station ORDER BY distance_to_centre_km ASC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.46,
+        "timed_out": false,
+        "prompt_tokens": 4427,
+        "completion_tokens": 160,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 51,
+        "cost_usd": 0.0010874160000000001
+      },
+      {
+        "id": "e11",
+        "difficulty": "easy",
+        "question": "\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\u7684\u5bb9\u91cf\u662f JCDecaux \u4e0a\u62a5\u7684\uff0c\u53c8\u6709\u591a\u5c11\u4e2a\u662f\u4f30\u7b97\u7684\uff1f",
+        "correct": true,
+        "answer": "\u6709 113 \u4e2a\u7ad9\u70b9\u7684\u5bb9\u91cf\u662f JCDecaux \u4e0a\u62a5\u7684\uff0c2 \u4e2a\u7ad9\u70b9\u662f\u4f30\u7b97\u7684\uff08max_observed\uff09\u3002",
+        "sql": "SELECT capacity_source, COUNT(*) AS station_count FROM marts.dim_station GROUP BY capacity_source ORDER BY capacity_source LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT capacity_source, COUNT(*) AS station_count FROM marts.dim_station GROUP BY capacity_source ORDER BY capacity_source LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.86,
+        "timed_out": false,
+        "prompt_tokens": 4421,
+        "completion_tokens": 156,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 58,
+        "cost_usd": 0.0010636559999999998
+      },
+      {
+        "id": "e12",
+        "difficulty": "easy",
+        "question": "2026 \u5e74\u6709\u591a\u5c11\u4e2a\u7231\u5c14\u5170\u516c\u5171\u5047\u65e5\uff1f",
+        "correct": true,
+        "answer": "2026 \u5e74\u6709 10 \u4e2a\u7231\u5c14\u5170\u516c\u5171\u5047\u65e5\u3002",
+        "sql": "SELECT COUNT(DISTINCT date_day) AS public_holidays FROM marts.dim_time WHERE year = 2026 AND is_public_holiday = TRUE LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(DISTINCT date_day) AS public_holidays FROM marts.dim_time WHERE year = 2026 AND is_public_holiday = TRUE LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.73,
+        "timed_out": false,
+        "prompt_tokens": 4435,
+        "completion_tokens": 186,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 91,
+        "cost_usd": 0.0012009359999999999
+      },
+      {
+        "id": "e13",
+        "difficulty": "easy",
+        "question": "\u54ea\u4e9b\u5929\u6c14\u7c7b\u522b\u7b97\u4f5c\u964d\u6c34\uff1f",
+        "correct": false,
+        "answer": "\u6309\u4ed3\u5e93\u89c4\u5219\uff0c\u964d\u6c34\u6307 Rain\u3001Drizzle\u3001Thunderstorm \u548c Snow\u3002\u5f53\u524d marts.dim_weather \u4e2d\u5b9e\u9645\u6807\u8bb0\u4e3a\u964d\u6c34\u7684\u53ea\u6709 Rain\uff08light rain\u3001moderate rain\uff09\u548c Snow\uff08light snow\uff09\uff1bClear \u4e0e Clouds \u4e0d\u7b97\u964d\u6c34\u3002",
+        "sql": "SELECT condition_group, condition_description, is_precipitation FROM marts.dim_weather ORDER BY condition_group, condition_description LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT condition_group, condition_description, is_precipitation FROM marts.dim_weather WHERE is_precipitation = TRUE ORDER BY condition_group LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          },
+          {
+            "sql": "SELECT condition_group, condition_description, is_precipitation FROM marts.dim_weather ORDER BY condition_group, condition_description LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 8
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 5.2,
+        "timed_out": false,
+        "prompt_tokens": 7108,
+        "completion_tokens": 397,
+        "cached_prompt_tokens": 6656,
+        "reasoning_tokens": 196,
+        "cost_usd": 0.002461624
+      },
+      {
+        "id": "e14",
+        "difficulty": "easy",
+        "question": "\u901a\u8fc7\u7f51\u7ad9\u4e00\u5171\u79df\u4e86\u591a\u5c11\u6b21\u8f66\uff1f",
+        "correct": true,
+        "answer": "\u901a\u8fc7\u7f51\u7ad9\u4e00\u5171\u79df\u4e86 0 \u6b21\u8f66\u3002",
+        "sql": "SELECT COUNT(*) AS total_rentals FROM marts.fct_rental LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS total_rentals FROM marts.fct_rental LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.73,
+        "timed_out": false,
+        "prompt_tokens": 4368,
+        "completion_tokens": 115,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 43,
+        "cost_usd": 0.000831336
+      },
+      {
+        "id": "e15",
+        "difficulty": "easy",
+        "question": "\u6570\u636e\u91cc\u4e00\u5171\u6709\u591a\u5c11\u6761\u7ad9\u70b9\u8f66\u8f86\u72b6\u6001\u5feb\u7167\uff1f",
+        "correct": true,
+        "answer": "\u6570\u636e\u91cc\u4e00\u5171\u6709 7466 \u6761\u7ad9\u70b9\u8f66\u8f86\u72b6\u6001\u5feb\u7167\u3002",
+        "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.55,
+        "timed_out": false,
+        "prompt_tokens": 4388,
+        "completion_tokens": 132,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 57,
+        "cost_usd": 0.0009250560000000001
+      },
+      {
+        "id": "m01",
+        "difficulty": "medium",
+        "question": "\u6bcf\u4e2a\u533a\u57df\u5404\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\uff1f",
+        "correct": true,
+        "answer": "\u5e02\u4e2d\u5fc3\uff08city_centre\uff09\u6709 34 \u4e2a\u7ad9\u70b9\uff0c\u5185\u533a\uff08inner\uff09\u6709 72 \u4e2a\u7ad9\u70b9\uff0c\u5916\u533a\uff08outer\uff09\u6709 9 \u4e2a\u7ad9\u70b9\u3002",
+        "sql": "SELECT zone, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.5,
+        "timed_out": false,
+        "prompt_tokens": 4391,
+        "completion_tokens": 140,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 37,
+        "cost_usd": 0.0009606959999999999
+      },
+      {
+        "id": "m02",
+        "difficulty": "medium",
+        "question": "\u6bcf\u4e2a\u533a\u57df\u7684\u8f66\u6869\u603b\u5bb9\u91cf\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u5e02\u4e2d\u5fc3\u533a\u57df\u8f66\u6869\u603b\u5bb9\u91cf\u4e3a900\u4e2a\uff0834\u4e2a\u7ad9\u70b9\uff09\uff0c\u5185\u57ce\u533a\u4e3a2460\u4e2a\uff0872\u4e2a\u7ad9\u70b9\uff09\uff0c\u5916\u57ce\u533a\u4e3a317\u4e2a\uff089\u4e2a\u7ad9\u70b9\uff09\u3002",
+        "sql": "SELECT zone, SUM(capacity) AS total_capacity, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, SUM(capacity) AS total_capacity, COUNT(*) AS station_count FROM marts.dim_station GROUP BY zone ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.03,
+        "timed_out": false,
+        "prompt_tokens": 4414,
+        "completion_tokens": 156,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 46,
+        "cost_usd": 0.0010544159999999999
+      },
+      {
+        "id": "m03",
+        "difficulty": "medium",
+        "question": "\u54ea\u4e2a\u7ad9\u70b9\u7a7a\u7ad9\u7684\u5206\u949f\u6570\u6700\u591a\uff1f",
+        "correct": true,
+        "answer": "\u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u7ad9\u70b9\u662f GRANGEGORMAN LOWER (CENTRAL)\uff0c\u7a7a\u7ad9\u65f6\u957f\u4e3a 406.97 \u5206\u949f\u3002",
+        "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis ORDER BY empty_minutes DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, empty_minutes FROM marts.mart_station_kpis ORDER BY empty_minutes DESC NULLS LAST LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.12,
+        "timed_out": false,
+        "prompt_tokens": 4397,
+        "completion_tokens": 163,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 60,
+        "cost_usd": 0.001059696
+      },
+      {
+        "id": "m04",
+        "difficulty": "medium",
+        "question": "\u6ee1\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u524d 5 \u4e2a\u7ad9\u70b9\u662f\u54ea\u4e9b\uff1f",
+        "correct": true,
+        "answer": "\u6ee1\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u524d 5 \u4e2a\u7ad9\u70b9\u662f\uff1aSmithfield North\uff08332.58 \u5206\u949f\uff09\u3001Killarney Street\uff08273.87 \u5206\u949f\uff09\u3001Merrion Square East\uff08227.79 \u5206\u949f\uff09\u3001Heuston Bridge (South)\uff08202.2 \u5206\u949f\uff09\u548c Collins Barracks Museum\uff08199.16 \u5206\u949f\uff09\u3002",
+        "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC NULLS LAST LIMIT 5",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, full_minutes FROM marts.mart_station_kpis ORDER BY full_minutes DESC NULLS LAST LIMIT 5",
+            "ok": true,
+            "error": null,
+            "row_count": 5
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.5,
+        "timed_out": false,
+        "prompt_tokens": 4480,
+        "completion_tokens": 232,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 86,
+        "cost_usd": 0.0014424960000000001
+      },
+      {
+        "id": "m05",
+        "difficulty": "medium",
+        "question": "\u9ad8\u5cf0\u65f6\u6bb5\u7f3a\u8f66\u7387\u6700\u9ad8\u7684 3 \u4e2a\u7ad9\u70b9\u662f\u54ea\u4e9b\uff1f",
+        "correct": true,
+        "answer": "\u9ad8\u5cf0\u65f6\u6bb5\u7f3a\u8f66\u7387\u6700\u9ad8\u7684 3 \u4e2a\u7ad9\u70b9\u662f\uff1aPHIBSBOROUGH ROAD\uff08100%\uff09\u3001GOLDEN LANE\uff0870.65%\uff09\u548c PORTOBELLO ROAD\uff0859.88%\uff09\u3002",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 3",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 3",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.13,
+        "timed_out": false,
+        "prompt_tokens": 4451,
+        "completion_tokens": 226,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 98,
+        "cost_usd": 0.0013804560000000002
+      },
+      {
+        "id": "m06",
+        "difficulty": "medium",
+        "question": "\u5468\u672b\u548c\u5de5\u4f5c\u65e5\u5206\u522b\u89c2\u6d4b\u5230\u4e86\u591a\u5c11\u4e2a\"\u7ad9\u70b9\u00b7\u5c0f\u65f6\"\uff1f",
+        "correct": false,
+        "answer": "\u5468\u672b\u89c2\u6d4b\u5230 115 \u4e2a\u7ad9\u70b9\u00b7\u5c0f\u65f6\uff0c\u5de5\u4f5c\u65e5\u89c2\u6d4b\u5230 1469 \u4e2a\u7ad9\u70b9\u00b7\u5c0f\u65f6\u3002",
+        "sql": "SELECT COUNT(*) FILTER(WHERE is_weekend) AS weekend_station_hours, COUNT(*) FILTER(WHERE NOT is_weekend AND NOT is_public_holiday) AS working_day_station_hours FROM marts.agg_station_hourly LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) FILTER(WHERE is_weekend) AS weekend_station_hours, COUNT(*) FILTER(WHERE NOT is_weekend AND NOT is_public_holiday) AS working_day_station_hours FROM marts.agg_station_hourly LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.34,
+        "timed_out": false,
+        "prompt_tokens": 4670,
+        "completion_tokens": 411,
+        "cached_prompt_tokens": 4480,
+        "reasoning_tokens": 283,
+        "cost_usd": 0.00207548
+      },
+      {
+        "id": "m07",
+        "difficulty": "medium",
+        "question": "\u6240\u6709\u7ad9\u70b9\u7a7a\u7ad9\u7684\u603b\u5206\u949f\u6570\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u6240\u6709\u7ad9\u70b9\u7a7a\u7ad9\u7684\u603b\u5206\u949f\u6570\u4e3a 10397.63 \u5206\u949f\u3002",
+        "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.13,
+        "timed_out": false,
+        "prompt_tokens": 4380,
+        "completion_tokens": 133,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 52,
+        "cost_usd": 0.0009184559999999999
+      },
+      {
+        "id": "m08",
+        "difficulty": "medium",
+        "question": "\u5e02\u4e2d\u5fc3\u7ad9\u70b9\u6ee1\u7ad9\u7684\u603b\u5206\u949f\u6570\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u5e02\u4e2d\u5fc3\u7ad9\u70b9\u6ee1\u7ad9\u7684\u603b\u5206\u949f\u6570\u662f 814.15 \u5206\u949f\u3002",
+        "sql": "SELECT SUM(k.full_minutes) AS total_full_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'city_centre' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(k.full_minutes) AS total_full_minutes FROM marts.mart_station_kpis AS k JOIN marts.dim_station AS s ON s.station_id = k.station_id WHERE s.zone = 'city_centre' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.98,
+        "timed_out": false,
+        "prompt_tokens": 4443,
+        "completion_tokens": 195,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 82,
+        "cost_usd": 0.001247136
+      },
+      {
+        "id": "m09",
+        "difficulty": "medium",
+        "question": "\u54ea\u4e2a\u533a\u57df\u7684\u7a7a\u7ad9\u603b\u5206\u949f\u6570\u6700\u591a\uff1f",
+        "correct": false,
+        "answer": "inner \u533a\u57df\u7a7a\u7ad9\u603b\u5206\u949f\u6570\u6700\u591a\uff0c\u4e3a 8274.43 \u5206\u949f\u3002city_centre \u4e3a 1837.82 \u5206\u949f\uff0couter \u4e3a 285.38 \u5206\u949f\u3002",
+        "sql": "SELECT zone, SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis GROUP BY zone ORDER BY total_empty_minutes DESC LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, SUM(empty_minutes) AS total_empty_minutes FROM marts.mart_station_kpis GROUP BY zone ORDER BY total_empty_minutes DESC LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.97,
+        "timed_out": false,
+        "prompt_tokens": 4444,
+        "completion_tokens": 203,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 80,
+        "cost_usd": 0.0012801359999999999
+      },
+      {
+        "id": "m10",
+        "difficulty": "medium",
+        "question": "\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\u4ece\u6765\u6ca1\u6709\u7a7a\u8fc7\uff1f",
+        "correct": true,
+        "answer": "\u6709 45 \u4e2a\u7ad9\u70b9\u4ece\u672a\u7a7a\u8fc7\uff08\u5728\u89c2\u6d4b\u671f\u95f4\u6ca1\u6709\u4efb\u4f55\u5f00\u653e\u4e14\u96f6\u8f86\u81ea\u884c\u8f66\u7684\u5206\u949f\u6570\uff09\u3002",
+        "sql": "SELECT COUNT(*) AS never_empty_stations FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS never_empty_stations FROM marts.mart_station_kpis WHERE empty_minutes = 0 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.2,
+        "timed_out": false,
+        "prompt_tokens": 4422,
+        "completion_tokens": 197,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 103,
+        "cost_usd": 0.001227336
+      },
+      {
+        "id": "m11",
+        "difficulty": "medium",
+        "question": "\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\u4ece\u6765\u6ca1\u6709\u6ee1\u8fc7\uff1f",
+        "correct": true,
+        "answer": "\u5171\u6709 80 \u4e2a\u7ad9\u70b9\u4ece\u6765\u6ca1\u6709\u6ee1\u8fc7\uff08\u5373\u89c2\u6d4b\u671f\u95f4\u6ca1\u6709\u4efb\u4f55\u201c\u5f00\u653e\u4e14\u65e0\u7a7a\u4f59\u8f66\u6869\u201d\u7684\u5206\u949f\uff09\u3002",
+        "sql": "SELECT COUNT(*) AS never_full_count FROM marts.mart_station_kpis WHERE full_minutes = 0 AND observed_minutes > 0 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS never_full_count FROM marts.mart_station_kpis WHERE full_minutes = 0 AND observed_minutes > 0 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.86,
+        "timed_out": false,
+        "prompt_tokens": 4469,
+        "completion_tokens": 239,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 138,
+        "cost_usd": 0.001292368
+      },
+      {
+        "id": "m12",
+        "difficulty": "medium",
+        "question": "\u5728\u6240\u6709\u5e26\u5929\u6c14\u6570\u636e\u7684\u7ad9\u70b9\u5feb\u7167\u4e2d\uff0c\u5e73\u5747\u6c14\u6e29\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u5728\u6240\u6709\u5e26\u5929\u6c14\u6570\u636e\u7684\u7ad9\u70b9\u5feb\u7167\u4e2d\uff0c\u5e73\u5747\u6c14\u6e29\u7ea6\u4e3a 9.71 \u6444\u6c0f\u5ea6\uff0c\u5171 6,951 \u6761\u5feb\u7167\u3002",
+        "sql": "SELECT AVG(temperature_c) AS avg_temp_c, COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE temperature_c IS NOT NULL LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT AVG(temperature_c) AS avg_temp_c, COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot WHERE temperature_c IS NOT NULL LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 5.04,
+        "timed_out": false,
+        "prompt_tokens": 4628,
+        "completion_tokens": 383,
+        "cached_prompt_tokens": 4480,
+        "reasoning_tokens": 276,
+        "cost_usd": 0.00190916
+      },
+      {
+        "id": "m13",
+        "difficulty": "medium",
+        "question": "\u6709\u591a\u5c11\u6761\u5feb\u7167\u662f\u5728\u4e0b\u96e8\u3001\u4e0b\u6bdb\u6bdb\u96e8\u3001\u4e0b\u96ea\u6216\u6709\u96f7\u66b4\u65f6\u8bb0\u5f55\u7684\uff1f",
+        "correct": true,
+        "answer": "\u5171\u6709 2105 \u6761\u5feb\u7167\u662f\u5728\u4e0b\u96e8\u3001\u4e0b\u6bdb\u6bdb\u96e8\u3001\u4e0b\u96ea\u6216\u6709\u96f7\u66b4\u65f6\u8bb0\u5f55\u7684\u3002",
+        "sql": "SELECT COUNT(*) AS precip_snapshots FROM marts.fct_station_snapshot WHERE is_precipitation = TRUE LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS precip_snapshots FROM marts.fct_station_snapshot WHERE is_precipitation = TRUE LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.36,
+        "timed_out": false,
+        "prompt_tokens": 4479,
+        "completion_tokens": 222,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 130,
+        "cost_usd": 0.001238248
+      },
+      {
+        "id": "m14",
+        "difficulty": "medium",
+        "question": "\u6bcf\u5929\uff08\u90fd\u67cf\u6797\u65f6\u95f4\uff09\u5404\u8bb0\u5f55\u4e86\u591a\u5c11\u6761\u5feb\u7167\uff1f",
+        "correct": true,
+        "answer": "\u6bcf\u5929\u7684\u5feb\u7167\u8bb0\u5f55\u6570\u5982\u4e0b\uff1a2026-04-11 \u6709 115 \u6761\uff0c2026-04-13 \u6709 593 \u6761\uff0c2026-10-07 \u6709 1305 \u6761\uff0c2026-10-08 \u6709 5453 \u6761\u3002\u5176\u4f59\u65e5\u671f\u6ca1\u6709\u5feb\u7167\u8bb0\u5f55\u3002",
+        "sql": "SELECT CAST(snapshot_at_local AS DATE) AS day, COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot GROUP BY CAST(snapshot_at_local AS DATE) ORDER BY day LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT CAST(snapshot_at_local AS DATE) AS day, COUNT(*) AS snapshot_count FROM marts.fct_station_snapshot GROUP BY CAST(snapshot_at_local AS DATE) ORDER BY day LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 4
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.26,
+        "timed_out": false,
+        "prompt_tokens": 4508,
+        "completion_tokens": 290,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 140,
+        "cost_usd": 0.001709136
+      },
+      {
+        "id": "m15",
+        "difficulty": "medium",
+        "question": "\u603b\u4f53\u6765\u770b\uff0c\u7ad9\u70b9\u7a7a\u7ad9\u7684\u65f6\u95f4\u5360\u89c2\u6d4b\u65f6\u95f4\u7684\u6bd4\u4f8b\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u603b\u4f53\u4e0a\uff0c\u5404\u7ad9\u70b9\u7a7a\u7ad9\u65f6\u95f4\u5408\u8ba1\u7ea6 10,397.63 \u5206\u949f\uff0c\u89c2\u6d4b\u65f6\u95f4\u5408\u8ba1\u7ea6 74,587.77 \u5206\u949f\uff0c\u7a7a\u7ad9\u65f6\u95f4\u5360\u89c2\u6d4b\u65f6\u95f4\u7684\u6bd4\u4f8b\u7ea6\u4e3a 13.94%\u3002",
+        "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes, SUM(observed_minutes) AS total_observed_minutes, SUM(empty_minutes) / NULLIF(SUM(observed_minutes), 0) AS overall_empty_share FROM marts.mart_station_kpis LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(empty_minutes) AS total_empty_minutes, SUM(observed_minutes) AS total_observed_minutes, SUM(empty_minutes) / NULLIF(SUM(observed_minutes), 0) AS overall_empty_share FROM marts.mart_station_kpis LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.19,
+        "timed_out": false,
+        "prompt_tokens": 4484,
+        "completion_tokens": 251,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 103,
+        "cost_usd": 0.001523016
+      },
+      {
+        "id": "m16",
+        "difficulty": "medium",
+        "question": "\u54ea\u4e9b\u7ad9\u70b9\u4f7f\u7528\u7684\u662f\u4f30\u7b97\u5bb9\u91cf\uff0c\u800c\u4e0d\u662f JCDecaux \u4e0a\u62a5\u7684\u5bb9\u91cf\uff1f",
+        "correct": true,
+        "answer": "\u6709\u4e24\u4e2a\u7ad9\u70b9\u4f7f\u7528\u7684\u662f\u4f30\u7b97\u5bb9\u91cf\u800c\u975e JCDecaux \u4e0a\u62a5\u5bb9\u91cf\uff1aHEUSTON BRIDGE (NORTH)\uff08\u4f30\u7b97\u5bb9\u91cf 40\uff09\u548c PARNELL SQUARE NORTH\uff08\u4f30\u7b97\u5bb9\u91cf 20\uff09\u3002",
+        "sql": "SELECT station_id, station_name, capacity, capacity_source FROM marts.dim_station WHERE capacity_source = 'max_observed' ORDER BY station_name LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_id, station_name, capacity, capacity_source FROM marts.dim_station WHERE capacity_source = 'max_observed' ORDER BY station_name LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.2,
+        "timed_out": false,
+        "prompt_tokens": 4448,
+        "completion_tokens": 189,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 70,
+        "cost_usd": 0.0012299759999999998
+      },
+      {
+        "id": "m17",
+        "difficulty": "medium",
+        "question": "SMITHFIELD NORTH \u7ad9\u6709\u8fc7\u7684\u6700\u591a\u8f66\u8f86\u6570\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "SMITHFIELD NORTH \u7ad9\u6709\u8fc7\u7684\u6700\u591a\u8f66\u8f86\u6570\u662f 30 \u8f86\u3002",
+        "sql": "SELECT s.station_id, s.station_name, MAX(h.max_available_bikes) AS max_bikes FROM marts.dim_station AS s JOIN marts.agg_station_hourly AS h ON h.station_id = s.station_id WHERE UPPER(s.station_name) = 'SMITHFIELD NORTH' GROUP BY s.station_id, s.station_name LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.station_id, s.station_name, MAX(h.max_available_bikes) AS max_bikes FROM marts.dim_station AS s JOIN marts.agg_station_hourly AS h ON h.station_id = s.station_id WHERE UPPER(s.station_name) = 'SMITHFIELD NORTH' GROUP BY s.station_id, s.station_name LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.09,
+        "timed_out": false,
+        "prompt_tokens": 4568,
+        "completion_tokens": 300,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 156,
+        "cost_usd": 0.001664608
+      },
+      {
+        "id": "m18",
+        "difficulty": "medium",
+        "question": "\u5728\u6570\u636e\u7684\u6700\u540e\u4e00\u4e2a\u5c0f\u65f6\u91cc\uff0c\u6709\u591a\u5c11\u4e2a\u4e0d\u540c\u7684\u7ad9\u70b9\u4e0a\u62a5\u8fc7\u5feb\u7167\uff1f",
+        "correct": false,
+        "answer": "\u5728\u6570\u636e\u6700\u540e\u4e00\u4e2a\u5c0f\u65f6\uff082026-10-08 14:00 \u81f3 14:59\uff09\u5185\uff0c\u5171\u6709 109 \u4e2a\u4e0d\u540c\u7684\u7ad9\u70b9\u4e0a\u62a5\u8fc7\u5feb\u7167\u3002",
+        "sql": "SELECT hour_key, COUNT(DISTINCT station_id) AS distinct_stations FROM marts.fct_station_snapshot WHERE hour_key = (SELECT MAX(hour_key) FROM marts.fct_station_snapshot) GROUP BY hour_key LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT hour_key, COUNT(DISTINCT station_id) AS distinct_stations FROM marts.fct_station_snapshot WHERE hour_key = (SELECT MAX(hour_key) FROM marts.fct_station_snapshot) GROUP BY hour_key LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.27,
+        "timed_out": false,
+        "prompt_tokens": 4449,
+        "completion_tokens": 207,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 74,
+        "cost_usd": 0.001302576
+      },
+      {
+        "id": "m19",
+        "difficulty": "medium",
+        "question": "\u4e00\u5929\u4e2d\u54ea\u4e2a\u5c0f\u65f6\uff08\u672c\u5730\u65f6\u95f4\uff09\u6240\u6709\u7ad9\u70b9\u7684\u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\uff1f",
+        "correct": true,
+        "answer": "\u672c\u5730\u65f6\u95f4 0 \u70b9\uff08\u5348\u591c\u81f3\u51cc\u6668 1 \u70b9\uff09\u6240\u6709\u7ad9\u70b9\u7684\u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\uff0c\u603b\u8ba1\u7ea6 1634.47 \u5206\u949f\u3002",
+        "sql": "SELECT hour_of_day, SUM(empty_minutes) AS total_empty_minutes FROM marts.agg_station_hourly GROUP BY hour_of_day ORDER BY total_empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT hour_of_day, SUM(empty_minutes) AS total_empty_minutes FROM marts.agg_station_hourly GROUP BY hour_of_day ORDER BY total_empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.51,
+        "timed_out": false,
+        "prompt_tokens": 4437,
+        "completion_tokens": 201,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 76,
+        "cost_usd": 0.001262976
+      },
+      {
+        "id": "m20",
+        "difficulty": "medium",
+        "question": "\u6bcf\u4e2a\u533a\u57df\u7684\u7a7a\u7ad9\u603b\u5206\u949f\u6570\u548c\u603b\u89c2\u6d4b\u5206\u949f\u6570\u5206\u522b\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u5404\u533a\u57df\u7684\u7a7a\u7ad9\u603b\u5206\u949f\u6570\u548c\u603b\u89c2\u6d4b\u5206\u949f\u6570\u5982\u4e0b\uff1acity_centre \u533a\u57df\u7a7a\u7ad9 1837.82 \u5206\u949f\u3001\u89c2\u6d4b 21779.48 \u5206\u949f\uff1binner \u533a\u57df\u7a7a\u7ad9 8274.43 \u5206\u949f\u3001\u89c2\u6d4b 46866.96 \u5206\u949f\uff1bouter \u533a\u57df\u7a7a\u7ad9 285.38 \u5206\u949f\u3001\u89c2\u6d4b 5941.33 \u5206\u949f\u3002",
+        "sql": "SELECT zone, SUM(empty_minutes) AS total_empty_minutes, SUM(observed_minutes) AS total_observed_minutes FROM marts.mart_station_kpis GROUP BY zone ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, SUM(empty_minutes) AS total_empty_minutes, SUM(observed_minutes) AS total_observed_minutes FROM marts.mart_station_kpis GROUP BY zone ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.02,
+        "timed_out": false,
+        "prompt_tokens": 4499,
+        "completion_tokens": 298,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 131,
+        "cost_usd": 0.001728936
+      },
+      {
+        "id": "h01",
+        "difficulty": "hard",
+        "question": "\u5728\u5e02\u4e2d\u5fc3\u7684\u7ad9\u70b9\u91cc\uff0c\u54ea\u4e2a\u7ad9\u70b9\u9ad8\u5cf0\u65f6\u6bb5\u7f3a\u8f66\u7387\u6700\u9ad8\uff1f",
+        "correct": true,
+        "answer": "\u5728\u5e02\u4e2d\u5fc3\u7684\u7ad9\u70b9\u91cc\uff0cGOLDEN LANE \u7684\u9ad8\u5cf0\u65f6\u6bb5\u7f3a\u8f66\u7387\u6700\u9ad8\uff0c\u4e3a 0.7065\uff08\u7ea6 70.7%\uff09\u3002",
+        "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'city_centre' ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, peak_shortage_rate FROM marts.mart_station_kpis WHERE zone = 'city_centre' ORDER BY peak_shortage_rate DESC NULLS LAST LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.22,
+        "timed_out": false,
+        "prompt_tokens": 4453,
+        "completion_tokens": 217,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 98,
+        "cost_usd": 0.001347456
+      },
+      {
+        "id": "h02",
+        "difficulty": "hard",
+        "question": "\u5728\u9ad8\u5cf0\u65f6\u6bb5\uff0c\u54ea\u4e2a\u7ad9\u70b9\u7a7a\u7ad9\u7684\u5206\u949f\u6570\u6700\u591a\uff1f",
+        "correct": true,
+        "answer": "\u5728\u9ad8\u5cf0\u65f6\u6bb5\uff0c\u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u7ad9\u70b9\u662f PHIBSBOROUGH ROAD\uff0c\u7a7a\u7ad9\u5206\u949f\u6570\u5408\u8ba1\u4e3a 70.38 \u5206\u949f\u3002",
+        "sql": "SELECT s.station_name, SUM(a.empty_minutes) AS peak_empty_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE a.is_peak_hour = TRUE GROUP BY s.station_name ORDER BY peak_empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.station_name, SUM(a.empty_minutes) AS peak_empty_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE a.is_peak_hour = TRUE GROUP BY s.station_name ORDER BY peak_empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.79,
+        "timed_out": false,
+        "prompt_tokens": 4507,
+        "completion_tokens": 272,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 114,
+        "cost_usd": 0.001473208
+      },
+      {
+        "id": "h03",
+        "difficulty": "hard",
+        "question": "\u9ad8\u5cf0\u65f6\u6bb5\u6240\u6709\u7ad9\u70b9\u7a7a\u7ad9\u7684\u603b\u5206\u949f\u6570\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u9ad8\u5cf0\u65f6\u6bb5\u6240\u6709\u7ad9\u70b9\u7a7a\u7ad9\u7684\u603b\u5206\u949f\u6570\u4e3a 1189.13 \u5206\u949f\u3002",
+        "sql": "SELECT SUM(empty_minutes) AS total_peak_empty_minutes FROM marts.agg_station_hourly WHERE is_peak_hour = TRUE LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(empty_minutes) AS total_peak_empty_minutes FROM marts.agg_station_hourly WHERE is_peak_hour = TRUE LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.7,
+        "timed_out": false,
+        "prompt_tokens": 4438,
+        "completion_tokens": 195,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 101,
+        "cost_usd": 0.001240536
+      },
+      {
+        "id": "h04",
+        "difficulty": "hard",
+        "question": "\u6bd4\u8f83\u6709\u964d\u6c34\u7684\u5c0f\u65f6\u548c\u65e0\u964d\u6c34\u7684\u5c0f\u65f6\u91cc\uff0c\u5e73\u5747\u53ef\u7528\u8f66\u8f86\u6570\u5404\u662f\u591a\u5c11\u3002",
+        "correct": false,
+        "answer": "\u5728\u6309\u89c2\u6d4b\u5206\u949f\u52a0\u6743\u8ba1\u7b97\u4e0b\uff0c\u6709\u964d\u6c34\u7684\u5c0f\u65f6\u5e73\u5747\u53ef\u7528\u8f66\u8f86\u7ea6\u4e3a 11.61 \u8f86\uff0c\u65e0\u964d\u6c34\u7684\u5c0f\u65f6\u7ea6\u4e3a 11.83 \u8f86\uff1b\u53e6\u6709\u7ea6 7540 \u5206\u949f\u65e0\u5929\u6c14\u6570\u636e\uff0c\u5e73\u5747\u7ea6\u4e3a 11.97 \u8f86\u3002",
+        "sql": "SELECT had_precipitation, SUM(avg_available_bikes * observed_minutes) / SUM(observed_minutes) AS avg_bikes_weighted, SUM(observed_minutes) AS total_observed_minutes FROM marts.agg_station_hourly GROUP BY had_precipitation ORDER BY had_precipitation LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT had_precipitation, SUM(avg_available_bikes * observed_minutes) / SUM(observed_minutes) AS avg_bikes_weighted, SUM(observed_minutes) AS total_observed_minutes FROM marts.agg_station_hourly GROUP BY had_precipitation ORDER BY had_precipitation LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 5.26,
+        "timed_out": false,
+        "prompt_tokens": 4720,
+        "completion_tokens": 464,
+        "cached_prompt_tokens": 4480,
+        "reasoning_tokens": 296,
+        "cost_usd": 0.0023513600000000003
+      },
+      {
+        "id": "h05",
+        "difficulty": "hard",
+        "question": "\u54ea\u4e9b\u7ad9\u70b9\u7a7a\u7ad9\u7684\u65f6\u95f4\u8d85\u8fc7\u4e86\u5176\u89c2\u6d4b\u65f6\u95f4\u7684\u56db\u5206\u4e4b\u4e00\uff1f",
+        "correct": true,
+        "answer": "\u6709 28 \u4e2a\u7ad9\u70b9\u7684\u7a7a\u7ad9\u65f6\u95f4\u8d85\u8fc7\u4e86\u5176\u89c2\u6d4b\u65f6\u95f4\u7684\u56db\u5206\u4e4b\u4e00\u3002\u7a7a\u7ad9\u6bd4\u4f8b\u6700\u9ad8\u7684\u662f GRANGEGORMAN LOWER (CENTRAL)\uff08\u7ea6 61.9%\uff09\uff0c\u5176\u540e\u4f9d\u6b21\u662f JAMES STREET EAST\u3001GOLDEN LANE\u3001HERBERT STREET \u548c MOLESWORTH STREET\uff0c\u7a7a\u7ad9\u6bd4\u4f8b\u90fd\u5728\u7ea6 49.6% \u5230 52.6% \u4e4b\u95f4\uff1b\u5176\u4f59\u7ad9\u70b9\u5982 HEUSTON STATION (CENTRAL)\u3001WILTON TERRACE (PARK)\u3001ECCLES STREET EAST \u7b49\u4e5f\u5747\u8d85\u8fc7\u56db\u5206\u4e4b\u4e00\u3002",
+        "sql": "SELECT station_name, empty_minutes, observed_minutes, empty_share FROM marts.mart_station_kpis WHERE empty_share > 0.25 ORDER BY empty_share DESC LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, empty_minutes, observed_minutes, empty_share FROM marts.mart_station_kpis WHERE empty_share > 0.25 ORDER BY empty_share DESC LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 28
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.83,
+        "timed_out": false,
+        "prompt_tokens": 5145,
+        "completion_tokens": 326,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 109,
+        "cost_usd": 0.002692536
+      },
+      {
+        "id": "h06",
+        "difficulty": "hard",
+        "question": "2026-10-08 \u8fd9\u4e00\u5929\uff0c\u54ea\u4e2a\u7ad9\u70b9\u7a7a\u7ad9\u7684\u5206\u949f\u6570\u6700\u591a\uff1f",
+        "correct": true,
+        "answer": "2026-10-08 \u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u7ad9\u70b9\u662f GRANGEGORMAN LOWER (CENTRAL)\uff0c\u5f53\u5929\u7d2f\u8ba1\u7a7a\u7ad9 306.81 \u5206\u949f\u3002",
+        "sql": "SELECT s.station_id, s.station_name, SUM(a.empty_minutes) AS total_empty_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE a.date_day = '2026-10-08' GROUP BY s.station_id, s.station_name ORDER BY total_empty_minutes DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT s.station_id, s.station_name, SUM(a.empty_minutes) AS total_empty_minutes FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE a.date_day = '2026-10-08' GROUP BY s.station_id, s.station_name ORDER BY total_empty_minutes DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.5,
+        "timed_out": false,
+        "prompt_tokens": 4522,
+        "completion_tokens": 244,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 71,
+        "cost_usd": 0.0013821280000000003
+      },
+      {
+        "id": "h07",
+        "difficulty": "hard",
+        "question": "\u6bcf\u4e2a\u533a\u57df\u91cc\uff0c\u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u7ad9\u70b9\u5206\u522b\u662f\u54ea\u4e2a\uff1f",
+        "correct": true,
+        "answer": "city_centre \u533a\u57df\u7a7a\u7ad9\u5206\u949f\u6570\u6700\u591a\u7684\u662f GOLDEN LANE\uff08347.95 \u5206\u949f\uff09\uff1binner \u533a\u57df\u662f GRANGEGORMAN LOWER (CENTRAL)\uff08406.97 \u5206\u949f\uff09\uff1bouter \u533a\u57df\u662f HEUSTON STATION (CENTRAL)\uff08285.38 \u5206\u949f\uff09\u3002",
+        "sql": "SELECT zone, station_name, empty_minutes FROM (SELECT zone, station_name, empty_minutes, ROW_NUMBER() OVER (PARTITION BY zone ORDER BY empty_minutes DESC) AS rn FROM marts.mart_station_kpis) AS t WHERE rn = 1 ORDER BY zone LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT zone, station_name, empty_minutes FROM (SELECT zone, station_name, empty_minutes, ROW_NUMBER() OVER (PARTITION BY zone ORDER BY empty_minutes DESC) AS rn FROM marts.mart_station_kpis) AS t WHERE rn = 1 ORDER BY zone LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 3
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 4.33,
+        "timed_out": false,
+        "prompt_tokens": 4680,
+        "completion_tokens": 417,
+        "cached_prompt_tokens": 4480,
+        "reasoning_tokens": 237,
+        "cost_usd": 0.00211244
+      },
+      {
+        "id": "h08",
+        "difficulty": "hard",
+        "question": "\u6709\u591a\u5c11\u4e2a\u7ad9\u70b9\u65e2\u7a7a\u8fc7\u4e5f\u6ee1\u8fc7\uff1f",
+        "correct": true,
+        "answer": "\u6709 18 \u4e2a\u7ad9\u70b9\u65e2\u7a7a\u8fc7\uff08\u5f00\u653e\u65f6 0 \u8f86\u81ea\u884c\u8f66\uff09\u4e5f\u6ee1\u8fc7\uff08\u5f00\u653e\u65f6 0 \u4e2a\u7a7a\u8f66\u4f4d\uff09\u3002",
+        "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE empty_minutes > 0 AND full_minutes > 0 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_count FROM marts.mart_station_kpis WHERE empty_minutes > 0 AND full_minutes > 0 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.0,
+        "timed_out": false,
+        "prompt_tokens": 4394,
+        "completion_tokens": 166,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 59,
+        "cost_usd": 0.001067616
+      },
+      {
+        "id": "h09",
+        "difficulty": "hard",
+        "question": "\u548c\u4e0d\u4e0b\u96e8\u7684\u65f6\u5019\u76f8\u6bd4\uff0c\u4e0b\u96e8\u65f6\u5e73\u5747\u8f66\u8f86\u6570\u589e\u52a0\u6700\u591a\u7684\u662f\u54ea\u4e2a\u7ad9\u70b9\uff1f",
+        "correct": true,
+        "answer": "\u4e0b\u96e8\u65f6\u5e73\u5747\u53ef\u7528\u8f66\u8f86\u6570\u6bd4\u4e0d\u4e0b\u96e8\u65f6\u589e\u52a0\u6700\u591a\u7684\u662f HANOVER QUAY EAST\uff0c\u589e\u52a0\u4e86\u7ea6 26.33 \u8f86\u3002",
+        "sql": "SELECT station_name, rain_bike_delta FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 1",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT station_name, rain_bike_delta FROM marts.mart_station_kpis WHERE rain_bike_delta IS NOT NULL ORDER BY rain_bike_delta DESC LIMIT 1",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.41,
+        "timed_out": false,
+        "prompt_tokens": 4473,
+        "completion_tokens": 221,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 104,
+        "cost_usd": 0.001389696
+      },
+      {
+        "id": "h10",
+        "difficulty": "hard",
+        "question": "\u5bf9\u4e8e\u5e02\u4e2d\u5fc3\u7684\u7ad9\u70b9\uff0c\u9ad8\u5cf0\u65f6\u6bb5\u548c\u975e\u9ad8\u5cf0\u65f6\u6bb5\u7684\u5e73\u5747\u53ef\u7528\u8f66\u8f86\u6570\u5206\u522b\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u5bf9\u4e8e\u5e02\u4e2d\u5fc3\u7ad9\u70b9\uff0c\u9ad8\u5cf0\u65f6\u6bb5\u7684\u5e73\u5747\u53ef\u7528\u8f66\u8f86\u6570\u7ea6\u4e3a 13.40 \u8f86\uff08\u6309\u89c2\u6d4b\u65f6\u957f\u52a0\u6743\uff09\uff0c\u975e\u9ad8\u5cf0\u65f6\u6bb5\u7ea6\u4e3a 12.01 \u8f86\u3002",
+        "sql": "SELECT a.is_peak_hour, SUM(a.avg_available_bikes * a.observed_minutes) / NULLIF(SUM(a.observed_minutes), 0) AS weighted_avg_bikes, AVG(a.avg_available_bikes) AS simple_avg_bikes, COUNT(*) AS station_hours FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE s.zone = 'city_centre' GROUP BY a.is_peak_hour ORDER BY a.is_peak_hour LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT a.is_peak_hour, SUM(a.avg_available_bikes * a.observed_minutes) / NULLIF(SUM(a.observed_minutes), 0) AS weighted_avg_bikes, AVG(a.avg_available_bikes) AS simple_avg_bikes, COUNT(*) AS station_hours FROM marts.agg_station_hourly AS a JOIN marts.dim_station AS s ON s.station_id = a.station_id WHERE s.zone = 'city_centre' GROUP BY a.is_peak_hour ORDER BY a.is_peak_hour LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 5.48,
+        "timed_out": false,
+        "prompt_tokens": 4802,
+        "completion_tokens": 508,
+        "cached_prompt_tokens": 4608,
+        "reasoning_tokens": 298,
+        "cost_usd": 0.0024705120000000002
+      },
+      {
+        "id": "h11",
+        "difficulty": "hard",
+        "question": "\u6709\u591a\u5c11\u4e2a\"\u7ad9\u70b9\u00b7\u5c0f\u65f6\"\u91cc\uff0c\u7ad9\u70b9\u7a7a\u7ad9\u8d85\u8fc7\u4e86 30 \u5206\u949f\uff1f",
+        "correct": true,
+        "answer": "\u5171\u6709 161 \u4e2a\"\u7ad9\u70b9\u00b7\u5c0f\u65f6\"\u91cc\u7ad9\u70b9\u7a7a\u7ad9\u8d85\u8fc7\u4e86 30 \u5206\u949f\u3002",
+        "sql": "SELECT COUNT(*) AS station_hours_empty_over_30 FROM marts.agg_station_hourly WHERE empty_minutes > 30 LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(*) AS station_hours_empty_over_30 FROM marts.agg_station_hourly WHERE empty_minutes > 30 LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.59,
+        "timed_out": false,
+        "prompt_tokens": 4482,
+        "completion_tokens": 221,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 128,
+        "cost_usd": 0.001238248
+      },
+      {
+        "id": "h12",
+        "difficulty": "hard",
+        "question": "2026-10-07\uff08\u90fd\u67cf\u6797\u65f6\u95f4\uff09\u8fd9\u4e00\u5929\uff0c\u6709\u591a\u5c11\u4e2a\u4e0d\u540c\u7684\u7ad9\u70b9\u81f3\u5c11\u4e0a\u62a5\u8fc7\u4e00\u6761\u5feb\u7167\uff1f",
+        "correct": true,
+        "answer": "2026\u5e7410\u67087\u65e5\u90fd\u67cf\u6797\u65f6\u95f4\u5171\u6709113\u4e2a\u4e0d\u540c\u7ad9\u70b9\u81f3\u5c11\u4e0a\u62a5\u8fc7\u4e00\u6761\u5feb\u7167\u3002",
+        "sql": "SELECT COUNT(DISTINCT station_id) AS distinct_stations FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = CAST('2026-10-07' AS DATE) LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT COUNT(DISTINCT station_id) AS distinct_stations FROM marts.fct_station_snapshot WHERE CAST(snapshot_at_local AS DATE) = CAST('2026-10-07' AS DATE) LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.89,
+        "timed_out": false,
+        "prompt_tokens": 4500,
+        "completion_tokens": 234,
+        "cached_prompt_tokens": 4352,
+        "reasoning_tokens": 127,
+        "cost_usd": 0.001313488
+      },
+      {
+        "id": "h13",
+        "difficulty": "hard",
+        "question": "\u9ad8\u5cf0\u65f6\u6bb5\u548c\u975e\u9ad8\u5cf0\u65f6\u6bb5\u7684\u5e73\u5747\u6c14\u6e29\u5206\u522b\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u9ad8\u5cf0\u65f6\u6bb5\u7684\u5e73\u5747\u6c14\u6e29\u7ea6\u4e3a 8.71\u00b0C\uff0c\u975e\u9ad8\u5cf0\u65f6\u6bb5\u7ea6\u4e3a 9.55\u00b0C\u3002",
+        "sql": "SELECT dt.is_peak_hour, AVG(ah.avg_temperature_c) AS avg_temp_c, COUNT(*) AS station_hours FROM marts.agg_station_hourly AS ah JOIN marts.dim_time AS dt ON ah.hour_key = dt.hour_key WHERE ah.avg_temperature_c IS NOT NULL GROUP BY dt.is_peak_hour LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT dt.is_peak_hour, AVG(ah.avg_temperature_c) AS avg_temp_c, COUNT(*) AS station_hours FROM marts.agg_station_hourly AS ah JOIN marts.dim_time AS dt ON ah.hour_key = dt.hour_key WHERE ah.avg_temperature_c IS NOT NULL GROUP BY dt.is_peak_hour LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 2
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 5.6,
+        "timed_out": false,
+        "prompt_tokens": 4801,
+        "completion_tokens": 548,
+        "cached_prompt_tokens": 4608,
+        "reasoning_tokens": 399,
+        "cost_usd": 0.002627592
+      },
+      {
+        "id": "h14",
+        "difficulty": "hard",
+        "question": "\u5916\u5708\u533a\u57df\u7684\u7ad9\u70b9\u6ee1\u7ad9\u7684\u603b\u5206\u949f\u6570\u662f\u591a\u5c11\uff1f",
+        "correct": true,
+        "answer": "\u5916\u5708\u533a\u57df\u7ad9\u70b9\u6ee1\u7ad9\u7684\u603b\u5206\u949f\u6570\u662f165.26\u5206\u949f\u3002",
+        "sql": "SELECT SUM(full_minutes) AS total_full_minutes FROM marts.mart_station_kpis WHERE zone = 'outer' LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(full_minutes) AS total_full_minutes FROM marts.mart_station_kpis WHERE zone = 'outer' LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 2.52,
+        "timed_out": false,
+        "prompt_tokens": 4413,
+        "completion_tokens": 148,
+        "cached_prompt_tokens": 2432,
+        "reasoning_tokens": 62,
+        "cost_usd": 0.003308008
+      },
+      {
+        "id": "h15",
+        "difficulty": "hard",
+        "question": "\u5185\u5708\u533a\u57df\u7684\u8f66\u6869\u5360\u5168\u90e8\u8f66\u6869\u7684\u767e\u5206\u4e4b\u591a\u5c11\uff1f",
+        "correct": false,
+        "answer": "\u5185\u5708\u533a\u57df\u7684\u8f66\u6869\u6709 2460 \u4e2a\uff0c\u5360\u5168\u90e8 3677 \u4e2a\u8f66\u6869\u7684\u7ea6 66.9%\u3002",
+        "sql": "SELECT SUM(capacity) AS total_capacity, SUM(capacity) FILTER(WHERE zone = 'inner') AS inner_capacity FROM marts.dim_station LIMIT 200",
+        "error": null,
+        "attempts": [
+          {
+            "sql": "SELECT SUM(capacity) AS total_capacity, SUM(capacity) FILTER(WHERE zone = 'inner') AS inner_capacity FROM marts.dim_station LIMIT 200",
+            "ok": true,
+            "error": null,
+            "row_count": 1
+          }
+        ],
+        "failed_attempts": 0,
+        "latency_s": 3.2,
+        "timed_out": false,
+        "prompt_tokens": 4410,
+        "completion_tokens": 169,
+        "cached_prompt_tokens": 4224,
+        "reasoning_tokens": 60,
+        "cost_usd": 0.001100616
+      }
+    ]
+  },
+  "adversarial": null,
+  "changed_tables": []
+}

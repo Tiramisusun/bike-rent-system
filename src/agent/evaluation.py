@@ -81,3 +81,15 @@ def results_match(gold_rows: list[list], pred_rows: list[list], order_matters: b
         row_key = lambda row: tuple(_sort_key(v) for v in row)
         gold, projected = sorted(gold, key=row_key), sorted(projected, key=row_key)
     return all(_eq(a, b) for g, p in zip(gold, projected) for a, b in zip(g, p))
+
+
+def cost_usd(prompt_tokens: int, cached_prompt_tokens: int, completion_tokens: int, price: dict) -> float:
+    """List-price cost of one question in USD; `price` is per 1M tokens (evals/models.yaml).
+
+    completion_tokens already includes reasoning tokens. When a provider publishes no
+    cache-hit price, cached tokens are charged at the full input price (an upper bound).
+    """
+    cached_rate = price["input"] if price.get("cached_input") is None else price["cached_input"]
+    uncached = prompt_tokens - cached_prompt_tokens
+    return (uncached * price["input"] + cached_prompt_tokens * cached_rate
+            + completion_tokens * price["output"]) / 1_000_000
