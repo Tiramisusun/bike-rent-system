@@ -3,6 +3,11 @@
 ```bash
 python -m evals.run_eval                    # 50 questions x 2 conditions + 15 adversarial prompts
 python -m evals.run_eval --conditions docs --ids e01,m03 --no-adversarial
+
+# Model comparison: models in models.yaml (base URL, key variable, list prices)
+python -m evals.run_eval --model gpt-luna --conditions docs --repeat 3 [--lang de|zh]
+python -m evals.run_followups --model gpt-luna
+python -m evals.compare_models            # -> MODELS.md
 ```
 
 Writes `RESULTS.md` (summary, overwritten each run) and `results/<timestamp>.json` (every question:
@@ -46,3 +51,27 @@ accuracy. A fair improvement needs a fresh, held-out question set.
 
 No query in this run failed, so the error-feedback retry loop was not exercised by the benchmark;
 it is covered by unit tests (`tests/test_agent.py`) and by the scorer check above.
+
+## Model comparison (2026-10-27)
+
+Full results in [MODELS.md](MODELS.md); every run's JSON is in `results/compare/`.
+
+- **Models**: two per provider — Xiaomi `mimo-v2.6-pro` / `mimo-v2.6-flash`, DeepSeek `deepseek-v4-pro` /
+  `deepseek-flash`, OpenAI `gpt-6.1-terra` / `gpt-6-luna`. Same agent, prompt, tools, guardrails and frozen
+  data (the local Airflow scheduler was paused so the gold answers could not move between models).
+- **Runs**: 3 per model, because one run of 50 questions moves by 2–6 points on its own; reported as mean
+  and range, plus which questions each model solves in most runs. The adversarial set ran once per model.
+- **Cost**: tokens per question from the API's usage field — including cache hits and reasoning tokens —
+  times the list prices in `models.yaml` (sources and date recorded there). Also reported per correct answer.
+- **Languages**: all 50 questions in German and Chinese (`benchmark_i18n.yaml`, same gold SQL) for each of the three
+  providers' most accurate models in English. Chinese reviewed by a native speaker; German not.
+- **Excluded runs**: four runs hit a provider rate limit (HTTP 429) or the laptop sleeping; they were re-run and
+  the originals kept in `results/compare/excluded/` with the reason.
+
+Result: `gpt-6-luna` — the cheapest model — was the most accurate (96.0% English, 97.3% German, 95.3%
+Chinese) at $0.09 per 1,000 questions, against 80.0% and $1.77 for `mimo-v2.6-pro`, which the site used
+before; it also answered 12/12 multi-turn follow-ups (`mimo-v2.6-pro`: 11/12). No model changed any table.
+
+Caveats: the OpenAI models ran with reasoning off (their chat-completions endpoint rejects tools while
+reasoning is on); prompt-cache hit rates are higher than in real traffic because questions ran back to back;
+the scorer compares values, so equivalent answers with different labels (e.g. 'peak' vs `true`) count as wrong.

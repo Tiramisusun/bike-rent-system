@@ -4,9 +4,10 @@
 
 Real-time availability, route planning and rentals for Dublin's 115 bike-share stations, backed by a data
 platform that ingests the JCDecaux and OpenWeather APIs every 5 minutes, models the data in a dbt star
-schema, and alerts when data goes stale or breaks a business rule.
+schema, and alerts when data goes stale or breaks a business rule. An LLM assistant answers questions about
+the data in plain English with read-only SQL.
 
-*Python · Airflow · dbt · PostgreSQL · MySQL · Flask · React · Docker · GitHub Actions*
+*Python · Airflow · dbt · PostgreSQL · MySQL · Flask · React · Docker · GitHub Actions · OpenAI-compatible LLM APIs*
 
 ## Highlights
 
@@ -26,6 +27,11 @@ Numbers are measured, not estimated — see the linked docs and commit messages 
 - **Data quality with alerts.** 48 dbt data tests incl. capacity reconciliation, a 15-minute ingestion freshness
   SLA and e-mail alerts that name the failed check. Already caught a station with 20 of 40 docks unusable, and an
   8-hour collection gap.
+- **Text-to-SQL assistant, compared across six models.** "Ask the data" turns questions into read-only SQL on the
+  marts, with follow-up questions. Six models from three providers were benchmarked on 50 questions (execution
+  accuracy, 3 runs each): the cheapest scored highest — `gpt-6-luna` 96.0% vs 80.0% for the model it replaced,
+  at $0.09 vs $1.77 per 1,000 questions (list prices) — with no drop in German (97.3%) or Chinese (95.3%).
+  None of the 15 adversarial prompts changed any table, for any model.
 - **CI** on every push: unit tests, Airflow DAG integrity, a full migrate → sync → `dbt build` run against fresh
   databases, and the frontend build.
 
@@ -69,6 +75,7 @@ flowchart LR
 | **Warehouse** (`warehouse/`, `src/warehouse/`) | Sync MySQL → Postgres, dbt star schema and metrics | [warehouse/README.md](warehouse/README.md) |
 | **Monitoring** (`src/monitoring/`) | Freshness checks and e-mail alerts | [pipelines/README.md](pipelines/README.md#data-quality-and-alerts) |
 | **Web app** (`app.py`, `src/routes/`, `frontend/`) | Map, route planning, prediction, rentals | below |
+| **Assistant** (`src/agent/`, `evals/`) | Text-to-SQL agent on the marts, its benchmark and the model comparison | [below](#text-to-sql-assistant) |
 
 ## Web app features
 
@@ -79,6 +86,39 @@ flowchart LR
 4. **Rentals & billing** — JWT-authenticated rent/return, history and cost; first 30 minutes free, then €0.50 per
    started 30 minutes.
 5. **5-day forecast** and a **How To** page for new users.
+6. **Ask the data** — chat with the warehouse in plain English; every answer shows the SQL that produced it.
+
+## Text-to-SQL assistant
+
+A tool-calling loop (no agent framework): the model writes one `SELECT`, it is checked (sqlglot AST guardrails:
+marts schema only, no writes, row cap) and run as a read-only role with a 5 s statement timeout; errors go back to
+the model to fix, up to 4 queries. Schema and metric definitions come from the dbt docs. Follow-up questions
+("and at peak hours?") carry the earlier turns; an answer that quotes numbers without a query in its own turn is
+sent back once. Each question has a 60 s budget across all model calls.
+
+**Model comparison** — same agent, prompt, tools and data; only the model changes
+([full report](evals/MODELS.md), method in [evals/README.md](evals/README.md)):
+
+| Model | Accuracy (3 runs, range) | German / Chinese | Median latency | Cost per 1,000 questions |
+|---|---|---|---|---|
+| `gpt-6-luna` (deployed) | **96.0%** (94–98) | 97.3% / 95.3% | 2.9 s | **$0.09** |
+| `deepseek-v4-pro` | 91.3% (90–92) | 89.3% / 89.3% | 3.9 s | $1.51 |
+| `gpt-6.1-terra` | 89.3% (88–92) | – | 3.2 s | $0.81 |
+| `mimo-v2.6-pro` (previously deployed) | 80.0% (76–82) | 75.3% / 78.0% | 7.4 s | $1.77 |
+| `mimo-v2.6-flash` | 78.0% (76–82) | – | 3.0 s | $0.58 |
+| `deepseek-flash` | 68.7% (66–70) | – | 2.5 s | $0.44 |
+
+- Price did not predict accuracy: the cheapest model was the most accurate, and reasoning models did not beat it.
+- Runs differ by 2–6 points, so models within that range (e.g. 91.3% vs 89.3%) are not distinguishable here.
+- Follow-ups: `gpt-6-luna` answered 12/12 with the conversation history (25% when asked alone), median 3.0 s;
+  `mimo-v2.6-pro` 11/12, median 17.5 s.
+- Costs are list prices from the providers' pricing pages, not billed amounts. The OpenAI models run without
+  reasoning (their chat-completions endpoint rejects tools while reasoning is on).
+
+```bash
+python -m evals.run_eval --model gpt-luna --conditions docs --repeat 3   # models in evals/models.yaml
+python -m evals.compare_models                                          # writes evals/MODELS.md
+```
 
 ## Quick start
 
@@ -116,13 +156,15 @@ cd frontend && npm install && npm run dev   # http://localhost:5173, /api proxie
 │   ├── ingest/                # extract/load jobs and the raw JSON archive
 │   ├── warehouse/             # warehouse setup and MySQL → Postgres sync
 │   ├── monitoring/            # ingestion health checks and e-mail alerts
+│   ├── agent/                 # Text-to-SQL agent: loop, guardrails, read-only executor, semantic layer
 │   ├── routes/                # Flask blueprints (bikes, weather, plan, predict, auth, rental, geocode)
 │   ├── services/              # JCDecaux, OpenWeather, routing, route planner
 │   ├── ml/                    # model loading and predict()
 │   └── tasks/                 # legacy sleep-loop collectors, superseded by the Airflow DAGs
-├── frontend/                  # React + Vite (BikeMap, RoutePlanner, PredictionWidget, AccountPage, ...)
+├── frontend/                  # React + Vite (BikeMap, RoutePlanner, PredictionWidget, AskPage, ...)
+├── evals/                     # agent benchmark, adversarial and multi-turn sets, model comparison
 ├── sql/migrations/            # SQL equivalents of `python -m src.db.cli migrate`
-├── tests/                     # pytest suite (77 tests)
+├── tests/                     # pytest suite (185 tests)
 ├── .github/workflows/ci.yml   # CI
 └── dump.sql                   # seed data for the local MySQL
 ```
@@ -168,6 +210,9 @@ Web app (`.env` in the project root):
 | `FORCE_BIKE_IF_AVAILABLE` | no | Always recommend cycling when stations are available (default `true`) |
 | `MODEL_PATH` | no | Path to the model file |
 | `PORT` | no | Flask port (default 5001) |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | no | Any OpenAI-compatible endpoint for the assistant; without a key the Ask page answers 503 |
+| `LLM_REQUEST_OPTIONS` | no | JSON merged into every model call, e.g. `{"reasoning_effort":"none"}` for `gpt-6-luna` |
+| `AGENT_DB_URL`, `AGENT_DAILY_BUDGET` | no | Read-only warehouse role for the assistant; site-wide daily question cap |
 
 Pipelines, warehouse and alert settings (`SMTP_*`, `ALERT_EMAIL_TO`, `WAREHOUSE_*`) are documented in
 [pipelines/.env.example](pipelines/.env.example).
@@ -175,11 +220,16 @@ Pipelines, warehouse and alert settings (`SMTP_*`, `ALERT_EMAIL_TO`, `WAREHOUSE_
 ## Testing
 
 ```bash
-python -m pytest            # 77 tests, in-memory SQLite — no database needed
+python -m pytest            # 185 tests, in-memory SQLite and scripted fake LLMs — no database or API key needed
 ```
 
 | File | Tests | Covers |
 |---|---|---|
+| `test_agent_guardrails.py` | 37 | Read-only queries on the marts pass; writes, other schemas and unsafe functions are rejected; row cap |
+| `test_agent.py` | 26 | Tool loop, error feedback, follow-up history, grounding nudge, time budget, token accounting |
+| `test_agent_api.py` | 17 | `/api/agent/ask` validation, rate limits, history parsing, timeouts |
+| `test_agent_evaluation.py`, `test_eval_config.py` | 13, 2 | Execution-accuracy scorer, cost per question, model and translation configs |
+| `test_security.py` | 13 | JWT secret, no debug mode, login rate limits, DB-first weather, no error details leaked |
 | `test_ingest.py` | 15 | Idempotent writes, raw archive, extract/load jobs, weather vs forecast split |
 | `test_monitoring.py` | 12 | Freshness checks, e-mail alerts, dbt failure reporting |
 | `test_bike_api.py` | 10 | `/api/bikes` from snapshot, live fallback, stale data, no writes on read |
@@ -193,9 +243,8 @@ on each push.
 
 ## Deployment
 
-Planned: the full Docker Compose stack on a VPS, with the Airflow UI reachable only through an SSH tunnel and
-databases bound to localhost. The earlier EC2 setup relied on cron calling `/api/bikes`; that endpoint no longer
-writes to the database, so data collection now requires the Airflow DAGs.
+The full Docker Compose stack runs on a VPS behind Caddy: only port 80 is public, databases and the Airflow UI
+are bound to localhost (UI through an SSH tunnel), SSH is key-only. See [deploy/README.md](deploy/README.md).
 
 ## About
 
