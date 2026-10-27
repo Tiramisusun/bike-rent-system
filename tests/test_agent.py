@@ -322,3 +322,17 @@ def test_default_request_options(fake_warehouse):
     llm = RecordingLLM(_completion(content="ok"))
     ask("q", engine=None, client=llm)
     assert llm.kwargs["temperature"] == 0 and llm.kwargs["max_completion_tokens"] == 2048
+
+
+def test_production_request_options_come_from_the_environment(fake_warehouse, monkeypatch):
+    monkeypatch.setenv("LLM_REQUEST_OPTIONS", '{"reasoning_effort": "none"}')
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm)
+    assert llm.kwargs["reasoning_effort"] == "none" and llm.kwargs["temperature"] == 0
+
+
+def test_explicit_request_options_ignore_the_environment(fake_warehouse, monkeypatch):
+    monkeypatch.setenv("LLM_REQUEST_OPTIONS", '{"reasoning_effort": "none"}')
+    llm = RecordingLLM(_completion(content="ok"))
+    ask("q", engine=None, client=llm, request_options={})
+    assert "reasoning_effort" not in llm.kwargs

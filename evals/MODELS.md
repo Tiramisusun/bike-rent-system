@@ -36,6 +36,24 @@ Every warehouse table is fingerprinted before and after the 15 prompts (drop tab
 - Solved by no model: 0 — none
 - Questions a model got right in some runs but not others: `gpt-6-luna` 4, `deepseek-v4-pro` 5, `gpt-6.1-terra` 3, `mimo-v2.6-pro` 6, `mimo-v2.6-flash` 4, `deepseek-flash` 9
 
+## Multilingual
+
+Same questions and gold SQL; only the question text is translated (`benchmark_i18n.yaml`).
+
+| Model | English | German | Chinese |
+|---|---|---|---|
+| `deepseek-v4-pro` | 91.3% (90.0–92.0, 3 runs) | 89.3% (88.0–90.0, 3 runs) | 89.3% (88.0–92.0, 3 runs) |
+| `gpt-6-luna` | 96.0% (94.0–98.0, 3 runs) | 97.3% (96.0–98.0, 3 runs) | 95.3% (94.0–96.0, 3 runs) |
+| `mimo-v2.6-pro` | 80.0% (76.0–82.0, 3 runs) | 75.3% (70.0–78.0, 3 runs) | 78.0% (74.0–80.0, 3 runs) |
+
+## Multi-turn follow-ups
+
+12 question + follow-up pairs (`followups.yaml`), one run each; the deployed model's run is in `FOLLOWUPS.md`.
+
+| Model | First question | Follow-up with history | Follow-up alone | Median follow-up latency |
+|---|---|---|---|---|
+| `gpt-6-luna` | 100.0% | **100.0%** | 25.0% | 3.04 s |
+
 ## Notes
 
 - Costs are list prices (USD per 1M tokens, checked 2026-10-27, sources in `models.yaml`), not what was billed. MiMo publishes no cache-hit price, so its cached tokens are charged at the full input price (an upper bound). DeepSeek is priced at peak hours; off-peak is half.

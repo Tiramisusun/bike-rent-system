@@ -234,7 +234,8 @@ def main():
     if args.model:
         cfg = load_models()[args.model]
         client, model_id = make_model_client(cfg), cfg["model"]
-        request_options, price = cfg.get("request_options"), cfg["price"]
+        # {} not None: a models.yaml entry is complete, LLM_REQUEST_OPTIONS must not leak in
+        request_options, price = cfg.get("request_options") or {}, cfg["price"]
     else:
         client, model_id = make_client(), os.getenv("LLM_MODEL", "mimo-v2.6-pro")
         request_options, price = None, None

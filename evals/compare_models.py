@@ -24,6 +24,8 @@ def load_runs() -> dict:
     """{(model_name, lang): [run, ...]} for the docs condition."""
     runs = defaultdict(list)
     for path in sorted((HERE / "results" / "compare").glob("*.json")):
+        if path.name.startswith("followups-"):      # multi-turn runs: see run_followups
+            continue
         data = json.loads(path.read_text())
         if "docs" in data["summaries"]:
             runs[(data["meta"]["model_name"], data["meta"]["lang"])].append(data)
@@ -147,6 +149,22 @@ def write_report(runs, path):
                 acc = [r["summaries"]["docs"]["accuracy"] for r in rs]
                 cells.append(f"{_mean(acc)}% ({min(acc)}–{max(acc)}, {len(rs)} runs)")
             lines.append(f"| `{models_cfg[m]['model']}` | " + " | ".join(cells) + " |")
+        lines.append("")
+
+    followups = sorted((HERE / "results" / "compare").glob("followups-*.json"))
+    if followups:
+        lines += ["## Multi-turn follow-ups", "",
+                  "12 question + follow-up pairs (`followups.yaml`), one run each; the deployed "
+                  "model's run is in `FOLLOWUPS.md`.", "",
+                  "| Model | First question | Follow-up with history | Follow-up alone | "
+                  "Median follow-up latency |", "|---|---|---|---|---|"]
+        for fpath in followups:
+            d = json.loads(fpath.read_text())
+            s = d["summary"]
+            lines.append(f"| `{d['model']}` | {s['turn1_accuracy']}% | "
+                         f"**{s['followup_accuracy_with_history']}%** | "
+                         f"{s['followup_accuracy_without_history']}% | "
+                         f"{s['median_latency_s_followup_with_history']} s |")
         lines.append("")
 
     lines += [

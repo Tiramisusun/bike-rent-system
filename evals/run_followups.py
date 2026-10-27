@@ -1,6 +1,7 @@
 """Multi-turn evaluation: does the agent answer follow-ups correctly?
 
     python -m evals.run_followups
+    python -m evals.run_followups --model gpt-luna     # a model from evals/models.yaml
 
 For each pair in followups.yaml the agent answers turn 1, then the follow-up is asked
 twice: with the agent's own turn 1 as history (how the chat page works), and alone
@@ -36,12 +37,12 @@ def _correct(result, gold, order_matters):
     return result.sql is not None and results_match(gold, result.rows, order_matters)
 
 
-def run_pair(item, engine, client, tables):
+def run_pair(item, engine, client, tables, **model_kw):
     t1, t2 = item["turn1"], item["turn2"]
-    r1 = ask(t1["question"], engine, client=client)
+    r1 = ask(t1["question"], engine, client=client, **model_kw)
     previous = Turn(question=r1.question, answer=r1.answer, sql=r1.sql, columns=r1.columns, rows=r1.rows)
-    with_history = ask(t2["question"], engine, client=client, history=[previous])
-    without_history = ask(t2["question"], engine, client=client)
+    with_history = ask(t2["question"], engine, client=client, history=[previous], **model_kw)
+    without_history = ask(t2["question"], engine, client=client, **model_kw)
     g1, g2 = _gold(engine, tables, t1), _gold(engine, tables, t2)
     row = lambda r, gold, spec: {
         "question": r.question, "correct": _correct(r, gold, bool(spec.get("order_matters"))),
@@ -64,14 +65,22 @@ def main():
     load_dotenv()
     parser = argparse.ArgumentParser()
     parser.add_argument("--workers", type=int, default=3)
+    parser.add_argument("--model", help="a name from evals/models.yaml (default: LLM_* from .env)")
     args = parser.parse_args()
 
     items = yaml.safe_load((HERE / "followups.yaml").read_text())
-    engine, client = agent_engine(), make_client()
+    engine = agent_engine()
+    if args.model:
+        from evals.run_eval import load_models, make_model_client
+        cfg = load_models()[args.model]
+        client, model_id = make_model_client(cfg), cfg["model"]
+        model_kw = {"model": model_id, "request_options": cfg.get("request_options") or {}}
+    else:
+        client, model_id, model_kw = make_client(), os.getenv("LLM_MODEL", "mimo-v2.6-pro"), {}
     _, tables = build_schema_context(engine)
     print(f"Running {len(items)} follow-up pairs ...", flush=True)
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        rows = list(pool.map(lambda it: run_pair(it, engine, client, tables), items))
+        rows = list(pool.map(lambda it: run_pair(it, engine, client, tables, **model_kw), items))
 
     t1_ok = [r["turn1"]["correct"] for r in rows]
     summary = {
@@ -93,14 +102,19 @@ def main():
     print(json.dumps(summary, indent=2), flush=True)
 
     stamp = datetime.now(timezone.utc)
+    result = json.dumps({"model": model_id, "summary": summary, "details": rows}, indent=2, default=str)
+    if args.model:                  # a candidate model: keep FOLLOWUPS.md for the deployed one
+        out = HERE / "results" / "compare" / f"followups-{args.model}-{stamp:%Y%m%d-%H%M}.json"
+        out.write_text(result)
+        print(f"Wrote {out.relative_to(HERE.parent)}")
+        return
     out = HERE / "results" / f"followups-{stamp:%Y%m%d-%H%M}.json"
-    out.write_text(json.dumps({"model": os.getenv("LLM_MODEL", "mimo-v2.6-pro"),
-                               "summary": summary, "details": rows}, indent=2, default=str))
+    out.write_text(result)
     s = summary
     (HERE / "FOLLOWUPS.md").write_text("\n".join([
         "# Multi-turn evaluation",
         "",
-        f"- Run: {stamp:%Y-%m-%d %H:%M UTC} · model `{os.getenv('LLM_MODEL', 'mimo-v2.6-pro')}` · "
+        f"- Run: {stamp:%Y-%m-%d %H:%M UTC} · model `{model_id}` · "
         f"{s['pairs']} question + follow-up pairs (`followups.yaml`, held out)",
         "",
         "| | Accuracy |",

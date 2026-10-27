@@ -218,8 +218,20 @@ def _add_usage(result: "AgentResult", usage) -> None:
 
 
 # Sent with every model call; a model config can override them (some reasoning
-# models reject temperature, or need more room for their thinking).
+# models reject temperature, or need more room for their thinking). In production
+# the override comes from LLM_REQUEST_OPTIONS, a JSON object, e.g.
+# {"reasoning_effort": "none"} for OpenAI models that reject tools while reasoning.
 DEFAULT_REQUEST_OPTIONS = {"temperature": 0, "max_completion_tokens": 2048}
+
+
+def env_request_options() -> dict:
+    raw = os.getenv("LLM_REQUEST_OPTIONS", "").strip()
+    if not raw:
+        return {}
+    options = json.loads(raw)
+    if not isinstance(options, dict):
+        raise ValueError("LLM_REQUEST_OPTIONS must be a JSON object")
+    return options
 
 
 def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
@@ -239,7 +251,9 @@ def ask(question: str, engine: Engine, client=None, include_docs: bool = True,
         {"role": "user", "content": question},
     ]
 
-    options = {**DEFAULT_REQUEST_OPTIONS, **(request_options or {})}
+    if request_options is None:
+        request_options = env_request_options()
+    options = {**DEFAULT_REQUEST_OPTIONS, **request_options}
     options = {k: v for k, v in options.items() if v is not None}   # None = don't send it
     nudged = False
     try:
