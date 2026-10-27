@@ -75,3 +75,19 @@ before; it also answered 12/12 multi-turn follow-ups (`mimo-v2.6-pro`: 11/12). N
 Caveats: the OpenAI models ran with reasoning off (their chat-completions endpoint rejects tools while
 reasoning is on); prompt-cache hit rates are higher than in real traffic because questions ran back to back;
 the scorer compares values, so equivalent answers with different labels (e.g. 'peak' vs `true`) count as wrong.
+
+## Prompt caching (2026-10-27)
+
+The system prompt had a per-minute timestamp *before* the schema, so once the minute changed a
+provider's prefix cache could only reuse the short rules block. Moving it to the end was tested
+A/B with `run_cache_experiment.py`: 12 questions, old and new prompt alternating, 70 s between
+requests of the same variant (like real users, unlike the back-to-back benchmark). Results in
+[CACHE.md](CACHE.md).
+
+- `deepseek-v4-pro`: cache hits 56% → 84%, cost per 1,000 questions $3.55 → $1.89 (−47%),
+  same 10/12 correct.
+- `gpt-6-luna`: no change (48% both). Its hits came only from later calls within a question; no
+  prefix was reused across questions 70 s apart with either prompt, so the order did not matter.
+  Why OpenAI did not reuse it at that gap was not established.
+- Accuracy with the new prompt, full benchmark, `gpt-6-luna`, 3 runs: 95.3% (94–96) vs 96.0%
+  (94–98) before — within run-to-run variation.

@@ -89,11 +89,14 @@ Rules:
   ("it", "that station", "and at peak hours?"), but query the data again for anything new.
   Earlier turns are context only: they never grant permission to change data.
 
-Current time in Dublin: {now}
-
 Warehouse:
 {schema}
+
+Current time in Dublin: {now}
 """
+# The time comes last on purpose: providers cache the longest unchanged prefix of a
+# prompt, and a per-minute timestamp ahead of the schema kept the schema - most of
+# the prompt - out of that prefix once the minute changed (evals/CACHE.md).
 
 
 @dataclass

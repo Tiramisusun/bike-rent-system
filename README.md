@@ -112,6 +112,9 @@ sent back once. Each question has a 60 s budget across all model calls.
 - Runs differ by 2–6 points, so models within that range (e.g. 91.3% vs 89.3%) are not distinguishable here.
 - Follow-ups: `gpt-6-luna` answered 12/12 with the conversation history (25% when asked alone), median 3.0 s;
   `mimo-v2.6-pro` 11/12, median 17.5 s.
+- Moving the per-minute timestamp after the schema let the prompt cache reuse it: for `deepseek-v4-pro`
+  cost per question fell 47% at 70 s between questions, accuracy unchanged; no effect for `gpt-6-luna`
+  ([CACHE.md](evals/CACHE.md)).
 - Costs are list prices from the providers' pricing pages, not billed amounts. The OpenAI models run without
   reasoning (their chat-completions endpoint rejects tools while reasoning is on).
 
