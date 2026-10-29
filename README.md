@@ -73,9 +73,23 @@ flowchart LR
 |---|---|---|
 | **Ingestion** (`pipelines/`, `src/ingest/`) | Extract → archive raw JSON → idempotent load into MySQL | [pipelines/README.md](pipelines/README.md) |
 | **Warehouse** (`warehouse/`, `src/warehouse/`) | Sync MySQL → Postgres, dbt star schema and metrics | [warehouse/README.md](warehouse/README.md) |
-| **Monitoring** (`src/monitoring/`) | Freshness checks and e-mail alerts | [pipelines/README.md](pipelines/README.md#data-quality-and-alerts) |
+| **Monitoring** (`src/monitoring/`, `monitoring/`) | Freshness checks and e-mail alerts; Prometheus metrics and Grafana dashboards | [below](#metrics-and-dashboards) |
 | **Web app** (`app.py`, `src/routes/`, `frontend/`) | Map, route planning, prediction, rentals | below |
 | **Assistant** (`src/agent/`, `evals/`) | Text-to-SQL agent on the marts, its benchmark and the model comparison | [below](#text-to-sql-assistant) |
+
+## Metrics and dashboards
+
+Prometheus scrapes four sources every 30 s; Grafana shows them on two dashboards provisioned from files in
+`monitoring/grafana/dashboards/` (no clicking together in the UI). Both UIs listen on localhost only.
+
+| Source | Metrics |
+|---|---|
+| Flask `/metrics` (`src/monitoring/metrics.py`) | Requests and latency per route; assistant questions by outcome, answer time, tokens (incl. cached and reasoning), list-price cost, failed SQL; age of the newest snapshot and weather row and stations reporting (the monitor DAG's measurements, taken at scrape time); dbt nodes by status and time of the last build |
+| Airflow → StatsD → statsd-exporter | Task runs by DAG, task and state; DAG run duration; scheduler heartbeat; import errors |
+| node-exporter, cAdvisor (production) | VPS CPU, memory, disk, network; memory and CPU per container |
+
+The data checks still decide pass/fail (monitor DAG, dbt tests); Prometheus adds the history — when data
+stopped, whether the API slowed down, what the assistant costs per day. Alerting is not set up yet.
 
 ## Web app features
 
@@ -125,7 +139,8 @@ python -m evals.compare_models                                          # writes
 
 ## Quick start
 
-**Data platform** (Docker; Airflow UI at http://127.0.0.1:8080, login `airflow` / `airflow`):
+**Data platform** (Docker; Airflow UI at http://127.0.0.1:8080, login `airflow` / `airflow`; Grafana at
+http://127.0.0.1:3000, login `admin` / `admin`):
 
 ```bash
 cd pipelines

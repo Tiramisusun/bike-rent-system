@@ -1,0 +1,22 @@
+# Production scrape targets (docker-compose.yml + docker-compose.prod.yml).
+# Local development mounts prometheus.local.yml instead (docker-compose.override.yml).
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: web                 # Flask: HTTP, assistant, data freshness, dbt status
+    static_configs:
+      - targets: ["web:8000"]
+  - job_name: airflow             # Airflow StatsD metrics, translated by statsd-exporter
+    static_configs:
+      - targets: ["statsd-exporter:9102"]
+  - job_name: node                # the VPS: CPU, memory, disk, network
+    static_configs:
+      - targets: ["node-exporter:9100"]
+  - job_name: cadvisor            # per-container CPU and memory
+    static_configs:
+      - targets: ["cadvisor:8080"]
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

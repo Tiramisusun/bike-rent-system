@@ -6,6 +6,7 @@ Single server, Docker Compose. Tested on Debian 13, x86_64, 4 cores / 8 GB RAM.
 internet ──:80──► Caddy ──► web (gunicorn: Flask + built React)
                               │ read-only
         127.0.0.1 only:  MySQL · Postgres · Airflow UI :8080   (4 DAGs write and monitor)
+                         Grafana :3000 · Prometheus :9090      (scrape web, Airflow, host, containers)
 ```
 
 ## Security baseline
@@ -13,7 +14,10 @@ internet ──:80──► Caddy ──► web (gunicorn: Flask + built React)
 - SSH: keys only (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`).
 - Firewall (ufw): allow 22 and 80 only. Docker-published ports bypass ufw, so every port except
   Caddy's 80 is bound to `127.0.0.1` in the compose files — that, not ufw, is what keeps them private.
-- Airflow UI through an SSH tunnel: `ssh -L 8080:127.0.0.1:8080 <server>` → http://127.0.0.1:8080
+- Airflow UI and Grafana through an SSH tunnel:
+  `ssh -L 8080:127.0.0.1:8080 -L 3000:127.0.0.1:3000 <server>` → http://127.0.0.1:8080, http://127.0.0.1:3000
+  (Grafana user `admin`, password `GRAFANA_ADMIN_PASSWORD` from `pipelines/.env`).
+- `/metrics` is answered with 404 by Caddy; Prometheus reaches it inside the Docker network.
 - All secrets random, generated on the server, stored only in `pipelines/.env` (mode 600, never in git).
 - The app refuses to start without a ≥ 32-char `JWT_SECRET_KEY`; the debugger is off (gunicorn).
 - Rate limits per client IP: login 10/min and 50/h, register 5/h, everything 300/min.

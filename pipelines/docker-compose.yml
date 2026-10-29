@@ -30,6 +30,11 @@ x-airflow-common:
     DBT_SEND_ANONYMOUS_USAGE_STATS: "false"   # also stops dbt writing .user.yml into the project
     RAW_DATA_DIR: /opt/airflow/project/data/raw
     WAREHOUSE_ADMIN_URL: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow}@postgres:5432/airflow
+    # Metrics as StatsD to statsd-exporter, which Prometheus scrapes (monitoring/statsd/mapping.yml)
+    AIRFLOW__METRICS__STATSD_ON: 'true'
+    AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+    AIRFLOW__METRICS__STATSD_PORT: '9125'
+    AIRFLOW__METRICS__STATSD_PREFIX: airflow
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -190,6 +195,49 @@ services:
       - -c
       - airflow
 
+  # ── Monitoring: Prometheus + Grafana (UIs on localhost only, like Airflow's) ──
+  statsd-exporter:
+    image: prom/statsd-exporter:v0.28.0
+    command: ["--statsd.mapping-config=/etc/statsd/mapping.yml"]
+    volumes:
+      - ../monitoring/statsd/mapping.yml:/etc/statsd/mapping.yml:ro
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/platform.json
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: always
+
 volumes:
   postgres-db-volume:
   mysql-db-volume:
+  prometheus-data:
+  grafana-data:

@@ -10,6 +10,10 @@
 		-Server
 	}
 
+	# Prometheus metrics are for the internal network only (Prometheus scrapes web:8000).
+	@metrics path /metrics /metrics/*
+	respond @metrics 404
+
 	# Caddy sets X-Forwarded-For; the app trusts exactly this one hop (TRUST_PROXY=1).
 	reverse_proxy web:8000
 }

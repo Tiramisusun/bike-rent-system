@@ -19,6 +19,7 @@ from src.routes.rental_routes import rental_bp
 from src.routes.geocode_routes import geocode_bp
 from src.routes.prediction_routes import prediction_bp
 from src.routes.agent_routes import agent_bp
+from src.monitoring.metrics import init_metrics
 
 load_dotenv(override=False)  # env vars already set (e.g. in tests) take priority
 
@@ -72,6 +73,7 @@ Swagger(app, template={
 engine = load_engine()
 init_db(engine)
 app.extensions['engine'] = engine
+init_metrics(app, engine)
 
 app.register_blueprint(bikes_bp)
 app.register_blueprint(weather_bp)

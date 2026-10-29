@@ -5,6 +5,7 @@ import os
 from flask import Blueprint, current_app, jsonify, request
 
 from src.extensions import limiter
+from src.monitoring.metrics import record_agent_result
 
 agent_bp = Blueprint("agent", __name__)
 
@@ -118,6 +119,7 @@ def ask_agent():
 
     from src.agent.agent import ask
     result = ask(question, _agent_engine(), history=history)
+    record_agent_result(result)
     if result.timed_out:
         current_app.logger.warning(f"[/api/agent/ask] timed out after {result.latency_s}s: {result.error}")
         return jsonify({"error": "That took too long — please try again or ask a simpler question"}), 504
