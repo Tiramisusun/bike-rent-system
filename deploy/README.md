@@ -3,7 +3,9 @@
 Single server, Docker Compose. Tested on Debian 13, x86_64, 4 cores / 8 GB RAM.
 
 ```
-internet ──:80──► Caddy ──► web (gunicorn: Flask + built React)
+internet ──:80──► Traefik ──► web (gunicorn: Flask + built React)
+                     │ read-only container list
+                     └── docker-socket-proxy ──► Docker socket
                               │ read-only
         127.0.0.1 only:  MySQL · Postgres · Airflow UI :8080   (4 DAGs write and monitor)
                          Grafana :3000 · Prometheus :9090      (scrape web, Airflow, host, containers)
@@ -13,16 +15,21 @@ internet ──:80──► Caddy ──► web (gunicorn: Flask + built React)
 
 - SSH: keys only (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`).
 - Firewall (ufw): allow 22 and 80 only. Docker-published ports bypass ufw, so every port except
-  Caddy's 80 is bound to `127.0.0.1` in the compose files — that, not ufw, is what keeps them private.
+  Traefik's 80 is bound to `127.0.0.1` in the compose files — that, not ufw, is what keeps them private.
 - Airflow UI and Grafana through an SSH tunnel:
   `ssh -L 8080:127.0.0.1:8080 -L 3000:127.0.0.1:3000 <server>` → http://127.0.0.1:8080, http://127.0.0.1:3000
   (Grafana user `admin`, password `GRAFANA_ADMIN_PASSWORD` from `pipelines/.env`).
-- `/metrics` is answered with 404 by Caddy; Prometheus reaches it inside the Docker network.
+- `/metrics` is answered with 403 by Traefik; Prometheus reaches it inside the Docker network.
+- Traefik finds the web container through `docker-socket-proxy`, which allows listing containers and
+  nothing else (no create/exec/delete) and sits on an internal network only Traefik joins — the raw
+  Docker socket, which is equivalent to root on the host, is never mounted into Traefik.
+- Traefik dashboard: `ssh -L 8081:127.0.0.1:8081 <server>` → http://127.0.0.1:8081/dashboard/
 - All secrets random, generated on the server, stored only in `pipelines/.env` (mode 600, never in git).
 - The app refuses to start without a ≥ 32-char `JWT_SECRET_KEY`; the debugger is off (gunicorn).
 - Rate limits per client IP: login 10/min and 50/h, register 5/h, everything 300/min.
-- No HTTPS yet (no domain): passwords cross the network in clear text. With a domain, put it in
-  `deploy/Caddyfile` instead of `:80` and Caddy obtains a certificate automatically.
+- No HTTPS yet (no domain): passwords cross the network in clear text. With a domain, add a `:443`
+  entrypoint and a Let's Encrypt certificate resolver to Traefik, route ``Host(`example.com`)`` on it and
+  redirect `:80` to HTTPS (see the comment in `pipelines/docker-compose.prod.yml`).
 
 ## First deployment
 

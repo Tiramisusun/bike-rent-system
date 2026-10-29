@@ -1,7 +1,7 @@
 """Prometheus metrics for the web app: HTTP traffic, the assistant, and data freshness.
 
-Served at /metrics. Prometheus scrapes it over the internal Docker network; Caddy
-answers 404 for /metrics on the public side. Data-freshness numbers are computed at
+Served at /metrics. Prometheus scrapes it over the internal Docker network; Traefik
+answers 403 for /metrics on the public side. Data-freshness numbers are computed at
 scrape time from the same measurements the monitor DAG checks (checks.measure), and
 the dbt results are read from the last `dbt build` / `dbt source freshness` artifacts.
 """

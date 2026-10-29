@@ -2,8 +2,9 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
-# Only Caddy publishes a port to the internet (80). MySQL, Postgres and the
-# Airflow UI stay bound to 127.0.0.1 (see docker-compose.yml).
+# Only Traefik publishes a port to the internet (80). MySQL, Postgres, the
+# Airflow UI, Grafana, Prometheus and the Traefik dashboard stay bound to
+# 127.0.0.1 (see docker-compose.yml).
 
 services:
   web:
@@ -16,7 +17,7 @@ services:
     env_file:
       - .env
     environment:
-      TRUST_PROXY: "1"            # client IP comes from Caddy's X-Forwarded-For
+      TRUST_PROXY: "1"            # client IP comes from Traefik's X-Forwarded-For
       DBT_PROJECT_DIR: /app/warehouse   # dbt results for /metrics
     volumes:
       # Trained model (gitignored, built by `python -m ml.train`, copied to the server).
@@ -27,17 +28,69 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    labels:
+      # Routing lives with the service it routes to; Traefik reads these labels.
+      traefik.enable: "true"
+      traefik.http.routers.app.rule: "PathPrefix(`/`)"
+      traefik.http.routers.app.entrypoints: web
+      traefik.http.routers.app.middlewares: "app-headers,app-gzip"
+      traefik.http.services.app.loadbalancer.server.port: "8000"
+      traefik.http.middlewares.app-gzip.compress: "true"
+      traefik.http.middlewares.app-headers.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.app-headers.headers.frameDeny: "true"
+      traefik.http.middlewares.app-headers.headers.referrerPolicy: "strict-origin-when-cross-origin"
+      traefik.http.middlewares.app-headers.headers.customResponseHeaders.Server: ""   # drop "gunicorn"
+      # /metrics is for Prometheus, which scrapes web:8000 inside the Docker network.
+      # From the internet: 403 (allowed only from the proxy's own loopback).
+      traefik.http.routers.app-metrics.rule: "Path(`/metrics`) || PathPrefix(`/metrics/`)"
+      traefik.http.routers.app-metrics.entrypoints: web
+      traefik.http.routers.app-metrics.priority: "1000"
+      traefik.http.routers.app-metrics.middlewares: "internal-only"
+      traefik.http.routers.app-metrics.service: app
+      traefik.http.middlewares.internal-only.ipAllowList.sourceRange: "127.0.0.1/32"
     restart: always
 
-  caddy:
-    image: caddy:2
+  traefik:
+    image: traefik:v3.7.14
+    command:
+      - --entrypoints.web.address=:80
+      # Containers are discovered through the read-only socket proxy, never the raw socket,
+      # and only those labelled traefik.enable=true are exposed.
+      - --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.exposedbydefault=false
+      # Dashboard and Prometheus metrics on the internal "traefik" entrypoint (:8080).
+      - --entrypoints.traefik.address=:8080
+      - --api.dashboard=true
+      - --api.insecure=true          # no auth on :8080, which is published on 127.0.0.1 only
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entrypoint=traefik
+      - --accesslog=true
+      - --global.sendanonymoususage=false
+      - --global.checknewversion=false
+      # With a domain, add HTTPS: a websecure entrypoint on :443 and a Let's Encrypt
+      # certresolver (--certificatesresolvers.le.acme.*), then route Host(`example.com`).
     ports:
       - "80:80"
-    volumes:
-      - ../deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
+      - "127.0.0.1:8081:8080"        # dashboard: SSH tunnel, like the Airflow UI
+    networks:
+      - default
+      - docker-api
     depends_on:
+      - socket-proxy
       - web
+    restart: always
+
+  # Lets Traefik list containers and nothing else: no create, exec or delete, so a
+  # compromised proxy cannot take over the host through the Docker API.
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-api                   # reachable by Traefik only, not by web or Airflow
     restart: always
 
   # Host and per-container metrics for Prometheus (Linux only; not exposed).
@@ -63,5 +116,6 @@ services:
       - /dev/disk/:/dev/disk:ro
     restart: always
 
-volumes:
-  caddy-data:
+networks:
+  docker-api:
+    internal: true                   # no route out of the host either

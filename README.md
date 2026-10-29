@@ -261,7 +261,7 @@ on each push.
 
 ## Deployment
 
-The full Docker Compose stack runs on a VPS behind Caddy: only port 80 is public, databases and the Airflow UI
+The full Docker Compose stack runs on a VPS behind Traefik: only port 80 is public, databases and the Airflow UI
 are bound to localhost (UI through an SSH tunnel), SSH is key-only. See [deploy/README.md](deploy/README.md).
 
 ## About

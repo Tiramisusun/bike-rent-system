@@ -40,7 +40,7 @@ app = Flask(__name__, static_folder=DIST_DIR, static_url_path='')
 app.config["JWT_SECRET_KEY"] = jwt_secret()
 JWTManager(app)
 
-# Behind the Caddy reverse proxy the client IP arrives in X-Forwarded-For;
+# Behind the Traefik reverse proxy the client IP arrives in X-Forwarded-For;
 # trust exactly one proxy hop, and only when told we are behind one.
 if os.getenv("TRUST_PROXY") == "1":
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)

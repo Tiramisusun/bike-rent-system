@@ -11,6 +11,9 @@ scrape_configs:
   - job_name: airflow             # Airflow StatsD metrics, translated by statsd-exporter
     static_configs:
       - targets: ["statsd-exporter:9102"]
+  - job_name: traefik             # the public entry point: every request from the internet
+    static_configs:
+      - targets: ["traefik:8080"]
   - job_name: node                # the VPS: CPU, memory, disk, network
     static_configs:
       - targets: ["node-exporter:9100"]
