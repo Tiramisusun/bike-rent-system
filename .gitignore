@@ -237,5 +237,7 @@ warehouse/.user.yml
 .env.local
 .env.*.local
 
-# Trained models (large binaries) — rebuilt by `python -m ml.train`
+# Trained models (large binaries) — rebuilt by `python -m ml.train_availability`
 data/*.pkl
+# Snapshot exports from the server warehouse (training data)
+data/*.csv.gz

@@ -20,7 +20,7 @@ services:
       TRUST_PROXY: "1"            # client IP comes from Traefik's X-Forwarded-For
       DBT_PROJECT_DIR: /app/warehouse   # dbt results for /metrics
     volumes:
-      # Trained model (gitignored, built by `python -m ml.train`, copied to the server).
+      # Trained model (gitignored, built by `python -m ml.train_availability`, copied to the server).
       # Missing file = /api/predict answers 503; the rest of the app still works.
       - ../data:/app/data:ro
       # Last dbt build/freshness results (written by the transform DAG), exported at /metrics.

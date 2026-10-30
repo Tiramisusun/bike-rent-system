@@ -6,12 +6,15 @@ Integration:  GET /api/predict, GET /api/predict/all
 
 Run with:  pytest tests/test_prediction.py -v
 """
+import math
+
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 from src.routes.rental_routes import calculate_cost
-from src.ml.occupancy_model import predict, FEATURES
+from src.ml.occupancy_model import (FEATURES, MAX_HORIZON_MIN, MIN_HORIZON_MIN, build_features,
+                                    predict, to_utc)
 
 
 # ── Unit tests: pricing ───────────────────────────────────────────────────────
@@ -28,52 +31,75 @@ class TestCalculateCost:
 
 # ── Unit tests: feature engineering ──────────────────────────────────────────
 
+NOW = datetime(2026, 7, 1, 8, 0)          # naive UTC = 09:00 in Dublin (summer time)
+ARTIFACT = {
+    "profile": {(42, 0, 9): 6.0, (42, 0, 11): 3.0},
+    "station_mean": {42: 7.0},
+}
+HISTORY = [                                # newest first: (update_time UTC, bikes, docks)
+    (NOW - timedelta(minutes=4), 10, 20),
+    (NOW - timedelta(minutes=58), 12, 18),
+    (NOW - timedelta(minutes=63), 15, 15),
+]
+
+
+def _features(target=datetime(2026, 7, 1, 11, 0), history=HISTORY):
+    return build_features(ARTIFACT, 42, to_utc(target), NOW, history, 14.0, 70).iloc[0]
+
+
 class TestPredictFeatures:
 
-    def test_rush_hour_morning(self):
-        """hour=8 should set rush_hour=1."""
-        captured = {}
-        def fake_predict(df):
-            captured["rush_hour"] = df["rush_hour"].iloc[0]
-            captured["hour"] = df["hour"].iloc[0]
-            return [5.0]
+    def test_naive_target_is_dublin_local_time(self):
+        """11:00 Dublin = 10:00 UTC in summer: two hours ahead of 08:00 UTC."""
+        row = _features()
+        assert row["horizon_min"] == 120
+        assert row["hour"] == 11
+        assert row["day_of_week"] == 2 and row["is_weekend"] == 0
 
-        m = MagicMock()
-        m.predict.side_effect = fake_predict
-        with patch("src.ml.occupancy_model._load_model", return_value=m):
-            predict(1, datetime(2024, 12, 15, 8, 0, tzinfo=timezone.utc),
-                    53.34, -6.26, 12.0, 75)
-        assert captured["rush_hour"] == 1
-        assert captured["hour"] == 8
+    def test_current_state_and_trend_from_history(self):
+        row = _features()
+        assert row["bikes_now"] == 10 and row["capacity"] == 30
+        assert row["trend_1h"] == 10 - 15          # value as of 07:00 is the 06:57 reading
 
-    def test_non_rush_hour_evening(self):
-        """hour=14 should set rush_hour=0."""
-        captured = {}
-        def fake_predict(df):
-            captured["rush_hour"] = df["rush_hour"].iloc[0]
-            return [5.0]
+    def test_usual_level_now_and_at_target_with_fallback(self):
+        row = _features()
+        assert row["profile_now"] == 6.0 and row["profile_target"] == 3.0
+        assert _features(target=datetime(2026, 7, 1, 15, 0))["profile_target"] == 7.0
 
-        m = MagicMock()
-        m.predict.side_effect = fake_predict
-        with patch("src.ml.occupancy_model._load_model", return_value=m):
-            predict(1, datetime(2024, 12, 15, 14, 0, tzinfo=timezone.utc),
-                    53.34, -6.26, 12.0, 75)
-        assert captured["rush_hour"] == 0
+    def test_stale_history_counts_as_unknown(self):
+        old = [(NOW - timedelta(hours=2), 10, 20)]
+        row = _features(history=old)
+        assert math.isnan(row["bikes_now"]) and math.isnan(row["trend_1h"])
 
-    def test_features_passed_to_model(self):
-        """All 11 expected features are present in the DataFrame passed to model."""
+    def test_horizon_is_clamped(self):
+        assert _features(target=datetime(2026, 7, 1, 9, 0))["horizon_min"] == MIN_HORIZON_MIN
+        assert _features(target=datetime(2026, 7, 9, 9, 0))["horizon_min"] == MAX_HORIZON_MIN
+
+    def test_features_passed_to_model_and_result_clipped_to_capacity(self):
         captured = {}
         def fake_predict(df):
             captured["columns"] = list(df.columns)
-            return [5.0]
+            return [99.0]
 
         m = MagicMock()
         m.predict.side_effect = fake_predict
-        with patch("src.ml.occupancy_model._load_model", return_value=m):
-            predict(1, datetime(2024, 12, 15, 9, 0, tzinfo=timezone.utc),
-                    53.34, -6.26, 12.0, 75)
-        from src.ml.occupancy_model import FEATURES
+        with patch("src.ml.occupancy_model._load_model", return_value={**ARTIFACT, "model": m}):
+            bikes = predict(42, datetime(2026, 7, 1, 11, 0), 14.0, 70, history=HISTORY, now=NOW)
         assert captured["columns"] == FEATURES
+        assert bikes == 30
+
+    @pytest.mark.parametrize("target, history, expected", [
+        (datetime(2026, 7, 1, 9, 30), HISTORY, 10),          # 30 min ahead: current count
+        (datetime(2026, 7, 1, 10, 0), HISTORY, 10),          # 60 min: still current count
+        (datetime(2026, 7, 1, 11, 0), HISTORY, 4),           # 2 h: the model
+        (datetime(2026, 7, 1, 9, 30), [(NOW - timedelta(hours=2), 10, 20)], 4),   # count unknown
+    ])
+    def test_current_count_up_to_the_persistence_horizon(self, target, history, expected):
+        m = MagicMock()
+        m.predict.return_value = [4.0]
+        artifact = {**ARTIFACT, "model": m, "persistence_up_to_min": 60}
+        with patch("src.ml.occupancy_model._load_model", return_value=artifact):
+            assert predict(42, target, 14.0, 70, history=history, now=NOW) == expected
 
 
 # ── Integration tests ─────────────────────────────────────────────────────────

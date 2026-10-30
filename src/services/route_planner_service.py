@@ -478,16 +478,13 @@ def plan_route(
             from sqlalchemy.orm import Session as _Session
             from src.routes.prediction_routes import _get_station_history
             with _Session(engine) as _sess:
-                recent_bikes, station_median = _get_station_history(_sess, dropoff["station_id"])
+                history = _get_station_history(_sess, dropoff["station_id"])
             predicted_bikes = ml_predict(
                 station_id=dropoff["station_id"],
                 dt=arrival_dt,
-                lat=dropoff["lat"],
-                lon=dropoff["lng"],
                 temp=temp,
                 humidity=humidity,
-                recent_bikes=recent_bikes,
-                station_median=station_median,
+                history=history,
             )
             predicted_stands = max(0, capacity - predicted_bikes)
         except Exception as exc:

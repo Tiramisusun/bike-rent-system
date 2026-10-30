@@ -37,7 +37,7 @@ internet ──:80──► Traefik ──► web (gunicorn: Flask + built React
 # server, as root
 apt-get update && apt-get install -y ca-certificates curl git ufw unattended-upgrades
 # Docker from docker.com: https://docs.docker.com/engine/install/debian/
-git clone -b data-platform https://github.com/Tiramisusun/bike-rent-system.git /opt/dublinbikes
+git clone https://github.com/Tiramisusun/bike-rent-system.git /opt/dublinbikes
 cd /opt/dublinbikes/pipelines
 cp .env.example .env && chmod 600 .env   # then set the production values below
 ```
@@ -68,5 +68,19 @@ done
 
 ```bash
 cd /opt/dublinbikes && git pull
-cd pipelines && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+cd pipelines && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
 ```
+
+`--remove-orphans` stops containers whose service was removed from the compose files (e.g. the old Caddy proxy).
+
+### Availability model
+
+The model file is not in git. After training it locally (see [ml/README.md](../ml/README.md)):
+
+```bash
+scp data/availability_model.pkl <server>:/opt/dublinbikes/data/
+ssh <server> 'cd /opt/dublinbikes/pipelines && docker compose -f docker-compose.yml -f docker-compose.prod.yml restart web'
+```
+
+`data/` is mounted read-only into the web container; the restart makes it load the new file.
+Without the file, `/api/predict` answers 503 and the route planner skips the dock estimate.

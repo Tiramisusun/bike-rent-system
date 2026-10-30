@@ -96,7 +96,7 @@ stopped, whether the API slowed down, what the assistant costs per day. Alerting
 1. **Live station map** — Leaflet map coloured by availability, with per-station history charts.
 2. **Route planning** — recommends pickup stations within 1.5 km with more than 2 bikes and dropoff stations
    near the destination with more than 2 predicted free docks; three-leg walk/cycle/walk route with a rain alert.
-3. **Availability prediction** — a Random Forest model predicts bikes at a station for a chosen time and weather.
+3. **Availability prediction** — bikes at a station at a chosen time, from its current state (see below).
 4. **Rentals & billing** — JWT-authenticated rent/return, history and cost; first 30 minutes free, then €0.50 per
    started 30 minutes.
 5. **5-day forecast** and a **How To** page for new users.
@@ -177,23 +177,28 @@ cd frontend && npm install && npm run dev   # http://localhost:5173, /api proxie
 │   ├── agent/                 # Text-to-SQL agent: loop, guardrails, read-only executor, semantic layer
 │   ├── routes/                # Flask blueprints (bikes, weather, plan, predict, auth, rental, geocode)
 │   ├── services/              # JCDecaux, OpenWeather, routing, route planner
-│   ├── ml/                    # model loading and predict()
+│   ├── ml/                    # model loading, features and predict()
 │   └── tasks/                 # legacy sleep-loop collectors, superseded by the Airflow DAGs
 ├── frontend/                  # React + Vite (BikeMap, RoutePlanner, PredictionWidget, AskPage, ...)
 ├── evals/                     # agent benchmark, adversarial and multi-turn sets, model comparison
 ├── sql/migrations/            # SQL equivalents of `python -m src.db.cli migrate`
-├── tests/                     # pytest suite (185 tests)
+├── tests/                     # pytest suite (209 tests)
 ├── .github/workflows/ci.yml   # CI
 └── dump.sql                   # seed data for the local MySQL
 ```
 
 ## Machine learning
 
-A Random Forest regressor predicts available bikes from 11 features: station and location (`station_id`,
-`lat`, `lon`), time (`hour`, `month`, `year`, `day_of_week`, `rush_hour` for 07–09 and 16–19) and weather
-(temperature and humidity). It is trained in a notebook on historical Dublin Bikes + weather data; the model
-file (`data/best_bike_model.pkl`, path overridable with `MODEL_PATH`) is not tracked in git, and `/api/predict`
-returns 503 without it. It is used by `GET /api/predict` and by the route planner to rank dropoff stations.
+Predicts bikes at a station 10 minutes to 24 hours ahead from its current count, the change over the last
+hour, its usual count at that hour, calendar and weather — trained on 22 days of the pipeline's own snapshots
+(`python -m ml.train_availability`, gradient boosting). Scored on the last 8 days against "bikes later = bikes
+now": up to 1 hour nothing beats that (JCDecaux updates a station about every 10 minutes), so the app returns
+the current count there; from 2 hours on the model is ahead, MAE 4.2 vs 5.2 bikes at 6 h. Overall MAE 2.87
+bikes across horizons. Details, baselines and limitations: [ml/README.md](ml/README.md).
+
+The model file (`data/availability_model.pkl`, path overridable with `MODEL_PATH`) is not tracked in git, and
+`/api/predict` returns 503 without it. It is used by `GET /api/predict` and by the route planner to estimate free
+docks at the dropoff station on arrival.
 
 ## API
 
@@ -238,7 +243,7 @@ Pipelines, warehouse and alert settings (`SMTP_*`, `ALERT_EMAIL_TO`, `WAREHOUSE_
 ## Testing
 
 ```bash
-python -m pytest            # 185 tests, in-memory SQLite and scripted fake LLMs — no database or API key needed
+python -m pytest            # 209 tests, in-memory SQLite and scripted fake LLMs — no database or API key needed
 ```
 
 | File | Tests | Covers |
@@ -249,10 +254,13 @@ python -m pytest            # 185 tests, in-memory SQLite and scripted fake LLMs
 | `test_agent_evaluation.py`, `test_eval_config.py` | 13, 2 | Execution-accuracy scorer, cost per question, model and translation configs |
 | `test_security.py` | 13 | JWT secret, no debug mode, login rate limits, DB-first weather, no error details leaked |
 | `test_ingest.py` | 15 | Idempotent writes, raw archive, extract/load jobs, weather vs forecast split |
+| `test_prediction.py` | 13 | Features in Dublin time, stale readings, horizon limits, current count up to 1 h |
 | `test_monitoring.py` | 12 | Freshness checks, e-mail alerts, dbt failure reporting |
+| `test_metrics.py` | 11 | Prometheus metrics: route templates, assistant outcomes and cost, freshness, dbt status |
 | `test_bike_api.py` | 10 | `/api/bikes` from snapshot, live fallback, stale data, no writes on read |
 | `test_route_planner.py` | 9 | Haversine, scoring penalties, `/api/plan` |
-| `test_auth.py`, `test_db.py`, `test_prediction.py`, `test_warehouse_sync.py` | 6 each | Auth, readers, prediction, incremental sync incl. late commits |
+| `test_auth.py`, `test_db.py`, `test_warehouse_sync.py` | 6 each | Auth, readers, incremental sync incl. late commits |
+| `test_train_availability.py` | 6 | Training features equal prediction features, no leakage across test windows |
 | `test_rental.py` | 4 | Rental lifecycle and pricing |
 | `test_weather_api.py` | 3 | Weather service and endpoints |
 

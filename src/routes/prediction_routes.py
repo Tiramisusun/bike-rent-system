@@ -9,28 +9,18 @@ from src.ml.occupancy_model import predict
 from src.services.weather_service import fetch_openweather_current
 
 
-def _get_station_history(session, station_id: int):
+def _get_station_history(session, station_id: int) -> list[tuple]:
     """
-    Return (recent_bikes, station_median) for a station.
-    recent_bikes: list of avail_bikes ordered newest→oldest (up to 168 records).
-    station_median: median avail_bikes across all stored records.
+    Recent (update_time, bikes, docks) for a station, newest first: enough to cover
+    the last hour plus gaps, which is all the model looks back.
     """
-    rows = session.scalars(
-        select(StationStatus.avail_bikes)
+    rows = session.execute(
+        select(StationStatus.update_time, StationStatus.avail_bikes, StationStatus.avail_bike_stands)
         .where(StationStatus.station_id == station_id)
         .order_by(StationStatus.update_time.desc())
-        .limit(168)
+        .limit(60)
     ).all()
-    recent_bikes = [r for r in rows]
-
-    all_bikes = session.scalars(
-        select(StationStatus.avail_bikes)
-        .where(StationStatus.station_id == station_id)
-    ).all()
-    import statistics
-    station_median = statistics.median(all_bikes) if all_bikes else (recent_bikes[0] if recent_bikes else 0)
-
-    return recent_bikes, station_median
+    return [tuple(r) for r in rows]
 
 prediction_bp = Blueprint("prediction", __name__)
 
@@ -51,7 +41,10 @@ def api_predict():
         in: query
         required: false
         type: string
-        description: ISO 8601 datetime (e.g. 2024-12-15T09:00). Defaults to now.
+        description: >
+          ISO 8601 datetime (e.g. 2026-11-02T09:00); without an offset it is Dublin local
+          time. Defaults to now. Predictions use the station's current state, so they are
+          most accurate a few hours ahead; beyond 24 h they fall back to its usual level.
     responses:
       200:
         description: Predicted available bikes
@@ -89,10 +82,8 @@ def api_predict():
         station = session.get(Station, station_id)
         if not station:
             return jsonify({"error": f"Station {station_id} not found"}), 404
-        lat = station.latitude
-        lon = station.longitude
         station_name = station.name
-        recent_bikes, station_median = _get_station_history(session, station_id)
+        history = _get_station_history(session, station_id)
 
     # 4. Get weather: DB first, fallback to OpenWeather API
     weather = get_latest_weather(engine)
@@ -112,13 +103,10 @@ def api_predict():
 
     # 5. Run prediction
     try:
-        predicted_bikes = predict(
-            station_id, dt, lat, lon, temp, humidity,
-            recent_bikes=recent_bikes, station_median=station_median,
-        )
+        predicted_bikes = predict(station_id, dt, temp, humidity, history=history)
     except FileNotFoundError as e:
         current_app.logger.error(f"[/api/predict] Model file not found: {e}", exc_info=True)
-        return jsonify({"error": "ML model not found. Run the notebook first."}), 503
+        return jsonify({"error": "ML model not found. Run python -m ml.train_availability first."}), 503
     except Exception as e:
         current_app.logger.error(f"[/api/predict] Prediction failed: {e}", exc_info=True)
         return jsonify({"error": "Prediction failed"}), 500
