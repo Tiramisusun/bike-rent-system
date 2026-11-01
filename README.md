@@ -1,4 +1,4 @@
-# Dublin Bikes — Data Platform & Web App
+# Dublin Bikes — AI enabled bicycle renting, route planning and data management
 
 [![CI](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml)
 
