@@ -2,6 +2,7 @@
 Tests for /api/auth/register and /api/auth/login endpoints.
 Run with:  pytest tests/test_auth.py -v
 """
+from src.db import set_engine
 import pytest
 from app import app as flask_app
 from src.db import init_db
@@ -18,7 +19,7 @@ def client():
     
     engine = create_engine("sqlite:///:memory:", echo=False)
     init_db(engine)
-    flask_app.extensions["engine"] = engine
+    set_engine(engine)
 
     with flask_app.test_client() as c:
         yield c

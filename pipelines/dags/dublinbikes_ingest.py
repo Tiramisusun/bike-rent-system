@@ -23,16 +23,18 @@ default_args = {
 }
 
 
-@dag(
+@dag( #告诉airflow，下面的函数不是普通函数而是一条流水线定义
     dag_id="dublinbikes_ingest",
-    schedule="*/5 * * * *",
+    schedule="*/5 * * * *", #这是crontab的写法，5个位置分别是分钟小时日月星期几
     start_date=datetime(2026, 10, 1),
     catchup=False,           # live APIs can't be backfilled; replay from raw/ instead
     max_active_runs=1,
     default_args=default_args,
     tags=["ingest", "bikes", "weather"],
 )
-def dublinbikes_ingest():
+def dublinbikes_ingest(): #airflow有一个进程会每隔几十秒就把这个文件读一遍，看看流水线有没有变化。如果把
+    #from src.ingest import jobs写在文件开头，每读一次就要加载一次数据库相关的代码，数据库连不上时还会导致整个文件解析失败。
+    #所以真正干活的代码都放到任务内部再导入
     # Imports stay inside tasks so DAG parsing doesn't need a DB connection.
 
     @task

@@ -2,6 +2,12 @@
 # Production uses `-f docker-compose.yml -f docker-compose.prod.yml`, which skips it.
 
 services:
+  prometheus:
+    volumes:
+      # Flask runs on the Mac here, not in Docker, and there is no node-exporter/cAdvisor.
+      - ../monitoring/prometheus/prometheus.local.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
   mysql:
     volumes:
       # Seeds the sample data on first start (empty volume) only.

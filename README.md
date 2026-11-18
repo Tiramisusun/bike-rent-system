@@ -1,4 +1,4 @@
-# Dublin Bikes — Data Platform & Web App
+# Dublin Bikes — AI enabled bicycle renting, route planning and data management
 
 [![CI](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Tiramisusun/bike-rent-system/actions/workflows/ci.yml)
 
@@ -73,16 +73,30 @@ flowchart LR
 |---|---|---|
 | **Ingestion** (`pipelines/`, `src/ingest/`) | Extract → archive raw JSON → idempotent load into MySQL | [pipelines/README.md](pipelines/README.md) |
 | **Warehouse** (`warehouse/`, `src/warehouse/`) | Sync MySQL → Postgres, dbt star schema and metrics | [warehouse/README.md](warehouse/README.md) |
-| **Monitoring** (`src/monitoring/`) | Freshness checks and e-mail alerts | [pipelines/README.md](pipelines/README.md#data-quality-and-alerts) |
+| **Monitoring** (`src/monitoring/`, `monitoring/`) | Freshness checks and e-mail alerts; Prometheus metrics and Grafana dashboards | [below](#metrics-and-dashboards) |
 | **Web app** (`app.py`, `src/routes/`, `frontend/`) | Map, route planning, prediction, rentals | below |
 | **Assistant** (`src/agent/`, `evals/`) | Text-to-SQL agent on the marts, its benchmark and the model comparison | [below](#text-to-sql-assistant) |
+
+## Metrics and dashboards
+
+Prometheus scrapes four sources every 30 s; Grafana shows them on two dashboards provisioned from files in
+`monitoring/grafana/dashboards/` (no clicking together in the UI). Both UIs listen on localhost only.
+
+| Source | Metrics |
+|---|---|
+| Flask `/metrics` (`src/monitoring/metrics.py`) | Requests and latency per route; assistant questions by outcome, answer time, tokens (incl. cached and reasoning), list-price cost, failed SQL; age of the newest snapshot and weather row and stations reporting (the monitor DAG's measurements, taken at scrape time); dbt nodes by status and time of the last build |
+| Airflow → StatsD → statsd-exporter | Task runs by DAG, task and state; DAG run duration; scheduler heartbeat; import errors |
+| node-exporter, cAdvisor (production) | VPS CPU, memory, disk, network; memory and CPU per container |
+
+The data checks still decide pass/fail (monitor DAG, dbt tests); Prometheus adds the history — when data
+stopped, whether the API slowed down, what the assistant costs per day. Alerting is not set up yet.
 
 ## Web app features
 
 1. **Live station map** — Leaflet map coloured by availability, with per-station history charts.
 2. **Route planning** — recommends pickup stations within 1.5 km with more than 2 bikes and dropoff stations
    near the destination with more than 2 predicted free docks; three-leg walk/cycle/walk route with a rain alert.
-3. **Availability prediction** — a Random Forest model predicts bikes at a station for a chosen time and weather.
+3. **Availability prediction** — bikes at a station at a chosen time, from its current state (see below).
 4. **Rentals & billing** — JWT-authenticated rent/return, history and cost; first 30 minutes free, then €0.50 per
    started 30 minutes.
 5. **5-day forecast** and a **How To** page for new users.
@@ -125,7 +139,8 @@ python -m evals.compare_models                                          # writes
 
 ## Quick start
 
-**Data platform** (Docker; Airflow UI at http://127.0.0.1:8080, login `airflow` / `airflow`):
+**Data platform** (Docker; Airflow UI at http://127.0.0.1:8080, login `airflow` / `airflow`; Grafana at
+http://127.0.0.1:3000, login `admin` / `admin`):
 
 ```bash
 cd pipelines
@@ -162,23 +177,28 @@ cd frontend && npm install && npm run dev   # http://localhost:5173, /api proxie
 │   ├── agent/                 # Text-to-SQL agent: loop, guardrails, read-only executor, semantic layer
 │   ├── routes/                # Flask blueprints (bikes, weather, plan, predict, auth, rental, geocode)
 │   ├── services/              # JCDecaux, OpenWeather, routing, route planner
-│   ├── ml/                    # model loading and predict()
+│   ├── ml/                    # model loading, features and predict()
 │   └── tasks/                 # legacy sleep-loop collectors, superseded by the Airflow DAGs
 ├── frontend/                  # React + Vite (BikeMap, RoutePlanner, PredictionWidget, AskPage, ...)
 ├── evals/                     # agent benchmark, adversarial and multi-turn sets, model comparison
 ├── sql/migrations/            # SQL equivalents of `python -m src.db.cli migrate`
-├── tests/                     # pytest suite (185 tests)
+├── tests/                     # pytest suite (209 tests)
 ├── .github/workflows/ci.yml   # CI
 └── dump.sql                   # seed data for the local MySQL
 ```
 
 ## Machine learning
 
-A Random Forest regressor predicts available bikes from 11 features: station and location (`station_id`,
-`lat`, `lon`), time (`hour`, `month`, `year`, `day_of_week`, `rush_hour` for 07–09 and 16–19) and weather
-(temperature and humidity). It is trained in a notebook on historical Dublin Bikes + weather data; the model
-file (`data/best_bike_model.pkl`, path overridable with `MODEL_PATH`) is not tracked in git, and `/api/predict`
-returns 503 without it. It is used by `GET /api/predict` and by the route planner to rank dropoff stations.
+Predicts bikes at a station 10 minutes to 24 hours ahead from its current count, the change over the last
+hour, its usual count at that hour, calendar and weather — trained on 22 days of the pipeline's own snapshots
+(`python -m ml.train_availability`, gradient boosting). Scored on the last 8 days against "bikes later = bikes
+now": up to 1 hour nothing beats that (JCDecaux updates a station about every 10 minutes), so the app returns
+the current count there; from 2 hours on the model is ahead, MAE 4.2 vs 5.2 bikes at 6 h. Overall MAE 2.87
+bikes across horizons. Details, baselines and limitations: [ml/README.md](ml/README.md).
+
+The model file (`data/availability_model.pkl`, path overridable with `MODEL_PATH`) is not tracked in git, and
+`/api/predict` returns 503 without it. It is used by `GET /api/predict` and by the route planner to estimate free
+docks at the dropoff station on arrival.
 
 ## API
 
@@ -223,7 +243,7 @@ Pipelines, warehouse and alert settings (`SMTP_*`, `ALERT_EMAIL_TO`, `WAREHOUSE_
 ## Testing
 
 ```bash
-python -m pytest            # 185 tests, in-memory SQLite and scripted fake LLMs — no database or API key needed
+python -m pytest            # 209 tests, in-memory SQLite and scripted fake LLMs — no database or API key needed
 ```
 
 | File | Tests | Covers |
@@ -234,10 +254,13 @@ python -m pytest            # 185 tests, in-memory SQLite and scripted fake LLMs
 | `test_agent_evaluation.py`, `test_eval_config.py` | 13, 2 | Execution-accuracy scorer, cost per question, model and translation configs |
 | `test_security.py` | 13 | JWT secret, no debug mode, login rate limits, DB-first weather, no error details leaked |
 | `test_ingest.py` | 15 | Idempotent writes, raw archive, extract/load jobs, weather vs forecast split |
+| `test_prediction.py` | 13 | Features in Dublin time, stale readings, horizon limits, current count up to 1 h |
 | `test_monitoring.py` | 12 | Freshness checks, e-mail alerts, dbt failure reporting |
+| `test_metrics.py` | 11 | Prometheus metrics: route templates, assistant outcomes and cost, freshness, dbt status |
 | `test_bike_api.py` | 10 | `/api/bikes` from snapshot, live fallback, stale data, no writes on read |
 | `test_route_planner.py` | 9 | Haversine, scoring penalties, `/api/plan` |
-| `test_auth.py`, `test_db.py`, `test_prediction.py`, `test_warehouse_sync.py` | 6 each | Auth, readers, prediction, incremental sync incl. late commits |
+| `test_auth.py`, `test_db.py`, `test_warehouse_sync.py` | 6 each | Auth, readers, incremental sync incl. late commits |
+| `test_train_availability.py` | 6 | Training features equal prediction features, no leakage across test windows |
 | `test_rental.py` | 4 | Rental lifecycle and pricing |
 | `test_weather_api.py` | 3 | Weather service and endpoints |
 
@@ -246,7 +269,7 @@ on each push.
 
 ## Deployment
 
-The full Docker Compose stack runs on a VPS behind Caddy: only port 80 is public, databases and the Airflow UI
+The full Docker Compose stack runs on a VPS behind Traefik: only port 80 is public, databases and the Airflow UI
 are bound to localhost (UI through an SSH tunnel), SSH is key-only. See [deploy/README.md](deploy/README.md).
 
 ## About

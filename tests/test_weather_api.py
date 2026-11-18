@@ -4,6 +4,7 @@ Run with:  pytest tests/test_weather_api.py -v
 
 Strategy: mock requests.get so no real HTTP calls are made.
 """
+from src.db import set_engine
 import pytest
 from unittest.mock import patch, MagicMock
 from tests.test_db import weather_data  # reuse existing fixture
@@ -44,7 +45,7 @@ def client():
     flask_app.config["TESTING"] = True
     engine = create_engine("sqlite:///:memory:")
     init_db(engine)
-    flask_app.extensions["engine"] = engine
+    set_engine(engine)
 
     with flask_app.test_client() as c:
         yield c

@@ -30,20 +30,38 @@ def _age_minutes(latest: datetime | None, now: datetime) -> float | None:
     return None if latest is None else (now - latest).total_seconds() / 60
 
 
+@dataclass
+class Measurements:
+    latest_snapshot: datetime | None
+    latest_weather: datetime | None
+    active_stations: int
+    active_window_min: int
+
+
+def measure(engine: Engine, now: datetime) -> Measurements:
+    """The raw numbers behind the checks (also exported to Prometheus)."""
+    active_window = _minutes("MONITOR_ACTIVE_WINDOW_MIN", 30)
+    with Session(engine) as s:
+        return Measurements(
+            latest_snapshot=s.scalar(select(func.max(StationStatus.update_time))),
+            latest_weather=s.scalar(select(func.max(WeatherReport.update_time))),
+            active_stations=s.scalar(
+                select(func.count(func.distinct(StationStatus.station_id)))
+                .where(StationStatus.update_time >= now - timedelta(minutes=active_window))
+            ) or 0,
+            active_window_min=active_window,
+        )
+
+
 def run_checks(engine: Engine, now: datetime | None = None) -> list[CheckResult]:
     now = now or datetime.now(timezone.utc).replace(tzinfo=None)
     max_snapshot_age = _minutes("MONITOR_MAX_SNAPSHOT_AGE_MIN", 15)
     max_weather_age = _minutes("MONITOR_MAX_WEATHER_AGE_MIN", 60)
     min_active_stations = _minutes("MONITOR_MIN_ACTIVE_STATIONS", 100)
-    active_window = _minutes("MONITOR_ACTIVE_WINDOW_MIN", 30)
 
-    with Session(engine) as s:
-        latest_snapshot = s.scalar(select(func.max(StationStatus.update_time)))
-        latest_weather = s.scalar(select(func.max(WeatherReport.update_time)))
-        active = s.scalar(
-            select(func.count(func.distinct(StationStatus.station_id)))
-            .where(StationStatus.update_time >= now - timedelta(minutes=active_window))
-        )
+    m = measure(engine, now)
+    latest_snapshot, latest_weather = m.latest_snapshot, m.latest_weather
+    active, active_window = m.active_stations, m.active_window_min
 
     results = []
     age = _age_minutes(latest_snapshot, now)

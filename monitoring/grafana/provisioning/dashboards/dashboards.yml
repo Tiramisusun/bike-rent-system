@@ -1,0 +1,10 @@
+# Dashboards are files in monitoring/grafana/dashboards/ (version-controlled);
+# edits made in the UI are not saved back.
+apiVersion: 1
+providers:
+  - name: dublinbikes
+    folder: Dublin Bikes
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

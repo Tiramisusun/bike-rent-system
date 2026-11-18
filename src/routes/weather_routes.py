@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, jsonify, current_app
 
 from src.services.weather_service import fetch_openweather_current, fetch_openweather_forecast
-from src.db import get_current_weather, get_forecast_data, get_latest_weather
+from src.db import get_engine, get_current_weather, get_forecast_data, get_latest_weather
 
 weather_bp = Blueprint('weather', __name__)
 
@@ -45,7 +45,7 @@ def api_weather():
       502:
         description: No recent observation and OpenWeather unavailable
     """
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     try:
         payload, observed_at = get_current_weather(engine)
     except Exception:
@@ -80,7 +80,7 @@ def api_weather_forecast():
       502:
         description: No recent forecast and OpenWeather unavailable
     """
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     try:
         items, fetched_at = get_forecast_data(engine)
     except Exception:
@@ -116,7 +116,7 @@ def api_db_weather():
         description: No weather data found in database
     """
     try:
-        engine = current_app.extensions['engine']
+        engine = get_engine()
         data = get_latest_weather(engine)
         if not data:
             return jsonify({"source": "database", "error": "No weather data found"}), 404

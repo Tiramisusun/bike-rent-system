@@ -1,0 +1,28 @@
+# Airflow emits StatsD names with the DAG and task in the name
+# (airflow.dagrun.duration.success.<dag_id>); turn those parts into labels.
+defaults:
+  observer_type: histogram
+  buckets: [1, 5, 10, 30, 60, 120, 300, 600, 1800]
+
+mappings:
+  - match: "airflow.dagrun.duration.*.*"
+    name: "airflow_dagrun_duration_seconds"
+    labels: {state: "$1", dag_id: "$2"}
+  - match: "airflow.dagrun.schedule_delay.*"
+    name: "airflow_dagrun_schedule_delay_seconds"
+    labels: {dag_id: "$1"}
+  - match: "airflow.ti.finish.*.*.*"
+    name: "airflow_task_finished_total"
+    labels: {dag_id: "$1", task_id: "$2", state: "$3"}
+  - match: "airflow.dag.*.*.duration"
+    name: "airflow_task_duration_seconds"
+    labels: {dag_id: "$1", task_id: "$2"}
+  - match: "airflow.scheduler_heartbeat"
+    name: "airflow_scheduler_heartbeat_total"
+  - match: "airflow.dag_processing.import_errors"
+    name: "airflow_dag_import_errors"
+  # Everything else Airflow sends is dropped, to keep the series count small.
+  - match: "."
+    match_type: regex
+    action: drop
+    name: "dropped"

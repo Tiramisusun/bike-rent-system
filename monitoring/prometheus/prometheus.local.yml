@@ -1,0 +1,16 @@
+# Local development: Flask runs on the Mac (python app.py, port 5001), not in Docker,
+# and there is no node-exporter / cAdvisor (they need a Linux host).
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: web
+    static_configs:
+      - targets: ["host.docker.internal:5001"]
+  - job_name: airflow
+    static_configs:
+      - targets: ["statsd-exporter:9102"]
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

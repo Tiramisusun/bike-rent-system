@@ -7,10 +7,10 @@ from src.agent.agent import AgentResult, Attempt
 def client(monkeypatch):
     from app import app as flask_app
     monkeypatch.setenv("LLM_API_KEY", "test-key")
-    flask_app.extensions["agent_engine"] = object()       # never touched: ask() is faked
+    from src.routes import agent_routes
+    monkeypatch.setattr(agent_routes, "_cached_agent_engine", object())   # never touched: ask() is faked
     with flask_app.test_client() as c:
         yield c
-    flask_app.extensions.pop("agent_engine", None)
 
 
 @pytest.fixture

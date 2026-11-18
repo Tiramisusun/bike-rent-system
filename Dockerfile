@@ -1,5 +1,5 @@
 # Production image for the Flask app + built React frontend.
-# Built by pipelines/docker-compose.prod.yml; Caddy sits in front of it.
+# Built by pipelines/docker-compose.prod.yml; Traefik sits in front of it.
 
 # --- frontend build ---------------------------------------------------------
 FROM node:20-alpine AS frontend

@@ -12,6 +12,23 @@ from src.db.models import Base
 
 logger = logging.getLogger(__name__)
 
+# The engine the web app uses. app.py sets it once at startup; tests swap in
+# an in-memory SQLite engine with set_engine().
+_engine: Engine | None = None
+
+
+def set_engine(engine: Engine) -> None:
+    """Set the engine returned by get_engine()."""
+    global _engine
+    _engine = engine
+
+
+def get_engine() -> Engine:
+    """Return the engine set by set_engine()."""
+    if _engine is None:
+        raise RuntimeError("Database engine not set; call set_engine() first.")
+    return _engine
+
 
 def load_engine() -> Engine:
     """Load and return a SQLAlchemy engine from DB_URL (env var or .env)."""
