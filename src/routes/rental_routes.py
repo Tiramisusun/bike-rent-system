@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from src.db import Rental, Station
+from src.db import get_engine, Rental, Station
 
 rental_bp = Blueprint('rental', __name__)
 
@@ -49,7 +49,7 @@ def start_rental():
     if not station_id:
         return jsonify({"error": "station_id is required"}), 400
 
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     with Session(engine) as session:
         active = session.scalars(
             select(Rental).where(Rental.user_id == user_id, Rental.end_time == None)
@@ -106,7 +106,7 @@ def end_rental():
     if not dropoff_station_id:
         return jsonify({"error": "station_id is required"}), 400
 
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     with Session(engine) as session:
         rental = session.scalars(
             select(Rental).where(Rental.user_id == user_id, Rental.end_time == None)
@@ -154,7 +154,7 @@ def rental_history():
         description: List of past rentals
     """
     user_id = int(get_jwt_identity())
-    engine = current_app.extensions['engine']
+    engine = get_engine()
 
     with Session(engine) as session:
         rentals = session.scalars(
@@ -192,7 +192,7 @@ def active_rental():
         description: Active rental or null
     """
     user_id = int(get_jwt_identity())
-    engine = current_app.extensions['engine']
+    engine = get_engine()
 
     with Session(engine) as session:
         rental = session.scalars(

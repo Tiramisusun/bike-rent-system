@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.db import Station, StationStatus, get_latest_weather
+from src.db import get_engine, Station, StationStatus, get_latest_weather
 from src.ml.occupancy_model import predict
 from src.services.weather_service import fetch_openweather_current
 
@@ -77,7 +77,7 @@ def api_predict():
         dt = datetime.now(timezone.utc)
 
     # 3. Look up station lat/lon from DB + fetch history
-    engine = current_app.extensions["engine"]
+    engine = get_engine()
     with Session(engine) as session:
         station = session.get(Station, station_id)
         if not station:

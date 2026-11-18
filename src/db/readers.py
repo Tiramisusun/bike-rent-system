@@ -45,25 +45,6 @@ def get_all_stations(engine: Engine) -> list[dict]:
         ]
 
 
-def get_latest_station_status(engine: Engine) -> list[dict]:
-    """Return all station status rows ordered by most recent first."""
-    with Session(engine) as session:
-        statuses = session.scalars(
-            select(StationStatus).order_by(StationStatus.update_time.desc())
-        ).all()
-        return [
-            {
-                "id": s.id,
-                "station_id": s.station_id,
-                "avail_bikes": s.avail_bikes,
-                "avail_bike_stands": s.avail_bike_stands,
-                "status": s.status,
-                "update_time": s.update_time.isoformat(),
-            }
-            for s in statuses
-        ]
-
-
 def get_latest_availability(
     engine: Engine, drop_after: timedelta = timedelta(hours=24)
 ) -> tuple[list[dict], datetime | None]:

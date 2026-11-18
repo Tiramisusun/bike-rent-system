@@ -54,12 +54,16 @@ def parse_history(raw) -> list:
     return turns
 
 
+# Created on the first question, then reused.
+_cached_agent_engine = None
+
+
 def _agent_engine():
-    engine = current_app.extensions.get("agent_engine")
-    if engine is None:
+    global _cached_agent_engine
+    if _cached_agent_engine is None:
         from src.warehouse.config import agent_engine
-        engine = current_app.extensions["agent_engine"] = agent_engine()
-    return engine
+        _cached_agent_engine = agent_engine()
+    return _cached_agent_engine
 
 
 @agent_bp.route("/api/agent/ask", methods=["POST"])

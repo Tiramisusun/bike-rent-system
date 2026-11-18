@@ -6,6 +6,7 @@ Integration:  GET /api/predict, GET /api/predict/all
 
 Run with:  pytest tests/test_prediction.py -v
 """
+from src.db import set_engine
 import math
 
 import pytest
@@ -131,7 +132,7 @@ def client():
                             weather_id=800))
         s.commit()
 
-    flask_app.extensions["engine"] = engine
+    set_engine(engine)
 
     with flask_app.test_client() as c:
         yield c

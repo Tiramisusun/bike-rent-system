@@ -2,6 +2,7 @@
 Tests for rental endpoints: start, end, active, history.
 Run with:  pytest tests/test_rental.py -v
 """
+from src.db import set_engine
 import pytest
 from datetime import datetime, timezone
 from app import app as flask_app
@@ -32,7 +33,7 @@ def client():
                             status="OPEN", update_time=now))
         s.commit()
 
-    flask_app.extensions["engine"] = engine
+    set_engine(engine)
 
     with flask_app.test_client() as c:
         yield c

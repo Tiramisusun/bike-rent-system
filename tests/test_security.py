@@ -1,5 +1,6 @@
 """Security behaviour required before exposing the app publicly."""
 
+from src.db import set_engine, get_engine
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -17,11 +18,11 @@ def app_with_db():
     from app import app as flask_app
     engine = create_engine("sqlite:///:memory:")
     init_db(engine)
-    original = flask_app.extensions["engine"]
-    flask_app.extensions["engine"] = engine
+    original = get_engine()
+    set_engine(engine)
     with flask_app.test_client() as c:
         yield flask_app, c, engine
-    flask_app.extensions["engine"] = original
+    set_engine(original)
 
 
 def _now():

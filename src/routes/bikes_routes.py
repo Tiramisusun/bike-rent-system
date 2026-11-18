@@ -4,7 +4,7 @@ import requests
 from flask import Blueprint, jsonify, current_app
 
 from src.services.bikes_service import fetch_jcdecaux_stations
-from src.db import get_all_stations, get_latest_availability, get_latest_station_status, get_station_history
+from src.db import get_engine, get_all_stations, get_latest_availability, get_station_history
 
 bikes_bp = Blueprint('bikes', __name__)
 
@@ -32,7 +32,7 @@ def api_bikes():
       502:
         description: No recent snapshot and JCDecaux unavailable
     """
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     try:
         stations, as_of = get_latest_availability(engine)
     except Exception as e:
@@ -50,12 +50,11 @@ def api_bikes():
         data = fetch_jcdecaux_stations()
         return jsonify({"source": "jcdecaux", "as_of": None, "stale": False,
                         "count": len(data), "data": data})
-    except requests.RequestException as e:
+    except (requests.RequestException, ValueError) as e:   # ValueError: no API key configured
         current_app.logger.error(f"[/api/bikes] JCDecaux request failed: {e}", exc_info=True)
         if stations:   # an old snapshot beats an empty map
             return jsonify({"source": "database", "as_of": as_of.isoformat(), "stale": True,
                             "count": len(stations), "data": stations})
-        current_app.logger.exception("Request failed with 502")
         return jsonify({"source": "jcdecaux", "error": "Request failed"}), 502
 
 
@@ -71,7 +70,7 @@ def api_db_stations():
         description: List of all stations stored in the database
     """
     try:
-        engine = current_app.extensions['engine']
+        engine = get_engine()
         data = get_all_stations(engine)
         return jsonify({"source": "database", "count": len(data), "data": data})
     except Exception as e:
@@ -96,29 +95,9 @@ def api_db_station_history(station_id):
         description: Historical availability records for the station
     """
     try:
-        engine = current_app.extensions['engine']
+        engine = get_engine()
         data = get_station_history(engine, station_id)
         return jsonify({"source": "database", "station_id": station_id, "count": len(data), "data": data})
     except Exception as e:
         current_app.logger.error(f"[/api/db/stations/{station_id}/history] Unexpected error: {e}", exc_info=True)
-        return jsonify({"source": "database", "error": "Server error"}), 500
-
-
-@bikes_bp.route("/api/db/stations/status")
-def api_db_station_status():
-    """
-    Retrieve historical bike station status records from the database.
-    ---
-    tags:
-      - Bikes (Database)
-    responses:
-      200:
-        description: List of station status records ordered by most recent first
-    """
-    try:
-        engine = current_app.extensions['engine']
-        data = get_latest_station_status(engine)
-        return jsonify({"source": "database", "count": len(data), "data": data})
-    except Exception as e:
-        current_app.logger.error(f"[/api/db/stations/status] Unexpected error: {e}", exc_info=True)
         return jsonify({"source": "database", "error": "Server error"}), 500

@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, jsonify, request
 
+from src.db import get_engine
+
 from src.services.route_planner_service import (
     RoutePlanningError, plan_route, get_candidates, plan_route_simple,
 )
@@ -102,7 +104,7 @@ def api_plan():
             return jsonify({"error": "Invalid waypoints format. Use 'lat,lng;lat,lng'"}), 400
 
     try:
-        engine = current_app.extensions["engine"]
+        engine = get_engine()
         result = plan_route(
             engine=engine,
             start_lat=start_lat, start_lng=start_lng,
@@ -147,7 +149,7 @@ def api_plan_candidates():
         departure_dt = datetime.now(timezone.utc)
 
     try:
-        engine = current_app.extensions["engine"]
+        engine = get_engine()
         result = get_candidates(
             engine=engine,
             start_lat=start_lat, start_lng=start_lng,
@@ -185,7 +187,7 @@ def api_plan_route():
         return jsonify({"error": "preference must be recommended, fastest, or shortest"}), 400
 
     try:
-        engine = current_app.extensions["engine"]
+        engine = get_engine()
         result = plan_route_simple(
             engine=engine,
             pickup_id=pickup_id,   dropoff_id=dropoff_id,

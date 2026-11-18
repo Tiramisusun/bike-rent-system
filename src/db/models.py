@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import DateTime, Double, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import DeclarativeBase, Mapped, Relationship, mapped_column
-
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+#Mapped声明这是一列，并说明它对应的Pyrhon类型，mapped_column()设置列的细节，比如是否为主键能否为空
+#Relationship设置表之间的关联，方便直接访问关联的数据
 
 class Base(DeclarativeBase):
     pass
@@ -86,7 +87,6 @@ class WeatherForecast(Base):
     wind_speed: Mapped[Optional[float]]
     visibility: Mapped[Optional[int]]
     weather_id: Mapped[int] = mapped_column(ForeignKey("weather.id"))
-    weather: Mapped["Weather"] = Relationship()
 
     def __repr__(self):
         return f"WeatherForecast(forecast_time={self.forecast_time}, temp={self.temp})"
@@ -115,7 +115,6 @@ class StationStatus(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     station_id = mapped_column(ForeignKey("station.station_id"))
-    station: Mapped["Station"] = Relationship()
     update_time: Mapped[datetime] = mapped_column(DateTime)
     avail_bikes: Mapped[int]
     avail_bike_stands: Mapped[int]

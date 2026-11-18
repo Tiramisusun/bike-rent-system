@@ -1,10 +1,10 @@
 import bcrypt
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from src.db import User
+from src.db import get_engine, User
 from src.extensions import limiter
 
 auth_bp = Blueprint('auth', __name__)
@@ -44,7 +44,7 @@ def register():
     if not email or not password or not name:
         return jsonify({"error": "email, password and name are required"}), 400
 
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     with Session(engine) as session:
         existing = session.scalars(select(User).where(User.email == email)).first()
         if existing:
@@ -88,7 +88,7 @@ def login():
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
-    engine = current_app.extensions['engine']
+    engine = get_engine()
     with Session(engine) as session:
         user = session.scalars(select(User).where(User.email == email)).first()
         if not user or not bcrypt.checkpw(password.encode(), user.password_hash.encode()):

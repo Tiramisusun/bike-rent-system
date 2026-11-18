@@ -2,6 +2,7 @@
 Tests for the route planner service (unit) and /api/plan endpoint (integration).
 Run with:  pytest tests/test_route_planner.py -v
 """
+from src.db import set_engine
 import pytest
 from unittest.mock import patch, MagicMock
 from src.services.route_planner_service import _haversine, _mins
@@ -59,7 +60,7 @@ def client():
                             status="OPEN", update_time=now))
         s.commit()
 
-    flask_app.extensions["engine"] = engine
+    set_engine(engine)
     with flask_app.test_client() as c:
         yield c
 

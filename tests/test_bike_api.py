@@ -5,6 +5,7 @@ Run with:  pytest tests/test_bike_api.py -v
 Strategy: mock requests.get so no real HTTP calls are made.
 Fixture data comes from test_db.py.
 """
+from src.db import set_engine, get_engine
 import pytest
 from unittest.mock import patch, MagicMock
 from tests.test_db import bike_dynamic_data  # reuse existing fixture
@@ -79,7 +80,7 @@ def client():
                             status="OPEN", update_time=datetime.now(timezone.utc)))
         s.commit()
 
-    flask_app.extensions["engine"] = engine
+    set_engine(engine)
     with flask_app.test_client() as c:
         yield c
 
@@ -95,11 +96,11 @@ def bikes_app():
 
     engine = create_engine("sqlite:///:memory:")
     init_db(engine)
-    original = flask_app.extensions["engine"]
-    flask_app.extensions["engine"] = engine
+    original = get_engine()
+    set_engine(engine)
     with flask_app.test_client() as c:
         yield c, engine
-    flask_app.extensions["engine"] = original
+    set_engine(original)
 
 
 def _seed_snapshot(engine, station_id, age, bikes=5):
@@ -183,6 +184,19 @@ def test_api_bikes_stale_snapshot_and_jcdecaux_down_returns_stale_data(bikes_app
     assert res.status_code == 200
     assert body["source"] == "database" and body["stale"] is True
     assert body["count"] == 1
+
+
+def test_api_bikes_stale_snapshot_and_no_api_key_returns_stale_data(bikes_app, monkeypatch):
+    from datetime import timedelta
+    client, engine = bikes_app
+    _seed_snapshot(engine, 42, age=timedelta(hours=1))
+    monkeypatch.delenv("JCDECAUX_API_KEY", raising=False)
+
+    res = client.get("/api/bikes")
+
+    body = res.get_json()
+    assert res.status_code == 200
+    assert body["source"] == "database" and body["stale"] is True
 
 
 def test_api_bikes_no_data_and_jcdecaux_down_returns_502(bikes_app):

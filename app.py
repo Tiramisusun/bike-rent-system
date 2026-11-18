@@ -1,4 +1,6 @@
 import os
+from functools import wraps
+
 import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
@@ -10,7 +12,7 @@ from src.extensions import limiter
 
 from src.services.routing_service import get_route_eta, compare_eta
 from src.services.weather_service import fetch_openweather_current
-from src.db import load_engine, init_db
+from src.db import load_engine, init_db, set_engine
 from src.routes.bikes_routes import bikes_bp
 from src.routes.weather_routes import weather_bp
 from src.routes.route_planner_routes import route_planner_bp
@@ -53,6 +55,8 @@ limiter.init_app(app)
 @app.errorhandler(429)
 def too_many_requests(e):
     return jsonify({"error": "Too many requests, please slow down"}), 429
+
+
 Swagger(app, template={
     "info": {
         "title": "Dublin Bike & Weather API",
@@ -72,17 +76,12 @@ Swagger(app, template={
 
 engine = load_engine()
 init_db(engine)
-app.extensions['engine'] = engine
+set_engine(engine)
 init_metrics(app, engine)
 
-app.register_blueprint(bikes_bp)
-app.register_blueprint(weather_bp)
-app.register_blueprint(route_planner_bp)
-app.register_blueprint(auth_bp)
-app.register_blueprint(rental_bp)
-app.register_blueprint(geocode_bp)
-app.register_blueprint(prediction_bp)
-app.register_blueprint(agent_bp)
+for blueprint in (bikes_bp, weather_bp, route_planner_bp, auth_bp,
+                  rental_bp, geocode_bp, prediction_bp, agent_bp):
+    app.register_blueprint(blueprint)
 
 
 @app.route("/", defaults={"path": ""})
@@ -96,7 +95,31 @@ def home(path):
     return send_from_directory(DIST_DIR, 'index.html')
 
 
+def json_errors(upstream_error: str, **extra):
+    """Turn exceptions raised by a view into JSON error responses."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            try:
+                return view(*args, **kwargs)
+            except ValueError as e:
+                return jsonify({**extra, "error": "Bad request", "details": str(e)}), 400
+            except requests.RequestException:
+                app.logger.exception("Request failed with 502")
+                return jsonify({**extra, "error": upstream_error}), 502
+            except Exception:
+                app.logger.exception("Request failed with 500")
+                return jsonify({**extra, "error": "Server error"}), 500
+        return wrapper
+    return decorator
+
+
+def endpoints_from_query() -> dict:
+    return {key: request.args.get(key, "") for key in ("origin", "destination")}
+
+
 @app.route("/api/route")
+@json_errors("Routing request failed", source="osrm")
 def api_route():
     """
     Get route distance and duration between two coordinates.
@@ -128,24 +151,13 @@ def api_route():
       502:
         description: Routing service unavailable
     """
-    try:
-        origin = request.args.get("origin", "")
-        destination = request.args.get("destination", "")
-        profile = request.args.get("profile", "driving")
-
-        result = get_route_eta(origin=origin, destination=destination, profile=profile)
-        return jsonify({"source": "osrm", "route": result})
-    except ValueError as e:
-        return jsonify({"source": "osrm", "error": "Bad request", "details": str(e)}), 400
-    except requests.RequestException as e:
-        app.logger.exception("Request failed with 502")
-        return jsonify({"source": "osrm", "error": "Routing request failed"}), 502
-    except Exception as e:
-        app.logger.exception("Request failed with 500")
-        return jsonify({"source": "osrm", "error": "Server error"}), 500
+    profile = request.args.get("profile", "driving")
+    result = get_route_eta(**endpoints_from_query(), profile=profile)
+    return jsonify({"source": "osrm", "route": result})
 
 
 @app.route("/api/compare-eta")
+@json_errors("External request failed")
 def api_compare_eta():
     """
     Compare driving vs cycling ETA between two coordinates.
@@ -178,27 +190,12 @@ def api_compare_eta():
       502:
         description: External service unavailable
     """
-    try:
-        origin = request.args.get("origin", "")
-        destination = request.args.get("destination", "")
-        include_weather = request.args.get("includeWeather", "0") in ("1", "true", "True")
+    payload = {"source": "osrm", "comparison": compare_eta(**endpoints_from_query())}
 
-        cmp = compare_eta(origin=origin, destination=destination)
-        payload = {"source": "osrm", "comparison": cmp}
+    if request.args.get("includeWeather", "0") in ("1", "true", "True"):
+        payload["weather"] = {"source": "openweather", "data": fetch_openweather_current()}
 
-        if include_weather:
-            weather = fetch_openweather_current()
-            payload["weather"] = {"source": "openweather", "data": weather}
-
-        return jsonify(payload)
-    except ValueError as e:
-        return jsonify({"error": "Bad request", "details": str(e)}), 400
-    except requests.RequestException as e:
-        app.logger.exception("Request failed with 502")
-        return jsonify({"error": "External request failed"}), 502
-    except Exception as e:
-        app.logger.exception("Request failed with 500")
-        return jsonify({"error": "Server error"}), 500
+    return jsonify(payload)
 
 
 if __name__ == "__main__":
